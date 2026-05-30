@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 
-from aasm_verify.refs import ResolvedRefs
+import sys
+
+from aasm_verify.refs import ResolvedRefs, resolve_refs
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,3 +55,40 @@ def print_target_matrix(refs: ResolvedRefs) -> None:
     print(f"│  go-sdk:            {refs.go_sdk:<38}│")
     print(f"│  examples:          {refs.examples:<38}│")
     print("└──────────────────────────────────────────────────────────┘")
+
+
+def cmd_public(args: argparse.Namespace) -> int:
+    """Run the 'public' subcommand."""
+    try:
+        refs = resolve_refs(
+            args.mode,
+            agent_assembly_ref=args.agent_assembly_ref,
+            python_sdk_ref=args.python_sdk_ref,
+            node_sdk_ref=args.node_sdk_ref,
+            go_sdk_ref=args.go_sdk_ref,
+            examples_ref=args.examples_ref,
+            version=args.version,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print_target_matrix(refs)
+
+    if args.dry_run:
+        print("\n[dry-run] No cloning or installing performed.")
+        return 0
+
+    print("\nRunning verification... (not yet implemented)")
+    return 0
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.command == "public":
+        sys.exit(cmd_public(args))
+
+
+if __name__ == "__main__":
+    main()
