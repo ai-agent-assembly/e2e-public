@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from aasm_verify.refs import ResolvedRefs
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -39,3 +41,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print planned actions and exit without cloning/installing.",
     )
     return parser
+
+
+def print_target_matrix(refs: ResolvedRefs) -> None:
+    """Print a formatted table of resolved refs to stdout."""
+    print("┌─ Verification Target Matrix ─────────────────────────────┐")
+    print(f"│  mode:              {refs.mode:<38}│")
+    print(f"│  agent-assembly:    {refs.agent_assembly:<38}│")
+    print(f"│  python-sdk:        {refs.python_sdk:<38}│")
+    print(f"│  node-sdk:          {refs.node_sdk:<38}│")
+    print(f"│  go-sdk:            {refs.go_sdk:<38}│")
+    print(f"│  examples:          {refs.examples:<38}│")
+    print("└──────────────────────────────────────────────────────────┘")
