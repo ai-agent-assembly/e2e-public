@@ -29,20 +29,20 @@ jobs:
 
     steps:
       - name: Checkout integration-tests repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.14"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: "24"
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
         with:
           go-version: "stable"
 
@@ -54,17 +54,29 @@ jobs:
           DISPATCH_GO:      ${{ inputs.go_sdk_version }}
           RELEASE_TAG:      ${{ github.event.release.tag_name }}
         run: |
-          # On release publish, derive version from the tag (strip leading 'v' for PyPI/npm).
-          if [ -n "$RELEASE_TAG" ]; then
-            BARE="${RELEASE_TAG#v}"
-            echo "python_sdk_version=${DISPATCH_PYTHON:-$BARE}"  >> "$GITHUB_OUTPUT"
-            echo "node_sdk_version=${DISPATCH_NODE:-$BARE}"      >> "$GITHUB_OUTPUT"
-            echo "go_sdk_version=${DISPATCH_GO:-$RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+          # Sanitize RELEASE_TAG: strip any newlines to prevent GITHUB_OUTPUT injection.
+          SAFE_TAG="${RELEASE_TAG//$'\n'/}"
+          SAFE_TAG="${SAFE_TAG//$'\r'/}"
+
+          # On release publish, derive bare version from the tag (strip leading 'v' for PyPI/npm).
+          if [ -n "$SAFE_TAG" ]; then
+            BARE="${SAFE_TAG#v}"
+            PY_VER="${DISPATCH_PYTHON:-$BARE}"
+            NODE_VER="${DISPATCH_NODE:-$BARE}"
+            GO_VER="${DISPATCH_GO:-$SAFE_TAG}"
           else
-            echo "python_sdk_version=${DISPATCH_PYTHON}" >> "$GITHUB_OUTPUT"
-            echo "node_sdk_version=${DISPATCH_NODE}"     >> "$GITHUB_OUTPUT"
-            echo "go_sdk_version=${DISPATCH_GO}"         >> "$GITHUB_OUTPUT"
+            PY_VER="${DISPATCH_PYTHON}"
+            NODE_VER="${DISPATCH_NODE}"
+            GO_VER="${DISPATCH_GO}"
           fi
+
+          # Write outputs using the heredoc delimiter format to guard against
+          # any residual newline-injection in the values.
+          {
+            printf 'python_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$PY_VER"
+            printf 'node_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$NODE_VER"
+            printf 'go_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$GO_VER"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Install Python SDK from PyPI
         if: ${{ steps.versions.outputs.python_sdk_version != '' }}
