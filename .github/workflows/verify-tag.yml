@@ -1,0 +1,109 @@
+name: Verify Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_assembly_tag:
+        description: "agent-assembly tag, e.g. v0.1.0"
+        required: false
+        default: ""
+      python_sdk_tag:
+        description: "python-sdk tag, e.g. v0.1.0"
+        required: false
+        default: ""
+      node_sdk_tag:
+        description: "node-sdk tag, e.g. v0.1.0"
+        required: false
+        default: ""
+      go_sdk_tag:
+        description: "go-sdk tag, e.g. v0.1.0"
+        required: false
+        default: ""
+      examples_tag:
+        description: "agent-assembly-examples tag, e.g. v0.1.0"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify-tag:
+    name: Verify public stack at exact git tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@v4
+
+      - name: Validate tag inputs (at least one must be provided)
+        env:
+          AA_TAG:       ${{ inputs.agent_assembly_tag }}
+          PY_TAG:       ${{ inputs.python_sdk_tag }}
+          NODE_TAG:     ${{ inputs.node_sdk_tag }}
+          GO_TAG:       ${{ inputs.go_sdk_tag }}
+          EXAMPLES_TAG: ${{ inputs.examples_tag }}
+        run: |
+          if [ -z "$AA_TAG" ] && [ -z "$PY_TAG" ] && [ -z "$NODE_TAG" ] && [ -z "$GO_TAG" ] && [ -z "$EXAMPLES_TAG" ]; then
+            echo "Error: at least one tag input must be provided." >&2
+            exit 1
+          fi
+
+      - name: Set up Rust
+        if: ${{ inputs.agent_assembly_tag != '' }}
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        if: ${{ inputs.python_sdk_tag != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        if: ${{ inputs.node_sdk_tag != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install pnpm
+        if: ${{ inputs.node_sdk_tag != '' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Set up Go
+        if: ${{ inputs.go_sdk_tag != '' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Verify agent-assembly at tag
+        if: ${{ inputs.agent_assembly_tag != '' }}
+        env:
+          AA_REF: ${{ inputs.agent_assembly_tag }}
+        run: bash tests/install/smoke-test-rust-build.sh
+
+      - name: Verify python-sdk at tag
+        if: ${{ inputs.python_sdk_tag != '' }}
+        env:
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_tag }}
+        run: bash tests/sdk/smoke-test-python-sdk.sh
+
+      - name: Verify node-sdk at tag
+        if: ${{ inputs.node_sdk_tag != '' }}
+        env:
+          NODE_SDK_REF: ${{ inputs.node_sdk_tag }}
+        run: bash tests/sdk/smoke-test-node-sdk.sh
+
+      - name: Verify examples at tag
+        if: ${{ inputs.examples_tag != '' }}
+        env:
+          EXAMPLES_REF: ${{ inputs.examples_tag }}
+        run: bash tests/examples/smoke-test-examples.sh
+
+      - name: Verify conformance vectors at agent-assembly tag
+        if: ${{ inputs.agent_assembly_tag != '' }}
+        env:
+          AA_REF: ${{ inputs.agent_assembly_tag }}
+        run: bash tests/conformance/smoke-test-conformance.sh
