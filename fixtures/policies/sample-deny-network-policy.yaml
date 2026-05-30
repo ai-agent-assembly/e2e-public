@@ -1,0 +1,23 @@
+# sample-deny-network-policy.yaml — A policy that denies all outbound network actions.
+#
+# Use this as a test fixture when you need to assert that the policy engine correctly
+# blocks network-egress actions. The gateway and proxy layer should enforce this.
+#
+# This policy is safe to use in test environments.
+version: "1"
+name: "deny-network-test"
+description: "Sample policy that blocks all outbound network calls. Use in tests that verify enforcement."
+
+rules:
+  - id: deny-network
+    effect: deny
+    priority: 10
+    match:
+      action: "network.*"
+      resource: "*"
+  - id: allow-rest
+    effect: allow
+    priority: 0
+    match:
+      action: "*"
+      resource: "*"
