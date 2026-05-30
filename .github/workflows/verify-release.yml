@@ -1,0 +1,102 @@
+name: Verify Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      python_sdk_version:
+        description: "python-sdk PyPI version, e.g. 0.1.0"
+        required: false
+        default: ""
+      node_sdk_version:
+        description: "node-sdk npm version, e.g. 0.1.0"
+        required: false
+        default: ""
+      go_sdk_version:
+        description: "go-sdk module version, e.g. v0.1.0"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify-release:
+    name: Verify public SDK install paths from registries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Resolve versions (dispatch inputs or release tag)
+        id: versions
+        env:
+          DISPATCH_PYTHON:  ${{ inputs.python_sdk_version }}
+          DISPATCH_NODE:    ${{ inputs.node_sdk_version }}
+          DISPATCH_GO:      ${{ inputs.go_sdk_version }}
+          RELEASE_TAG:      ${{ github.event.release.tag_name }}
+        run: |
+          # On release publish, derive version from the tag (strip leading 'v' for PyPI/npm).
+          if [ -n "$RELEASE_TAG" ]; then
+            BARE="${RELEASE_TAG#v}"
+            echo "python_sdk_version=${DISPATCH_PYTHON:-$BARE}"  >> "$GITHUB_OUTPUT"
+            echo "node_sdk_version=${DISPATCH_NODE:-$BARE}"      >> "$GITHUB_OUTPUT"
+            echo "go_sdk_version=${DISPATCH_GO:-$RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+          else
+            echo "python_sdk_version=${DISPATCH_PYTHON}" >> "$GITHUB_OUTPUT"
+            echo "node_sdk_version=${DISPATCH_NODE}"     >> "$GITHUB_OUTPUT"
+            echo "go_sdk_version=${DISPATCH_GO}"         >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Python SDK from PyPI
+        if: ${{ steps.versions.outputs.python_sdk_version != '' }}
+        env:
+          PYTHON_SDK_VERSION: ${{ steps.versions.outputs.python_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo python-sdk --version "$PYTHON_SDK_VERSION"
+
+      - name: Install Node SDK from npm
+        if: ${{ steps.versions.outputs.node_sdk_version != '' }}
+        env:
+          NODE_SDK_VERSION: ${{ steps.versions.outputs.node_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo node-sdk --version "$NODE_SDK_VERSION"
+
+      - name: Install Go SDK from module proxy
+        if: ${{ steps.versions.outputs.go_sdk_version != '' }}
+        env:
+          GO_SDK_VERSION: ${{ steps.versions.outputs.go_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo go-sdk --version "$GO_SDK_VERSION"
+
+      - name: Summary
+        env:
+          PYTHON_VER: ${{ steps.versions.outputs.python_sdk_version }}
+          NODE_VER:   ${{ steps.versions.outputs.node_sdk_version }}
+          GO_VER:     ${{ steps.versions.outputs.go_sdk_version }}
+        run: |
+          echo "## Release verification complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SDK | Version |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| python-sdk | ${PYTHON_VER:-skipped} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| node-sdk   | ${NODE_VER:-skipped}   |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| go-sdk     | ${GO_VER:-skipped}     |" >> "$GITHUB_STEP_SUMMARY"
