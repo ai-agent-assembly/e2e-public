@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Smoke test: verify the agent-assembly-examples repo clones and its README exists.
+#
+# Environment variables:
+#   EXAMPLES_REF   Branch, tag, or SHA (default: master)
+#   AA_WORK_DIR    Working directory (default: /tmp/aa-smoke-examples)
+
+set -euo pipefail
+
+REPO_URL="https://github.com/ai-agent-assembly/agent-assembly-examples.git"
+REF="${EXAMPLES_REF:-master}"
+WORK_DIR="${AA_WORK_DIR:-/tmp/aa-smoke-examples}"
+
+log()  { echo "[smoke-test-examples] $*"; }
+fail() { echo "[smoke-test-examples] FAIL: $*" >&2; exit 1; }
+
+log "Cloning agent-assembly-examples @ $REF..."
+rm -rf "$WORK_DIR"
+git clone --depth 1 --branch "$REF" "$REPO_URL" "$WORK_DIR" 2>/dev/null \
+  || { git clone "$REPO_URL" "$WORK_DIR"; git -C "$WORK_DIR" checkout "$REF"; }
+
+[[ -f "${WORK_DIR}/README.md" ]] || fail "README.md missing in examples repo"
+
+log "Verifying at least one example directory exists..."
+example_count=$(find "$WORK_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+[[ "$example_count" -gt 0 ]] || fail "No example directories found in repo"
+
+log "PASS: examples repo cloned, README found, ${example_count} example(s) present"
