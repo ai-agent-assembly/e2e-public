@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-
 import sys
 
 from aasm_verify.refs import ResolvedRefs, resolve_refs
