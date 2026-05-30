@@ -1,0 +1,18 @@
+# sample-allow-policy.yaml — A minimal Agent Assembly policy that allows all actions.
+#
+# Use this as a test fixture when you need a known-good policy that will not block
+# any agent action, allowing tests to verify runtime and SDK behavior without
+# policy interference.
+#
+# This policy should NEVER be used in production.
+version: "1"
+name: "allow-all-test"
+description: "Sample allow-all policy for integration test fixtures. Not for production use."
+
+rules:
+  - id: allow-all
+    effect: allow
+    priority: 0
+    match:
+      action: "*"
+      resource: "*"
