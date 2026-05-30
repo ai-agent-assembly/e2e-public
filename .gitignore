@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Shell script artifacts
+*.log
+*.tmp
+
+# Test output
+test-output/
+*.tap
+
+# Installed dependencies / cloned repos
+vendor/
+repos/
