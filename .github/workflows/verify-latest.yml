@@ -1,0 +1,86 @@
+name: Verify Latest
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"  # Every Monday at 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      agent_assembly_ref:
+        description: "agent-assembly branch/tag/SHA (default: master)"
+        required: false
+        default: "master"
+      python_sdk_ref:
+        description: "python-sdk branch/tag/SHA (default: master)"
+        required: false
+        default: "master"
+      node_sdk_ref:
+        description: "node-sdk branch/tag/SHA (default: master)"
+        required: false
+        default: "master"
+      go_sdk_ref:
+        description: "go-sdk branch/tag/SHA (default: master)"
+        required: false
+        default: "master"
+      examples_ref:
+        description: "agent-assembly-examples branch/tag/SHA (default: master)"
+        required: false
+        default: "master"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-latest:
+    name: Verify public stack at latest base branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "24"
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
+        with:
+          go-version: "stable"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1  # v4
+        with:
+          version: latest
+
+      - name: Run install smoke test (agent-assembly)
+        env:
+          AA_REF: ${{ inputs.agent_assembly_ref || 'master' }}
+        run: bash tests/install/smoke-test-rust-build.sh
+
+      - name: Run SDK smoke tests
+        env:
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'master' }}
+          NODE_SDK_REF: ${{ inputs.node_sdk_ref || 'master' }}
+        run: |
+          bash tests/sdk/smoke-test-python-sdk.sh
+          bash tests/sdk/smoke-test-node-sdk.sh
+
+      - name: Run examples smoke test
+        env:
+          EXAMPLES_REF: ${{ inputs.examples_ref || 'master' }}
+        run: bash tests/examples/smoke-test-examples.sh
+
+      - name: Run conformance smoke test
+        env:
+          AA_REF: ${{ inputs.agent_assembly_ref || 'master' }}
+        run: bash tests/conformance/smoke-test-conformance.sh

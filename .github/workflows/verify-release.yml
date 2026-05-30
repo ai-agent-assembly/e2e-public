@@ -1,0 +1,114 @@
+name: Verify Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      python_sdk_version:
+        description: "python-sdk PyPI version, e.g. 0.1.0"
+        required: false
+        default: ""
+      node_sdk_version:
+        description: "node-sdk npm version, e.g. 0.1.0"
+        required: false
+        default: ""
+      go_sdk_version:
+        description: "go-sdk module version, e.g. v0.1.0"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify-release:
+    name: Verify public SDK install paths from registries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "24"
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
+        with:
+          go-version: "stable"
+
+      - name: Resolve versions (dispatch inputs or release tag)
+        id: versions
+        env:
+          DISPATCH_PYTHON:  ${{ inputs.python_sdk_version }}
+          DISPATCH_NODE:    ${{ inputs.node_sdk_version }}
+          DISPATCH_GO:      ${{ inputs.go_sdk_version }}
+          RELEASE_TAG:      ${{ github.event.release.tag_name }}
+        run: |
+          # Sanitize RELEASE_TAG: strip any newlines to prevent GITHUB_OUTPUT injection.
+          SAFE_TAG="${RELEASE_TAG//$'\n'/}"
+          SAFE_TAG="${SAFE_TAG//$'\r'/}"
+
+          # On release publish, derive bare version from the tag (strip leading 'v' for PyPI/npm).
+          if [ -n "$SAFE_TAG" ]; then
+            BARE="${SAFE_TAG#v}"
+            PY_VER="${DISPATCH_PYTHON:-$BARE}"
+            NODE_VER="${DISPATCH_NODE:-$BARE}"
+            GO_VER="${DISPATCH_GO:-$SAFE_TAG}"
+          else
+            PY_VER="${DISPATCH_PYTHON}"
+            NODE_VER="${DISPATCH_NODE}"
+            GO_VER="${DISPATCH_GO}"
+          fi
+
+          # Write outputs using the heredoc delimiter format to guard against
+          # any residual newline-injection in the values.
+          {
+            printf 'python_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$PY_VER"
+            printf 'node_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$NODE_VER"
+            printf 'go_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$GO_VER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Python SDK from PyPI
+        if: ${{ steps.versions.outputs.python_sdk_version != '' }}
+        env:
+          PYTHON_SDK_VERSION: ${{ steps.versions.outputs.python_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo python-sdk --version "$PYTHON_SDK_VERSION"
+
+      - name: Install Node SDK from npm
+        if: ${{ steps.versions.outputs.node_sdk_version != '' }}
+        env:
+          NODE_SDK_VERSION: ${{ steps.versions.outputs.node_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo node-sdk --version "$NODE_SDK_VERSION"
+
+      - name: Install Go SDK from module proxy
+        if: ${{ steps.versions.outputs.go_sdk_version != '' }}
+        env:
+          GO_SDK_VERSION: ${{ steps.versions.outputs.go_sdk_version }}
+        run: |
+          bash scripts/install-from-release.sh --repo go-sdk --version "$GO_SDK_VERSION"
+
+      - name: Summary
+        env:
+          PYTHON_VER: ${{ steps.versions.outputs.python_sdk_version }}
+          NODE_VER:   ${{ steps.versions.outputs.node_sdk_version }}
+          GO_VER:     ${{ steps.versions.outputs.go_sdk_version }}
+        run: |
+          echo "## Release verification complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SDK | Version |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| python-sdk | ${PYTHON_VER:-skipped} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| node-sdk   | ${NODE_VER:-skipped}   |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| go-sdk     | ${GO_VER:-skipped}     |" >> "$GITHUB_STEP_SUMMARY"
