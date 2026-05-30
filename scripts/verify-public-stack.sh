@@ -73,19 +73,28 @@ validate_mode() {
 
 log() { echo "[verify-public-stack] $*"; }
 
+REGISTRY_REPOS=("python-sdk" "node-sdk" "go-sdk")
+
+is_registry_repo() {
+  local repo="$1"
+  for r in "${REGISTRY_REPOS[@]}"; do [[ "$r" == "$repo" ]] && return 0; done
+  return 1
+}
+
 run_install_step() {
   local repo="$1"
   local ref="$2"
-  case "$MODE" in
-    latest|tag|sha)
-      log "Installing $repo @ $ref (mode=$MODE)"
-      bash "${SCRIPT_DIR}/install-from-branch.sh" --repo "$repo" --ref "$ref"
-      ;;
-    release)
-      log "Installing $repo @ $ref from registry (mode=release)"
-      bash "${SCRIPT_DIR}/install-from-release.sh" --repo "$repo" --version "$ref"
-      ;;
-  esac
+  if [[ "$MODE" == "release" ]] && is_registry_repo "$repo"; then
+    log "Installing $repo @ $ref from registry (mode=release)"
+    bash "${SCRIPT_DIR}/install-from-release.sh" --repo "$repo" --version "$ref"
+  else
+    if [[ "$MODE" == "release" ]]; then
+      log "Skipping registry install for $repo (not a published package) — cloning master instead"
+      ref="master"
+    fi
+    log "Installing $repo @ $ref (mode=$MODE)"
+    bash "${SCRIPT_DIR}/install-from-branch.sh" --repo "$repo" --ref "$ref"
+  fi
 }
 
 run_smoke_tests() {
