@@ -20,6 +20,12 @@
 test-output/
 *.tap
 
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
 # Installed dependencies / cloned repos
 vendor/
 repos/
