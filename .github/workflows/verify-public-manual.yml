@@ -1,0 +1,116 @@
+name: Verify Public Stack (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Verification mode"
+        required: false
+        default: "latest"
+        type: choice
+        options:
+          - latest
+          - tag
+          - release
+      test_group:
+        description: "Test group to run (or 'all')"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - runtime
+          - sdk
+          - examples
+          - install
+          - conformance
+      agent_assembly_ref:
+        description: "agent-assembly ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      python_sdk_ref:
+        description: "python-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      node_sdk_ref:
+        description: "node-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      go_sdk_ref:
+        description: "go-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      examples_ref:
+        description: "examples ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verify:
+    name: "Verify [${{ matrix.area }}]"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ inputs.test_group == 'all' || inputs.test_group == matrix.area }}
+    strategy:
+      fail-fast: false
+      matrix:
+        area: [runtime, sdk, examples, install, conformance]
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Run verification (${{ matrix.area }})
+        env:
+          AREA:           ${{ matrix.area }}
+          MODE:           ${{ inputs.mode || 'latest' }}
+          AA_REF:         ${{ inputs.agent_assembly_ref || 'master' }}
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'master' }}
+          NODE_SDK_REF:   ${{ inputs.node_sdk_ref || 'master' }}
+          GO_SDK_REF:     ${{ inputs.go_sdk_ref || 'master' }}
+          EXAMPLES_REF:   ${{ inputs.examples_ref || 'master' }}
+        run: |
+          uv run aasm-verify public \
+            --mode             "$MODE" \
+            --agent-assembly-ref "$AA_REF" \
+            --python-sdk-ref   "$PYTHON_SDK_REF" \
+            --node-sdk-ref     "$NODE_SDK_REF" \
+            --go-sdk-ref       "$GO_SDK_REF" \
+            --examples-ref     "$EXAMPLES_REF"
+
+      - name: Summarize run on failure
+        if: failure()
+        env:
+          AREA:    ${{ matrix.area }}
+          MODE:    ${{ inputs.mode || 'latest' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/summarize-run.sh \
+            --area    "$AREA" \
+            --mode    "$MODE" \
+            --run-url "$RUN_URL" \
+            --output  /tmp/summary-"$AREA".json
+
+      - name: Report failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AREA:         ${{ matrix.area }}
+        run: |
+          bash scripts/report-failure.sh \
+            --summary /tmp/summary-"$AREA".json
