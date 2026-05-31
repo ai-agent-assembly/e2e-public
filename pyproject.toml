@@ -25,6 +25,12 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "runtime: Runtime CLI smoke tests",
+    "sdk: SDK init smoke tests (Python, Node.js, Go)",
+    "examples: Examples repo smoke tests",
+    "conformance: Policy allow/deny conformance smoke tests",
+]
 
 [tool.ruff]
 line-length = 100
