@@ -19,6 +19,8 @@ This repo does **not** replace unit or integration tests inside each product rep
 agent-assembly-integration-tests/
   scripts/
     verify-public-stack.sh     # entry point: verify all repos at given refs
+    summarize-run.sh           # produce sanitized summary.json from pytest report
+    report-failure.sh          # create/update GitHub Issues from summary.json
     install-from-branch.sh     # clone and build from a named branch
     install-from-tag.sh        # checkout exact git tags
     install-from-release.sh    # install from public registries / release artifacts
@@ -34,9 +36,11 @@ agent-assembly-integration-tests/
     verification-modes.md      # how to use each verification mode
     evidence-template.md       # template for Jira / release report evidence
   .github/workflows/
-    verify-latest.yml          # scheduled + manual: verify latest base branches
-    verify-tag.yml             # manual: verify exact git tags
-    verify-release.yml         # on release publish + manual: verify artifacts
+    verify-latest.yml              # scheduled + manual: verify latest base branches
+    verify-tag.yml                 # manual: verify exact git tags
+    verify-release.yml             # on release publish + manual: verify artifacts
+    verify-public-manual.yml       # manual: verify selected mode/area with ref inputs
+    verify-public-scheduled.yml    # scheduled (1st/15th): full public stack health check
 ```
 
 ## Verification modes
@@ -86,8 +90,70 @@ bash scripts/install-from-release.sh --python-sdk 0.1.0 --node-sdk 0.1.0
 | `verify-latest.yml` | Weekly schedule + `workflow_dispatch` | Integration health check on latest base branches |
 | `verify-tag.yml` | `workflow_dispatch` with tag inputs | Reproducibility check on exact source snapshots |
 | `verify-release.yml` | GitHub release publish + `workflow_dispatch` | Verify public install paths |
+| `verify-public-manual.yml` | `workflow_dispatch` | Manual public stack check with mode/area/ref selection |
+| `verify-public-scheduled.yml` | Schedule (1st/15th monthly) + `workflow_dispatch` | Scheduled public health check; creates failure issues |
+
+## Scheduled verification
+
+`verify-public-scheduled.yml` runs automatically on the **1st and 15th of each month at 02:00 UTC**.
+
+It verifies all five public test areas — `runtime`, `sdk`, `examples`, `install`, `conformance` — in parallel matrix jobs using `latest` mode (base branches).
+
+### Manual ad-hoc run
+
+To trigger a scheduled-style run without waiting for the cron:
+
+1. Open the [Actions tab](../../actions/workflows/verify-public-scheduled.yml)
+2. Click **Run workflow** → **Run workflow**
+
+### Selective manual run
+
+To run a specific mode or area:
+
+1. Open [Verify Public Stack (Manual)](../../actions/workflows/verify-public-manual.yml)
+2. Click **Run workflow**
+3. Fill in `mode`, `test_group`, and any ref overrides
+4. Click **Run workflow**
+
+Example inputs:
+
+| Field | Value | Description |
+|---|---|---|
+| `mode` | `latest` | Verify against base branches |
+| `test_group` | `sdk` | Run only the SDK test area |
+| `agent_assembly_ref` | `v0.1.0` | Pin agent-assembly to a tag |
+
+## Failure issue policy
+
+When a scheduled or manual run fails, `report-failure.sh` automatically creates or updates a GitHub Issue in this repository.
+
+**One issue per failing area** (e.g. `runtime`, `sdk`), not one per run:
+
+| Condition | Action |
+|---|---|
+| Open issue exists for the area | Append a comment with the new run URL and summary |
+| Closed issue exists for the area | Reopen the issue and add a regression comment |
+| No issue exists | Create a new issue |
+
+**Issue labels:**
+
+- `test-failure`
+- `scheduled-run`
+- `needs-triage`
+- `area: <area>` — e.g. `area: runtime`, `area: sdk`, `area: examples`
+
+**Issue body includes:**
+
+- Test area and verification mode
+- GitHub Actions run URL
+- Short sanitized summary (test counts, failed test names)
+- No log dumps, no private data, no internal endpoints
+
+**Successful runs** produce no issues.
 
 ## Related tickets
 
 - [AAASM-2220](https://lightning-dust-mite.atlassian.net/browse/AAASM-2220) — Cross-repo integration and E2E verification infrastructure (Epic)
 - [AAASM-2221](https://lightning-dust-mite.atlassian.net/browse/AAASM-2221) — Bootstrap public cross-repo integration test repository (Story)
+- [AAASM-2225](https://lightning-dust-mite.atlassian.net/browse/AAASM-2225) — Public integration verification for Agent Assembly OSS and release paths (Epic)
+- [AAASM-2229](https://lightning-dust-mite.atlassian.net/browse/AAASM-2229) — Add scheduled workflows and failure issue reporting (Story)
