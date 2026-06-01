@@ -27,7 +27,7 @@ from tests.public.conftest import skip_if_binary_missing
 TAP_NAME = "agent-assembly/agent-assembly"
 BREW_FORMULA = "aasm"
 CURL_INSTALLER_URL = (
-    "https://raw.githubusercontent.com/AI-agent-assembly/agent-assembly/master/install.sh"
+    "https://raw.githubusercontent.com/ai-agent-assembly/agent-assembly/master/install.sh"
 )
 
 _HOMEBREW_GATE = os.environ.get("AASM_HOMEBREW_GATE", "0") == "1"
