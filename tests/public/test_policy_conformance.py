@@ -25,9 +25,8 @@ def test_allow_deny_fixture_exists() -> None:
 @pytest.mark.conformance
 def test_allow_deny_fixture_well_formed() -> None:
     """allow-deny-basic.yaml is valid YAML with the expected top-level keys."""
-    assert os.path.isfile(_ALLOW_DENY_BASIC), pytest.skip(
-        f"[{COMPONENT}] Fixture not found — skipping well-formedness check"
-    )
+    if not os.path.isfile(_ALLOW_DENY_BASIC):
+        pytest.skip(f"[{COMPONENT}] Fixture not found — skipping well-formedness check")
 
     try:
         import importlib.util
