@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from tests.public.conftest import skip_if_package_missing
 
 COMPONENT = "python-sdk"
