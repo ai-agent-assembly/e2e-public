@@ -7,7 +7,6 @@ import subprocess
 import textwrap
 
 import pytest
-
 from tests.public.conftest import skip_if_binary_missing
 
 COMPONENT = "go-sdk"
