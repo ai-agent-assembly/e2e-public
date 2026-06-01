@@ -105,3 +105,62 @@ def test_github_release_has_platform_asset() -> None:
             f"[{COMPONENT}] Could not reach GitHub API: {exc.reason} — "
             "classification: external_flake"
         )
+
+
+@pytest.mark.release
+def test_github_release_asset_checksum(tmp_path: Path) -> None:
+    """Downloaded GitHub Release asset matches its published SHA256 checksum."""
+    version = _require_version()
+    tag = f"v{version}" if not version.startswith("v") else version
+    suffix = platform_asset_suffix()
+
+    try:
+        req = urllib.request.Request(
+            _github_release_url(tag), headers={"Accept": "application/vnd.github+json"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read())
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        pytest.skip(
+            f"[{COMPONENT}] Cannot fetch release metadata: {exc} — "
+            "classification: known_prerequisite"
+        )
+
+    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+    asset_name = next((n for n in assets if n.endswith(suffix)), None)
+    checksums_name = next((n for n in assets if "checksums" in n.lower()), None)
+
+    if asset_name is None:
+        pytest.skip(
+            f"[{COMPONENT}] No platform asset ({suffix!r}) in release {tag!r} — "
+            "classification: known_prerequisite"
+        )
+    if checksums_name is None:
+        pytest.skip(
+            f"[{COMPONENT}] No checksums file in release {tag!r} — "
+            "classification: known_prerequisite"
+        )
+
+    asset_path = tmp_path / asset_name
+    checksums_path = tmp_path / checksums_name
+    for url, dest in ((assets[asset_name], asset_path), (assets[checksums_name], checksums_path)):
+        with urllib.request.urlopen(url, timeout=60) as resp:
+            dest.write_bytes(resp.read())
+
+    checksums_text = checksums_path.read_text()
+    expected_sha = next(
+        (line.split()[0] for line in checksums_text.splitlines() if asset_name in line),
+        None,
+    )
+    if expected_sha is None:
+        pytest.skip(
+            f"[{COMPONENT}] {asset_name!r} not listed in checksums file — "
+            "classification: known_prerequisite"
+        )
+
+    actual_sha = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+    assert actual_sha == expected_sha, (
+        f"[{COMPONENT}] SHA256 mismatch for {asset_name!r}: "
+        f"expected {expected_sha!r}, got {actual_sha!r} — "
+        "classification: release_blocker"
+    )
