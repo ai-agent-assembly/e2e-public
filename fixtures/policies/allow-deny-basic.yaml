@@ -1,0 +1,24 @@
+# allow-deny-basic.yaml — Basic allow/deny policy fixture for policy conformance tests.
+#
+# Contains one deny rule (for a specific restricted action) and one catch-all allow
+# rule. Use this fixture in conformance tests that need to assert both allow and deny
+# enforcement without a full gateway deployment.
+#
+# This fixture is safe to use in test environments and must NEVER be used in production.
+version: "1"
+name: "allow-deny-basic"
+description: "Basic allow/deny policy for policy conformance smoke tests. Not for production use."
+
+rules:
+  - id: deny-restricted-action
+    effect: deny
+    priority: 10
+    match:
+      action: "test.restricted"
+      resource: "*"
+  - id: allow-all
+    effect: allow
+    priority: 0
+    match:
+      action: "*"
+      resource: "*"
