@@ -13,16 +13,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import stat
 import subprocess
-import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 import pytest
-
 from tests.public.conftest import platform_asset_suffix, release_version
 
 COMPONENT = "agent-assembly"
@@ -53,8 +50,7 @@ def test_github_release_exists() -> None:
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read())
         assert data.get("tag_name") == tag, (
-            f"[{COMPONENT}] Release tag mismatch: expected {tag!r}, "
-            f"got {data.get('tag_name')!r}"
+            f"[{COMPONENT}] Release tag mismatch: expected {tag!r}, got {data.get('tag_name')!r}"
         )
         assert not data.get("draft", True), (
             f"[{COMPONENT}] Release {tag!r} exists but is still a draft — "
@@ -162,5 +158,71 @@ def test_github_release_asset_checksum(tmp_path: Path) -> None:
     assert actual_sha == expected_sha, (
         f"[{COMPONENT}] SHA256 mismatch for {asset_name!r}: "
         f"expected {expected_sha!r}, got {actual_sha!r} — "
+        "classification: release_blocker"
+    )
+
+
+@pytest.mark.release
+def test_github_release_binary_executes(tmp_path: Path) -> None:
+    """Downloaded aasm binary from GitHub Release runs and exits 0 on --version."""
+    version = _require_version()
+    tag = f"v{version}" if not version.startswith("v") else version
+    suffix = platform_asset_suffix()
+
+    try:
+        req = urllib.request.Request(
+            _github_release_url(tag), headers={"Accept": "application/vnd.github+json"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read())
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        pytest.skip(
+            f"[{COMPONENT}] Cannot fetch release metadata: {exc} — "
+            "classification: known_prerequisite"
+        )
+
+    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+    asset_name = next((n for n in assets if n.endswith(suffix)), None)
+    if asset_name is None:
+        pytest.skip(
+            f"[{COMPONENT}] No platform asset ({suffix!r}) in release {tag!r} — "
+            "classification: known_prerequisite"
+        )
+
+    asset_path = tmp_path / asset_name
+    with urllib.request.urlopen(assets[asset_name], timeout=60) as resp:
+        asset_path.write_bytes(resp.read())
+
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir()
+    if asset_name.endswith(".tar.gz"):
+        import tarfile
+
+        with tarfile.open(asset_path) as tf:
+            tf.extractall(extract_dir)  # noqa: S202 — controlled test artifact
+    else:
+        import shutil
+
+        shutil.copy(asset_path, extract_dir / "aasm")
+
+    binary = next(
+        (p for p in extract_dir.rglob("aasm") if p.is_file()),
+        None,
+    )
+    if binary is None:
+        pytest.fail(
+            f"[{COMPONENT}] No 'aasm' binary found in extracted {asset_name!r} — "
+            "classification: release_blocker"
+        )
+
+    binary.chmod(binary.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    result = subprocess.run([str(binary), "--version"], capture_output=True, text=True)  # noqa: S603
+    assert result.returncode == 0, (
+        f"[{COMPONENT}] {binary.name} --version exited {result.returncode}\n"
+        f"stdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()} — "
+        "classification: release_blocker"
+    )
+    assert result.stdout.strip(), (
+        f"[{COMPONENT}] {binary.name} --version produced empty output — "
         "classification: release_blocker"
     )
