@@ -21,7 +21,7 @@ COMPONENT_GO = "go-sdk"
 
 PYPI_PACKAGE = "agent-assembly-sdk"
 NPM_PACKAGE = "@agent-assembly/sdk"
-GO_MODULE = "github.com/AI-agent-assembly/go-sdk"
+GO_MODULE = "github.com/ai-agent-assembly/go-sdk"
 
 
 def _require_version() -> str:
