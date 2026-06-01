@@ -23,7 +23,7 @@ import pytest
 from tests.public.conftest import platform_asset_suffix, release_version
 
 COMPONENT = "agent-assembly"
-GH_ORG = "AI-agent-assembly"
+GH_ORG = "ai-agent-assembly"
 GH_REPO = "agent-assembly"
 
 
