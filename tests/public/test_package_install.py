@@ -119,3 +119,67 @@ def test_npm_install_node_sdk(tmp_path: Path) -> None:
         f"stdout: {check.stdout.strip()}\nstderr: {check.stderr.strip()}"
     )
     assert check.stdout.strip(), f"[{COMPONENT_NODE}] package.json version is empty after install"
+
+
+@pytest.mark.release
+def test_go_module_version_install(tmp_path: Path) -> None:
+    """go get github.com/AI-agent-assembly/go-sdk@v{version} resolves without error."""
+    from tests.public.conftest import skip_if_binary_missing
+
+    skip_if_binary_missing("go")
+    version = _require_version()
+    go_version = f"v{version}" if not version.startswith("v") else version
+
+    work_dir = tmp_path / "go-test"
+    work_dir.mkdir()
+
+    init_result = subprocess.run(
+        ["go", "mod", "init", "aa-registry-test"],
+        capture_output=True,
+        text=True,
+        cwd=str(work_dir),
+    )
+    assert init_result.returncode == 0, (
+        f"[{COMPONENT_GO}] go mod init failed (exit {init_result.returncode})\n"
+        f"stderr: {init_result.stderr.strip()}"
+    )
+
+    get_result = subprocess.run(
+        ["go", "get", f"{GO_MODULE}@{go_version}"],
+        capture_output=True,
+        text=True,
+        cwd=str(work_dir),
+        env={**__import__("os").environ, "GOFLAGS": "-mod=mod"},
+    )
+    if get_result.returncode != 0:
+        stderr = get_result.stderr
+        not_found = (
+            "no matching versions" in stderr
+            or "unknown revision" in stderr
+            or "not found" in stderr
+        )
+        if not_found:
+            pytest.skip(
+                f"[{COMPONENT_GO}] {GO_MODULE}@{go_version} not in module proxy — "
+                "classification: known_prerequisite"
+            )
+        pytest.fail(
+            f"[{COMPONENT_GO}] go get failed (exit {get_result.returncode})\n"
+            f"stdout: {get_result.stdout.strip()}\nstderr: {get_result.stderr.strip()}"
+        )
+
+    list_result = subprocess.run(
+        ["go", "list", "-m", GO_MODULE],
+        capture_output=True,
+        text=True,
+        cwd=str(work_dir),
+        env={**__import__("os").environ, "GOFLAGS": "-mod=mod"},
+    )
+    assert list_result.returncode == 0, (
+        f"[{COMPONENT_GO}] go list -m failed (exit {list_result.returncode})\n"
+        f"stderr: {list_result.stderr.strip()}"
+    )
+    assert go_version in list_result.stdout, (
+        f"[{COMPONENT_GO}] Expected {go_version!r} in go list output, "
+        f"got: {list_result.stdout.strip()!r}"
+    )
