@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-
 from tests.public.conftest import skip_if_binary_missing
 
 COMPONENT = "agent-assembly"
