@@ -30,6 +30,7 @@ markers = [
     "sdk: SDK init smoke tests (Python, Node.js, Go)",
     "examples: Examples repo smoke tests",
     "conformance: Policy allow/deny conformance smoke tests",
+    "release: Release artifact and registry install verification tests",
 ]
 
 [tool.ruff]
