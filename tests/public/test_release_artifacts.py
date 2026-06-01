@@ -75,3 +75,33 @@ def test_github_release_exists() -> None:
             f"[{COMPONENT}] Could not reach GitHub API: {exc.reason} — "
             "classification: external_flake"
         )
+
+
+@pytest.mark.release
+def test_github_release_has_platform_asset() -> None:
+    """GitHub Release has a binary asset matching the current platform."""
+    version = _require_version()
+    tag = f"v{version}" if not version.startswith("v") else version
+    suffix = platform_asset_suffix()
+    url = _github_release_url(tag)
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read())
+        assets = [a["name"] for a in data.get("assets", [])]
+        matching = [a for a in assets if a.endswith(suffix)]
+        assert matching, (
+            f"[{COMPONENT}] No asset matching suffix {suffix!r} in release {tag!r}. "
+            f"Available assets: {assets!r} — "
+            "classification: release_blocker"
+        )
+    except urllib.error.HTTPError as exc:
+        pytest.skip(
+            f"[{COMPONENT}] GitHub Release {tag!r} returned HTTP {exc.code} — "
+            "classification: known_prerequisite (release not yet published)"
+        )
+    except urllib.error.URLError as exc:
+        pytest.skip(
+            f"[{COMPONENT}] Could not reach GitHub API: {exc.reason} — "
+            "classification: external_flake"
+        )
