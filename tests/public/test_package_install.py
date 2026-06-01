@@ -123,7 +123,7 @@ def test_npm_install_node_sdk(tmp_path: Path) -> None:
 
 @pytest.mark.release
 def test_go_module_version_install(tmp_path: Path) -> None:
-    """go get github.com/AI-agent-assembly/go-sdk@v{version} resolves without error."""
+    """go get github.com/ai-agent-assembly/go-sdk@v{version} resolves without error."""
     from tests.public.conftest import skip_if_binary_missing
 
     skip_if_binary_missing("go")
