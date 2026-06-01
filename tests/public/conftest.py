@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import platform
 import shutil
 
 import pytest
@@ -29,3 +30,21 @@ def skip_if_package_missing(package: str) -> None:
             pytest.skip(f"Python package {package!r} not installed")
     except ModuleNotFoundError:
         pytest.skip(f"Python package {package!r} not installed (parent package absent)")
+
+
+def release_version() -> str | None:
+    """Return AASM_RELEASE_VERSION from environment, or None when unset."""
+    return os.environ.get("AASM_RELEASE_VERSION")
+
+
+def platform_asset_suffix() -> str:
+    """Return the expected GitHub Release binary asset suffix for the current platform."""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    if system == "linux":
+        arch = "x86_64" if machine in ("x86_64", "amd64") else machine
+        return f"linux-{arch}.tar.gz"
+    if system == "darwin":
+        arch = "aarch64" if machine in ("arm64", "aarch64") else "x86_64"
+        return f"darwin-{arch}.tar.gz"
+    return f"{system}-{machine}.tar.gz"
