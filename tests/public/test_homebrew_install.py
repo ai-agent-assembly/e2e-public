@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -84,4 +86,75 @@ def test_homebrew_install_aasm() -> None:
     )
     assert version_result.stdout.strip(), (
         f"[{COMPONENT_BREW}] aasm --version produced empty output"
+    )
+
+
+COMPONENT_CURL = "curl-installer"
+
+
+@pytest.mark.release
+@pytest.mark.skipif(not _CURL_GATE, reason=_CURL_SKIP_REASON)
+def test_curl_installer_endpoint_reachable() -> None:
+    """Public curl install script URL responds with HTTP 200."""
+    try:
+        req = urllib.request.Request(CURL_INSTALLER_URL, method="HEAD")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            status = resp.status
+        assert status == 200, (
+            f"[{COMPONENT_CURL}] install script URL returned HTTP {status} — "
+            "classification: known_prerequisite (endpoint not yet available)"
+        )
+    except urllib.error.HTTPError as exc:
+        pytest.fail(
+            f"[{COMPONENT_CURL}] install script URL returned HTTP {exc.code} — "
+            "classification: known_prerequisite"
+        )
+    except urllib.error.URLError as exc:
+        pytest.fail(
+            f"[{COMPONENT_CURL}] install script URL unreachable: {exc.reason} — "
+            "classification: external_flake"
+        )
+
+
+@pytest.mark.release
+@pytest.mark.skipif(not _CURL_GATE, reason=_CURL_SKIP_REASON)
+def test_curl_installer_runs(tmp_path: Path) -> None:  # noqa: F821 — Path imported lazily
+    """curl-piped installer script exits 0 and places aasm in PATH or a known directory."""
+    from pathlib import Path
+
+    skip_if_binary_missing("curl")
+    skip_if_binary_missing("bash")
+
+    install_dir = tmp_path / "aasm-install"
+    install_dir.mkdir()
+    script_path = tmp_path / "install.sh"
+
+    with urllib.request.urlopen(CURL_INSTALLER_URL, timeout=30) as resp:
+        script_path.write_bytes(resp.read())
+
+    result = subprocess.run(
+        ["bash", str(script_path), "--install-dir", str(install_dir)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "AASM_INSTALL_DIR": str(install_dir)},
+    )
+    assert result.returncode == 0, (
+        f"[{COMPONENT_CURL}] installer script failed (exit {result.returncode})\n"
+        f"stdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()}"
+    )
+    binary = next(
+        (p for p in Path(install_dir).rglob("aasm") if p.is_file()),
+        None,
+    )
+    assert binary is not None, (
+        f"[{COMPONENT_CURL}] No 'aasm' binary found in {install_dir} after install"
+    )
+    version_result = subprocess.run(
+        [str(binary), "--version"],
+        capture_output=True,
+        text=True,
+    )
+    assert version_result.returncode == 0, (
+        f"[{COMPONENT_CURL}] aasm --version failed (exit {version_result.returncode})\n"
+        f"stderr: {version_result.stderr.strip()}"
     )
