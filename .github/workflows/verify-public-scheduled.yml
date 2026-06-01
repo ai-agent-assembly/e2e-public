@@ -1,0 +1,62 @@
+name: Verify Public Stack (Scheduled)
+
+on:
+  workflow_dispatch:  # ad-hoc runs; always runs in latest mode
+  schedule:
+    - cron: "0 2 1,15 * *"  # 1st and 15th of each month at 02:00 UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verify:
+    name: "Verify [${{ matrix.area }}]"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        area: [runtime, sdk, examples, install, conformance]
+
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Run verification (${{ matrix.area }})
+        env:
+          AREA: ${{ matrix.area }}
+        run: |
+          uv run aasm-verify public --mode latest
+
+      - name: Summarize run on failure
+        if: failure()
+        env:
+          AREA:    ${{ matrix.area }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/summarize-run.sh \
+            --area    "$AREA" \
+            --mode    latest \
+            --run-url "$RUN_URL" \
+            --output  /tmp/summary-"$AREA".json
+
+      - name: Report failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AREA:         ${{ matrix.area }}
+        run: |
+          bash scripts/report-failure.sh \
+            --summary /tmp/summary-"$AREA".json
