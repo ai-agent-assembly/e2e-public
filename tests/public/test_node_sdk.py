@@ -6,7 +6,6 @@ import subprocess
 import textwrap
 
 import pytest
-
 from tests.public.conftest import skip_if_binary_missing
 
 COMPONENT = "node-sdk"
@@ -17,7 +16,9 @@ _ESM_SMOKE = textwrap.dedent("""\
     const hasInit = typeof initAssembly === 'function';
     const hasModes = typeof ENFORCEMENT_MODES === 'object' && ENFORCEMENT_MODES !== null;
     if (!hasInit || !hasModes) {
-      process.stderr.write(`[${COMPONENT}] unexpected exports: initAssembly=${typeof initAssembly} ENFORCEMENT_MODES=${typeof ENFORCEMENT_MODES}\\n`);
+      const msg = `[${COMPONENT}] unexpected exports: initAssembly=${typeof initAssembly} `
+        + `ENFORCEMENT_MODES=${typeof ENFORCEMENT_MODES}\\n`;
+      process.stderr.write(msg);
       process.exit(1);
     }
     console.log('ok');
@@ -39,7 +40,7 @@ def test_node_sdk_importable() -> None:
     """@agent-assembly/sdk can be imported via ESM."""
     skip_if_binary_missing("node")
     if not _node_has_package():
-        pytest.skip(f"npm package {PACKAGE!r} not installed — run 'npm install {PACKAGE}' to enable")
+        pytest.skip(f"npm package {PACKAGE!r} not installed — run 'npm install {PACKAGE}'")
 
 
 @pytest.mark.sdk
@@ -47,7 +48,7 @@ def test_node_sdk_public_exports() -> None:
     """initAssembly and ENFORCEMENT_MODES are exported from the package."""
     skip_if_binary_missing("node")
     if not _node_has_package():
-        pytest.skip(f"npm package {PACKAGE!r} not installed — run 'npm install {PACKAGE}' to enable")
+        pytest.skip(f"npm package {PACKAGE!r} not installed — run 'npm install {PACKAGE}'")
 
     result = subprocess.run(
         ["node", "--input-type=module", "-e", _ESM_SMOKE],
