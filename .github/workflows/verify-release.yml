@@ -5,6 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      aasm_release_version:
+        description: "Product version for GitHub Release artifact tests, e.g. 0.0.1"
+        required: false
+        default: ""
       python_sdk_version:
         description: "python-sdk PyPI version, e.g. 0.1.0"
         required: false
@@ -49,6 +53,7 @@ jobs:
       - name: Resolve versions (dispatch inputs or release tag)
         id: versions
         env:
+          DISPATCH_AASM:    ${{ inputs.aasm_release_version }}
           DISPATCH_PYTHON:  ${{ inputs.python_sdk_version }}
           DISPATCH_NODE:    ${{ inputs.node_sdk_version }}
           DISPATCH_GO:      ${{ inputs.go_sdk_version }}
@@ -61,10 +66,12 @@ jobs:
           # On release publish, derive bare version from the tag (strip leading 'v' for PyPI/npm).
           if [ -n "$SAFE_TAG" ]; then
             BARE="${SAFE_TAG#v}"
+            AASM_VER="${DISPATCH_AASM:-$BARE}"
             PY_VER="${DISPATCH_PYTHON:-$BARE}"
             NODE_VER="${DISPATCH_NODE:-$BARE}"
             GO_VER="${DISPATCH_GO:-$SAFE_TAG}"
           else
+            AASM_VER="${DISPATCH_AASM}"
             PY_VER="${DISPATCH_PYTHON}"
             NODE_VER="${DISPATCH_NODE}"
             GO_VER="${DISPATCH_GO}"
@@ -73,10 +80,14 @@ jobs:
           # Write outputs using the heredoc delimiter format to guard against
           # any residual newline-injection in the values.
           {
+            printf 'aasm_release_version<<GH_DELIM\n%s\nGH_DELIM\n' "$AASM_VER"
             printf 'python_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$PY_VER"
             printf 'node_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$NODE_VER"
             printf 'go_sdk_version<<GH_DELIM\n%s\nGH_DELIM\n' "$GO_VER"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        run: pip install uv --quiet
 
       - name: Install Python SDK from PyPI
         if: ${{ steps.versions.outputs.python_sdk_version != '' }}
@@ -99,16 +110,25 @@ jobs:
         run: |
           bash scripts/install-from-release.sh --repo go-sdk --version "$GO_SDK_VERSION"
 
+      - name: Run release pytest suite
+        env:
+          AASM_RELEASE_VERSION: ${{ steps.versions.outputs.aasm_release_version }}
+        run: |
+          uv sync
+          uv run pytest -m release -v --tb=short
+
       - name: Summary
         env:
+          AASM_VER:   ${{ steps.versions.outputs.aasm_release_version }}
           PYTHON_VER: ${{ steps.versions.outputs.python_sdk_version }}
           NODE_VER:   ${{ steps.versions.outputs.node_sdk_version }}
           GO_VER:     ${{ steps.versions.outputs.go_sdk_version }}
         run: |
           echo "## Release verification complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| SDK | Version |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Channel | Version |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| python-sdk | ${PYTHON_VER:-skipped} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| node-sdk   | ${NODE_VER:-skipped}   |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| go-sdk     | ${GO_VER:-skipped}     |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| agent-assembly (GitHub Release) | ${AASM_VER:-skipped} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| python-sdk (PyPI)               | ${PYTHON_VER:-skipped} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| node-sdk (npm)                  | ${NODE_VER:-skipped}   |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| go-sdk (module proxy)           | ${GO_VER:-skipped}     |" >> "$GITHUB_STEP_SUMMARY"
