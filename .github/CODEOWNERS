@@ -1,0 +1,7 @@
+# CODEOWNERS — agent-assembly-integration-tests
+#
+# Routes review requests to the project lead for all paths.
+# Replace @Chisanan232 with a GitHub team (e.g. @ai-agent-assembly/<team>)
+# once one exists. Enforced only when branch protection requires Code Owner review.
+
+* @Chisanan232
