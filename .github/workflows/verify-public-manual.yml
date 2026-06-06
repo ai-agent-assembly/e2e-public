@@ -49,12 +49,20 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   verify:
     name: "Verify [${{ matrix.area }}]"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ inputs.test_group == 'all' || inputs.test_group == matrix.area }}
+    # On workflow_dispatch, inputs.test_group selects the matrix area to run.
+    # The `inputs.test_group != null` guard keeps this expression valid on non-dispatch
+    # events (e.g. push), where the inputs context is null and would otherwise cause a
+    # startup_failure on this job-level if.
+    if: ${{ inputs.test_group != null && (inputs.test_group == 'all' || inputs.test_group == matrix.area) }}
     strategy:
       fail-fast: false
       matrix:
