@@ -10,7 +10,7 @@ COMPONENT = "agent-assembly-examples"
 
 _EXAMPLES_SKIP_REASON = (
     f"[{COMPONENT}] examples repo not found next to this repo — "
-    "clone https://github.com/AI-agent-assembly/agent-assembly-examples alongside "
+    "clone https://github.com/ai-agent-assembly/agent-assembly-examples alongside "
     "this repo to enable examples smoke tests"
 )
 

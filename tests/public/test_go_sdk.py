@@ -10,14 +10,14 @@ import pytest
 from tests.public.conftest import skip_if_binary_missing
 
 COMPONENT = "go-sdk"
-MODULE_PATH = "github.com/AI-agent-assembly/go-sdk"
+MODULE_PATH = "github.com/ai-agent-assembly/go-sdk"
 
 _GO_MAIN = textwrap.dedent("""\
     package main
 
     import (
         "fmt"
-        "github.com/AI-agent-assembly/go-sdk/assembly"
+        "github.com/ai-agent-assembly/go-sdk/assembly"
     )
 
     func main() {
@@ -56,7 +56,7 @@ def test_go_sdk_builds() -> None:
     if sdk_path is None:
         pytest.skip(
             f"[{COMPONENT}] Local go-sdk directory not found — "
-            "clone https://github.com/AI-agent-assembly/go-sdk alongside this repo to run this test"
+            "clone https://github.com/ai-agent-assembly/go-sdk alongside this repo to run this test"
         )
 
     import tempfile
@@ -89,7 +89,7 @@ def test_go_sdk_runs_smoke() -> None:
     if sdk_path is None:
         pytest.skip(
             f"[{COMPONENT}] Local go-sdk directory not found — "
-            "clone https://github.com/AI-agent-assembly/go-sdk alongside this repo to run this test"
+            "clone https://github.com/ai-agent-assembly/go-sdk alongside this repo to run this test"
         )
 
     import tempfile
