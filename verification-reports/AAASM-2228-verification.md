@@ -72,7 +72,7 @@ All three tests are marked `@pytest.mark.examples`. When the examples repo is ab
 
 ```
 [agent-assembly-examples] examples repo not found next to this repo — clone
-https://github.com/AI-agent-assembly/agent-assembly-examples alongside this
+https://github.com/ai-agent-assembly/agent-assembly-examples alongside this
 repo to enable examples smoke tests
 ```
 
