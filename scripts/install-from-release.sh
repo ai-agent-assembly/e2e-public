@@ -89,11 +89,11 @@ install_node_sdk() {
 install_go_sdk() {
   local version="$1"
   local work_dir="${TMPDIR_ROOT}/go-sdk-${version}"
-  log "Installing github.com/agent-assembly/go-sdk@${version}..."
+  log "Installing github.com/ai-agent-assembly/go-sdk@${version}..."
   mkdir -p "$work_dir"
   cd "$work_dir"
   go mod init aa-release-test
-  go get "github.com/agent-assembly/go-sdk@${version}"
+  go get "github.com/ai-agent-assembly/go-sdk@${version}"
   log "Go SDK installed: $version"
   cd -
 }
