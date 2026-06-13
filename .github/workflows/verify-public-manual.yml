@@ -54,19 +54,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  setup:
+    name: Resolve test areas
+    runs-on: ubuntu-latest
+    outputs:
+      areas: ${{ steps.select.outputs.areas }}
+    steps:
+      # Build the matrix from inputs.test_group. Doing this in a setup job (rather
+      # than a job-level `if` on the verify matrix) avoids referencing the `matrix`
+      # context where it is not available, which previously caused a startup_failure.
+      - name: Select areas from test_group
+        id: select
+        env:
+          TEST_GROUP: ${{ inputs.test_group }}
+        run: |
+          if [ -z "$TEST_GROUP" ] || [ "$TEST_GROUP" = "all" ]; then
+            echo 'areas=["runtime","sdk","examples","install","conformance"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "areas=[\"$TEST_GROUP\"]" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
     name: "Verify [${{ matrix.area }}]"
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # On workflow_dispatch, inputs.test_group selects the matrix area to run.
-    # The `inputs.test_group != null` guard keeps this expression valid on non-dispatch
-    # events (e.g. push), where the inputs context is null and would otherwise cause a
-    # startup_failure on this job-level if.
-    if: ${{ inputs.test_group != null && (inputs.test_group == 'all' || inputs.test_group == matrix.area) }}
     strategy:
       fail-fast: false
       matrix:
-        area: [runtime, sdk, examples, install, conformance]
+        area: ${{ fromJSON(needs.setup.outputs.areas) }}
 
     steps:
       - name: Checkout integration-tests repo
