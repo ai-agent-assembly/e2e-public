@@ -91,6 +91,18 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
+# Ensure the labels we apply exist before any label-scoped gh call. Creating them
+# is idempotent (--force) and must never abort the run: a missing label previously
+# caused `gh issue create` to exit 1 and fail the whole reporting step.
+ensure_label() {
+  gh label create "$1" --repo "$REPO" --color "$2" --description "$3" --force \
+    >/dev/null 2>&1 || echo "warning: could not ensure label '$1' (continuing)" >&2
+}
+ensure_label "test-failure"  "d73a4a" "Automated verification failure"
+ensure_label "scheduled-run" "0e8a16" "Filed by a scheduled verification run"
+ensure_label "needs-triage"  "fbca04" "Awaiting triage"
+ensure_label "$AREA_LABEL"   "1d76db" "Verification area"
+
 # Search for an existing open issue with the area label
 OPEN_NUMBER=$(gh issue list \
   --repo "$REPO" \
