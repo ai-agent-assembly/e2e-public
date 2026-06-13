@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
+from aasm_verify import runners
 from aasm_verify.refs import ResolvedRefs, resolve_refs
 
 
@@ -35,6 +37,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="VERSION",
         help="Package version for release mode (e.g. 0.0.1)",
+    )
+    public.add_argument(
+        "--area",
+        default=os.environ.get("AREA", "all"),
+        choices=["all", *runners.AREAS],
+        help="Verification area to run (default: $AREA or 'all')",
+    )
+    public.add_argument(
+        "--json-report",
+        default=os.environ.get("PYTEST_JSON"),
+        metavar="PATH",
+        help="Write the pytest JSON report here (default: $PYTEST_JSON). "
+        "Consumed by scripts/summarize-run.sh on failure.",
     )
     public.add_argument(
         "--dry-run",
@@ -78,8 +93,14 @@ def cmd_public(args: argparse.Namespace) -> int:
         print("\n[dry-run] No cloning or installing performed.")
         return 0
 
-    print("\nRunning verification... (not yet implemented)")
-    return 0
+    try:
+        areas = runners.resolve_areas(args.area)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"\nRunning verification for area(s): {', '.join(areas)}")
+    return runners.run_areas(refs, areas, json_report=args.json_report)
 
 
 def main() -> None:
