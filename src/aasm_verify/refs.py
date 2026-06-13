@@ -89,10 +89,17 @@ def _reject_extra_refs_for_latest(
     examples_ref: str | None,
     version: str | None,
 ) -> None:
-    if any([agent_assembly_ref, python_sdk_ref, node_sdk_ref, go_sdk_ref, examples_ref, version]):
+    # In latest mode all repos track master. Tolerate refs explicitly set to "master"
+    # (CI passes them as defaults) and only reject a genuinely non-master ref or a version.
+    non_master_refs = [
+        ref
+        for ref in (agent_assembly_ref, python_sdk_ref, node_sdk_ref, go_sdk_ref, examples_ref)
+        if ref is not None and ref != "master"
+    ]
+    if non_master_refs or version:
         raise ValueError(
             "Mode 'latest' uses master branches for all repos. "
-            "Do not pass per-repo refs or --version in latest mode."
+            "Do not pass non-master per-repo refs or --version in latest mode."
         )
 
 
