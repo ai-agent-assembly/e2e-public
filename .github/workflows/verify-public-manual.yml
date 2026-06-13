@@ -79,6 +79,9 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Shared by the run + summarize steps so the failure summary reads the report.
+    env:
+      PYTEST_JSON: /tmp/pytest-report-${{ matrix.area }}.json
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +114,7 @@ jobs:
         run: |
           uv run aasm-verify public \
             --mode             "$MODE" \
+            --area             "$AREA" \
             --agent-assembly-ref "$AA_REF" \
             --python-sdk-ref   "$PYTHON_SDK_REF" \
             --node-sdk-ref     "$NODE_SDK_REF" \
