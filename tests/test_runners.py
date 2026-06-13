@@ -46,11 +46,13 @@ def test_resolve_areas_unknown() -> None:
 
 def test_marker_area_runs_pytest() -> None:
     rec = _Recorder()
-    code = runners.run_area(_refs(), "sdk", json_report="/tmp/r.json", _runner=rec)
+    # Path is only forwarded to the (mocked) runner, never written.
+    report = "report.json"
+    code = runners.run_area(_refs(), "sdk", json_report=report, _runner=rec)
     assert code == 0
     cmd, env = rec.calls[0]
     assert "pytest" in cmd and "-m" in cmd and "sdk" in cmd
-    assert "--json-report-file=/tmp/r.json" in cmd
+    assert f"--json-report-file={report}" in cmd
     assert env["AASM_INSTALL_MODE"] == "source"
 
 
