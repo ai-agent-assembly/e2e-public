@@ -1,13 +1,165 @@
-"""Report generation for verification runs."""
+"""Report generation for public-integration verification runs.
+
+This module turns a verification run into the two artifacts the AAASM-2236
+report contract defines:
+
+* ``summary.json`` — the machine-readable, normalized result. Its first nine
+  top-level keys map 1:1 onto the published ``report.md`` frontmatter; the
+  remaining keys (``scope``, ``suites``, ``counts``) feed the human-readable
+  body. See ``inner-document`` ``docs/verification-reports/summary-json.md``.
+* ``report.md`` — the curated report whose YAML frontmatter matches the
+  AAASM-2236 frontmatter schema 1:1 and is published into the
+  ``public-integration/`` channel by ``publish-inner-doc-report.sh``.
+
+The channel is fixed to ``public-integration`` for this CLI; ``source_repo`` is
+the public integration-tests repo. Public reports do not need the private
+sanitizer, but generator output is built only from normalized counts and suite
+names (never raw log text), so no secrets are echoed.
+"""
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass, field
 
-def write_summary_json(path: str, results: dict) -> None:
-    """Write machine-readable summary.json."""
-    raise NotImplementedError
+# Fixed identity for the public-integration channel (AAASM-2236).
+REPORT_TYPE: str = "public-integration"
+SOURCE_REPO: str = "agent-assembly-integration-tests"
+
+# Enum domains from the frontmatter schema.
+RUN_TYPES: tuple[str, ...] = ("pr", "scheduled", "release", "manual")
+RESULTS: tuple[str, ...] = ("pass", "fail", "partial")
+RETAINS: tuple[str, ...] = ("long-term", "short-term")
+
+# The nine frontmatter keys, in schema order.
+FRONTMATTER_FIELDS: tuple[str, ...] = (
+    "report_type",
+    "run_type",
+    "result",
+    "date",
+    "source_repo",
+    "workflow_run_url",
+    "tested_refs",
+    "related_issue",
+    "retain",
+)
 
 
-def write_report_md(path: str, results: dict) -> None:
-    """Write human-readable report.md."""
-    raise NotImplementedError
+@dataclass
+class Suite:
+    """One verification suite/check result for the Results table."""
+
+    name: str
+    result: str
+    duration_seconds: int = 0
+    notes: str = ""
+
+    def as_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "result": self.result,
+            "duration_seconds": self.duration_seconds,
+            "notes": self.notes,
+        }
+
+
+@dataclass
+class Summary:
+    """Normalized verification result — the source of truth for report.md.
+
+    The first nine fields are the frontmatter schema (1:1); ``scope``, ``suites``
+    and ``counts`` feed the report body.
+    """
+
+    run_type: str
+    result: str
+    date: str
+    workflow_run_url: str
+    tested_refs: list[str]
+    retain: str
+    related_issue: str | None = None
+    scope: str = ""
+    suites: list[Suite] = field(default_factory=list)
+    report_type: str = REPORT_TYPE
+    source_repo: str = SOURCE_REPO
+
+    def __post_init__(self) -> None:
+        if self.run_type not in RUN_TYPES:
+            raise ValueError(f"run_type must be one of {RUN_TYPES}, got {self.run_type!r}")
+        if self.result not in RESULTS:
+            raise ValueError(f"result must be one of {RESULTS}, got {self.result!r}")
+        if self.retain not in RETAINS:
+            raise ValueError(f"retain must be one of {RETAINS}, got {self.retain!r}")
+        if not self.tested_refs:
+            raise ValueError("tested_refs must contain at least one ref")
+        if self.result in ("fail", "partial") and not self.related_issue:
+            raise ValueError("related_issue is required when result is 'fail' or 'partial'")
+
+    @property
+    def counts(self) -> dict[str, int]:
+        """Suite-level pass/fail/skip counts derived from ``suites``."""
+        passed = sum(1 for s in self.suites if s.result == "pass")
+        failed = sum(1 for s in self.suites if s.result == "fail")
+        skipped = sum(1 for s in self.suites if s.result == "skipped")
+        return {
+            "total": len(self.suites),
+            "passed": passed,
+            "failed": failed,
+            "skipped": skipped,
+        }
+
+    def frontmatter(self) -> dict:
+        """The nine-field frontmatter mapping, in schema order."""
+        return {
+            "report_type": self.report_type,
+            "run_type": self.run_type,
+            "result": self.result,
+            "date": self.date,
+            "source_repo": self.source_repo,
+            "workflow_run_url": self.workflow_run_url,
+            "tested_refs": list(self.tested_refs),
+            "related_issue": self.related_issue,
+            "retain": self.retain,
+        }
+
+    def as_dict(self) -> dict:
+        """Full summary.json shape: frontmatter keys + scope/suites/counts."""
+        data = self.frontmatter()
+        data["scope"] = self.scope
+        data["suites"] = [s.as_dict() for s in self.suites]
+        data["counts"] = self.counts
+        return data
+
+
+def summary_from_dict(data: dict) -> Summary:
+    """Rebuild a :class:`Summary` from a parsed ``summary.json`` mapping."""
+    suites = [
+        Suite(
+            name=s["name"],
+            result=s["result"],
+            duration_seconds=int(s.get("duration_seconds", 0)),
+            notes=s.get("notes", ""),
+        )
+        for s in data.get("suites", [])
+    ]
+    return Summary(
+        run_type=data["run_type"],
+        result=data["result"],
+        date=data["date"],
+        workflow_run_url=data["workflow_run_url"],
+        tested_refs=list(data["tested_refs"]),
+        retain=data["retain"],
+        related_issue=data.get("related_issue"),
+        scope=data.get("scope", ""),
+        suites=suites,
+        report_type=data.get("report_type", REPORT_TYPE),
+        source_repo=data.get("source_repo", SOURCE_REPO),
+    )
+
+
+def write_summary_json(path: str, summary: Summary) -> None:
+    """Write the machine-readable ``summary.json`` deterministically."""
+    text = json.dumps(summary.as_dict(), indent=2, sort_keys=False)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.write("\n")
