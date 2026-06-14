@@ -263,3 +263,92 @@ def write_report_md(path: str, summary: Summary) -> None:
     """Write the curated ``report.md`` deterministically."""
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(render_report_md(summary))
+
+
+def _suite_name_from_nodeid(nodeid: str) -> str:
+    """Derive a stable suite name from a pytest nodeid (file stem, no params)."""
+    head = nodeid.split("::", 1)[0]
+    stem = head.rsplit("/", 1)[-1]
+    if stem.endswith(".py"):
+        stem = stem[:-3]
+    return stem
+
+
+def _suites_from_pytest(data: dict) -> list[Suite]:
+    """Aggregate pytest ``tests[]`` into per-file :class:`Suite` rows.
+
+    A suite is ``fail`` if any of its tests failed/errored, ``skipped`` if all
+    its tests were skipped, otherwise ``pass``. Durations are summed and
+    rounded to whole seconds for deterministic output.
+    """
+    by_name: dict[str, dict] = {}
+    order: list[str] = []
+    for test in data.get("tests", []):
+        nodeid = test.get("nodeid", "")
+        name = _suite_name_from_nodeid(nodeid)
+        if name not in by_name:
+            by_name[name] = {"failed": 0, "skipped": 0, "passed": 0, "duration": 0.0}
+            order.append(name)
+        outcome = test.get("outcome", "")
+        bucket = by_name[name]
+        if outcome in ("failed", "error"):
+            bucket["failed"] += 1
+        elif outcome == "skipped":
+            bucket["skipped"] += 1
+        else:
+            bucket["passed"] += 1
+        bucket["duration"] += float(test.get("duration", 0.0) or 0.0)
+
+    suites: list[Suite] = []
+    for name in order:
+        b = by_name[name]
+        if b["failed"]:
+            result = "fail"
+        elif b["passed"] == 0 and b["skipped"]:
+            result = "skipped"
+        else:
+            result = "pass"
+        suites.append(Suite(name=name, result=result, duration_seconds=round(b["duration"])))
+    return suites
+
+
+def _result_from_suites(suites: list[Suite]) -> str:
+    """Roll suite results up into a normalized run result."""
+    if any(s.result == "fail" for s in suites):
+        # A mix of pass and fail is partial; all-fail is fail.
+        if any(s.result == "pass" for s in suites):
+            return "partial"
+        return "fail"
+    return "pass"
+
+
+def summary_from_pytest_json(
+    data: dict,
+    *,
+    run_type: str,
+    date: str,
+    workflow_run_url: str,
+    tested_refs: list[str],
+    retain: str,
+    related_issue: str | None = None,
+    scope: str = "",
+    result: str | None = None,
+) -> Summary:
+    """Normalize a pytest-json-report mapping into a :class:`Summary`.
+
+    ``result`` defaults to the rollup of the per-suite outcomes but may be
+    overridden (e.g. when the caller already knows the aggregate verdict).
+    """
+    suites = _suites_from_pytest(data)
+    verdict = result if result is not None else _result_from_suites(suites)
+    return Summary(
+        run_type=run_type,
+        result=verdict,
+        date=date,
+        workflow_run_url=workflow_run_url,
+        tested_refs=tested_refs,
+        retain=retain,
+        related_issue=related_issue,
+        scope=scope,
+        suites=suites,
+    )
