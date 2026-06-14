@@ -163,3 +163,103 @@ def write_summary_json(path: str, summary: Summary) -> None:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
         fh.write("\n")
+
+
+def _yaml_scalar(value: object) -> str:
+    """Render a frontmatter scalar (None -> ``null``)."""
+    if value is None:
+        return "null"
+    return str(value)
+
+
+def render_frontmatter(summary: Summary) -> str:
+    """Render the YAML frontmatter block (AAASM-2236 schema, 1:1, in order)."""
+    fm = summary.frontmatter()
+    lines = ["---"]
+    for key in FRONTMATTER_FIELDS:
+        value = fm[key]
+        if key == "tested_refs":
+            lines.append(f"{key}:")
+            for ref in value:  # type: ignore[union-attr]
+                lines.append(f"  - {ref}")
+        else:
+            lines.append(f"{key}: {_yaml_scalar(value)}")
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def render_report_md(summary: Summary) -> str:
+    """Render the curated ``report.md`` body for the public-integration channel."""
+    fm = summary.frontmatter()
+    counts = summary.counts
+    scope = summary.scope or "OSS runtime + all language SDKs + installer paths"
+
+    parts: list[str] = [render_frontmatter(summary), ""]
+
+    parts.append(f"# Verification Report — Public Integration ({summary.date})")
+    parts.append("")
+
+    parts.append("## Summary")
+    parts.append("")
+    refs = ", ".join(summary.tested_refs)
+    parts.append(
+        f"Public integration verification of {scope} against {refs}: "
+        f"result **{summary.result}** "
+        f"({counts['passed']}/{counts['total']} suites passed)."
+    )
+    parts.append("")
+
+    parts.append("## Scope")
+    parts.append("")
+    parts.append("| Field | Value |")
+    parts.append("|---|---|")
+    parts.append(f"| Test scope | {scope} |")
+    parts.append(f"| Trigger | {summary.run_type} |")
+    parts.append(f"| Source repo | {summary.source_repo} |")
+    parts.append(f"| Tested refs | {refs} |")
+    parts.append(f"| Run URL | {summary.workflow_run_url} |")
+    parts.append("")
+
+    parts.append("## Results")
+    parts.append("")
+    parts.append("| Suite / check | Result | Notes |")
+    parts.append("|---|---|---|")
+    for suite in summary.suites:
+        notes = suite.notes or ""
+        parts.append(f"| {suite.name} | {suite.result} | {notes} |")
+    parts.append("")
+
+    parts.append("## Failures and follow-up")
+    parts.append("")
+    if summary.result in ("fail", "partial"):
+        parts.append(
+            "One or more suites did not pass. See the linked issue and the "
+            "GitHub Actions run for details (logs are not pasted here)."
+        )
+        parts.append("")
+        parts.append(f"- Linked issue: {_yaml_scalar(summary.related_issue)}")
+    else:
+        parts.append("None — all suites passed.")
+    parts.append("")
+
+    parts.append("## Evidence")
+    parts.append("")
+    parts.append(
+        "Curated evidence only. See the GitHub Actions run linked above for "
+        "artifacts and logs. No secrets, private endpoints, or internal "
+        "hostnames are included."
+    )
+    parts.append("")
+
+    parts.append("## Retention")
+    parts.append("")
+    parts.append(f"Retention class: `{fm['retain']}` — see the publishing SOP.")
+    parts.append("")
+
+    return "\n".join(parts)
+
+
+def write_report_md(path: str, summary: Summary) -> None:
+    """Write the curated ``report.md`` deterministically."""
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(render_report_md(summary))
