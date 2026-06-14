@@ -1,0 +1,24 @@
+{
+  "created": 1750000000.0,
+  "duration": 30.0,
+  "exitcode": 1,
+  "root": "/work/agent-assembly-integration-tests",
+  "summary": {
+    "passed": 1,
+    "failed": 1,
+    "total": 2,
+    "collected": 2
+  },
+  "tests": [
+    {
+      "nodeid": "tests/public/test_python_sdk.py::test_python_sdk_init",
+      "outcome": "passed",
+      "duration": 12.0
+    },
+    {
+      "nodeid": "tests/public/test_node_sdk.py::test_node_sdk_init",
+      "outcome": "failed",
+      "duration": 8.0
+    }
+  ]
+}
