@@ -150,3 +150,28 @@ def test_observe_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
         )
     finally:
         context.shutdown()
+
+
+@pytest.mark.sdk
+def test_disabled_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
+    """disabled mode, no gateway → the governed session proceeds (no-op).
+
+    Policy evaluation is skipped entirely; init is a no-op governance-wise and
+    must never raise just because no gateway is present.
+    """
+    _require_sdk()
+
+    context = _init_without_gateway(no_gateway_env, "disabled")
+    try:
+        assert context is not None, (
+            f"[{COMPONENT}] init_assembly(disabled) returned no context with no gateway"
+        )
+        assert not context.is_shutdown, (
+            f"[{COMPONENT}] expected a live (non-shutdown) context in disabled mode"
+        )
+        assert context.client.enforcement_mode == "disabled", (
+            f"[{COMPONENT}] disabled posture not recorded on the client: "
+            f"{context.client.enforcement_mode!r}"
+        )
+    finally:
+        context.shutdown()
