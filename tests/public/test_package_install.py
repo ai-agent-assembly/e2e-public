@@ -19,7 +19,7 @@ COMPONENT_PYTHON = "python-sdk"
 COMPONENT_NODE = "node-sdk"
 COMPONENT_GO = "go-sdk"
 
-PYPI_PACKAGE = "agent-assembly-sdk"
+PYPI_PACKAGE = "agent-assembly"
 NPM_PACKAGE = "@agent-assembly/sdk"
 GO_MODULE = "github.com/ai-agent-assembly/go-sdk"
 
@@ -33,7 +33,7 @@ def _require_version() -> str:
 
 @pytest.mark.release
 def test_pypi_install_python_sdk(tmp_path: Path) -> None:
-    """pip install agent-assembly-sdk=={version} succeeds and the package is importable."""
+    """pip install agent-assembly=={version} succeeds and the package is importable."""
     version = _require_version()
     venv_dir = tmp_path / "venv"
     subprocess.run(
