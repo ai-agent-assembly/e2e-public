@@ -62,6 +62,24 @@ def test_python_sdk_public_exports() -> None:
 
     expected = ["init_assembly", "AssemblyContext", "AssemblyError"]
     missing = [name for name in expected if not hasattr(agent_assembly, name)]
-    assert not missing, (
-        f"[{COMPONENT}] Missing public exports: {missing}"
+    assert not missing, f"[{COMPONENT}] Missing public exports: {missing}"
+
+
+@pytest.mark.sdk
+def test_python_sdk_native_binding_loads() -> None:
+    """The compiled PyO3 `_core` extension loads from a platform binary.
+
+    Proves the install is native-accelerated, not merely pure-Python: the
+    extension module must originate from a compiled artifact (`.so`/`.pyd`),
+    and must expose its native-backed symbols.
+    """
+    core = _require_native_module()
+
+    origin = getattr(core, "__file__", None)
+    assert origin is not None and origin.endswith((".so", ".pyd", ".dylib")), (
+        f"[{COMPONENT}] {NATIVE_MODULE} did not load from a compiled extension; __file__={origin!r}"
     )
+
+    expected_symbols = ["RuntimeClient", "GovernanceEvent"]
+    missing = [name for name in expected_symbols if not hasattr(core, name)]
+    assert not missing, f"[{COMPONENT}] native extension loaded but missing symbols: {missing}"
