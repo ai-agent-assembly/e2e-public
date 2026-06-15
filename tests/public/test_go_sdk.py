@@ -214,3 +214,51 @@ def test_go_sdk_links_ffi_shim(acquisition: str) -> None:
             f"[{COMPONENT}/{acquisition}] go build failed (exit {build.returncode})\n"
             f"stdout: {build.stdout.strip()}\nstderr: {build.stderr.strip()}"
         )
+
+@pytest.mark.sdk
+@pytest.mark.parametrize("acquisition", ["source", "proxy"])
+def test_go_sdk_cgo_abi_binding_is_wired(acquisition: str) -> None:
+    """The ``aa_ffi_go`` cgo C-ABI bridge links against the native library.
+
+    Building with ``-tags aa_ffi_go`` activates the cgo bridge whose
+    ``#cgo LDFLAGS: -laa_ffi_go`` directive forces the linker to resolve the
+    native ``libaa_ffi_go``. We do not ship that Rust artifact here, so the
+    expected outcome is either a clean link (native lib present) or a link-stage
+    failure that specifically names the native library — both of which prove the
+    cgo bridge is genuinely wired rather than stubbed out. A *compile* error or a
+    module-resolution error would mean the shim is broken, and fails the test.
+    """
+    skip_if_binary_missing("go")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _consumer(acquisition, tmp)
+        env = _go_env()
+
+        result = subprocess.run(
+            ["go", "build", "-tags", "aa_ffi_go", "./..."],
+            capture_output=True,
+            text=True,
+            cwd=tmp,
+            env=env,
+        )
+        combined = f"{result.stdout}\n{result.stderr}"
+
+        if result.returncode == 0:
+            # Native lib was available and the cgo bridge linked cleanly.
+            return
+
+        # Otherwise the only acceptable failure is the linker not finding the
+        # native library — that is the cgo bridge firing its LDFLAGS, i.e. the
+        # shim is wired. Anything else (compile error, unresolved import,
+        # missing module) is a real defect.
+        assert FFI_NATIVE_LIB in combined, (
+            f"[{COMPONENT}/{acquisition}] cgo C-ABI build failed for a reason "
+            f"other than the missing native '{FFI_NATIVE_LIB}' library — the FFI "
+            f"shim may be broken.\nstdout: {result.stdout.strip()}\n"
+            f"stderr: {result.stderr.strip()}"
+        )
+        assert ("library" in combined and "not found" in combined) or "ld:" in combined, (
+            f"[{COMPONENT}/{acquisition}] expected a linker-stage failure naming "
+            f"'{FFI_NATIVE_LIB}', but the failure does not look like a link "
+            f"error.\nstdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()}"
+        )
