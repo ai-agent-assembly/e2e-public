@@ -42,9 +42,9 @@ def platform_asset_suffix() -> str:
     system = platform.system().lower()
     machine = platform.machine().lower()
     if system == "linux":
-        arch = "x86_64" if machine in ("x86_64", "amd64") else machine
-        return f"linux-{arch}.tar.gz"
+        arch = "x86_64" if machine in ("x86_64", "amd64") else "aarch64"
+        return f"{arch}-unknown-linux-gnu.tar.gz"
     if system == "darwin":
         arch = "aarch64" if machine in ("arm64", "aarch64") else "x86_64"
-        return f"darwin-{arch}.tar.gz"
+        return f"{arch}-apple-darwin.tar.gz"
     return f"{system}-{machine}.tar.gz"

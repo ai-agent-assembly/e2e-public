@@ -7,6 +7,7 @@ temporary directory so that no global state is modified.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -104,21 +105,17 @@ def test_npm_install_node_sdk(tmp_path: Path) -> None:
             f"stdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()}"
         )
 
-    check_script = (
-        f"const pkg = require('{NPM_PACKAGE}/package.json'); "
-        "console.log(pkg.version);"
+    # Read the installed package.json from disk rather than via require():
+    # packages with an "exports" map don't expose "./package.json", so
+    # require('@agent-assembly/sdk/package.json') throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+    pkg_json = work_dir / "node_modules" / "@agent-assembly" / "sdk" / "package.json"
+    assert pkg_json.is_file(), (
+        f"[{COMPONENT_NODE}] {NPM_PACKAGE} package.json not found after install at {pkg_json}"
     )
-    check = subprocess.run(
-        ["node", "-e", check_script],
-        capture_output=True,
-        text=True,
-        cwd=str(work_dir),
+    installed_version = json.loads(pkg_json.read_text()).get("version", "")
+    assert installed_version, (
+        f"[{COMPONENT_NODE}] package.json version is empty after install"
     )
-    assert check.returncode == 0, (
-        f"[{COMPONENT_NODE}] node require failed (exit {check.returncode})\n"
-        f"stdout: {check.stdout.strip()}\nstderr: {check.stderr.strip()}"
-    )
-    assert check.stdout.strip(), f"[{COMPONENT_NODE}] package.json version is empty after install"
 
 
 @pytest.mark.release

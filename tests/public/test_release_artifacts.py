@@ -124,7 +124,16 @@ def test_github_release_asset_checksum(tmp_path: Path) -> None:
 
     assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
     asset_name = next((n for n in assets if n.endswith(suffix)), None)
-    checksums_name = next((n for n in assets if "checksums" in n.lower()), None)
+    # Checksums file is `SHA256SUMS` (exclude the `SHA256SUMS.cosign.bundle` signature).
+    checksums_name = next(
+        (
+            n
+            for n in assets
+            if ("sha256sums" in n.lower() or "checksums" in n.lower())
+            and not n.lower().endswith((".bundle", ".sig", ".asc", ".pem"))
+        ),
+        None,
+    )
 
     if asset_name is None:
         pytest.skip(
