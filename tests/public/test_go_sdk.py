@@ -215,6 +215,7 @@ def test_go_sdk_links_ffi_shim(acquisition: str) -> None:
             f"stdout: {build.stdout.strip()}\nstderr: {build.stderr.strip()}"
         )
 
+
 @pytest.mark.sdk
 @pytest.mark.parametrize("acquisition", ["source", "proxy"])
 def test_go_sdk_cgo_abi_binding_is_wired(acquisition: str) -> None:
@@ -261,4 +262,30 @@ def test_go_sdk_cgo_abi_binding_is_wired(acquisition: str) -> None:
             f"[{COMPONENT}/{acquisition}] expected a linker-stage failure naming "
             f"'{FFI_NATIVE_LIB}', but the failure does not look like a link "
             f"error.\nstdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()}"
+        )
+
+
+@pytest.mark.sdk
+@pytest.mark.parametrize("acquisition", ["source", "proxy"])
+def test_go_sdk_runs_smoke(acquisition: str) -> None:
+    """Consumer ``go run`` executes and a public symbol is usable at runtime."""
+    skip_if_binary_missing("go")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _consumer(acquisition, tmp)
+
+        result = subprocess.run(
+            ["go", "run", "."],
+            capture_output=True,
+            text=True,
+            cwd=tmp,
+            env=_go_env(),
+        )
+        assert result.returncode == 0, (
+            f"[{COMPONENT}/{acquisition}] go run failed (exit {result.returncode})\n"
+            f"stdout: {result.stdout.strip()}\nstderr: {result.stderr.strip()}"
+        )
+        assert result.stdout.strip() == "true", (
+            f"[{COMPONENT}/{acquisition}] Expected 'true' from smoke run "
+            f"(assembly.ErrBinaryNotFound != nil), got: {result.stdout.strip()!r}"
         )
