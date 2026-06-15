@@ -126,3 +126,27 @@ def test_enforce_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
     finally:
         context.shutdown()
 
+
+@pytest.mark.sdk
+def test_observe_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
+    """observe mode, no gateway → the governed session proceeds (fail-open).
+
+    Dry-run posture: with no gateway to record shadow audit events, init must
+    still succeed and let the action through.
+    """
+    _require_sdk()
+
+    context = _init_without_gateway(no_gateway_env, "observe")
+    try:
+        assert context is not None, (
+            f"[{COMPONENT}] init_assembly(observe) returned no context with no gateway"
+        )
+        assert not context.is_shutdown, (
+            f"[{COMPONENT}] expected a live (non-shutdown) context in observe mode"
+        )
+        assert context.client.enforcement_mode == "observe", (
+            f"[{COMPONENT}] observe posture not recorded on the client: "
+            f"{context.client.enforcement_mode!r}"
+        )
+    finally:
+        context.shutdown()
