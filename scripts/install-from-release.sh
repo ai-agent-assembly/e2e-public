@@ -69,10 +69,10 @@ log() { echo "[install-from-release] $*"; }
 install_python_sdk() {
   local version="$1"
   local venv_dir="${TMPDIR_ROOT}/python-sdk-${version}"
-  log "Installing agent-assembly-sdk==${version} from PyPI..."
+  log "Installing agent-assembly==${version} from PyPI..."
   python3 -m venv "$venv_dir"
-  "${venv_dir}/bin/pip" install --quiet "agent-assembly-sdk==${version}"
-  log "Python SDK installed: $("${venv_dir}/bin/pip" show agent-assembly-sdk | grep Version)"
+  "${venv_dir}/bin/pip" install --quiet "agent-assembly==${version}"
+  log "Python SDK installed: $("${venv_dir}/bin/pip" show agent-assembly | grep Version)"
 }
 
 install_node_sdk() {
