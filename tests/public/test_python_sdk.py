@@ -83,3 +83,27 @@ def test_python_sdk_native_binding_loads() -> None:
     expected_symbols = ["RuntimeClient", "GovernanceEvent"]
     missing = [name for name in expected_symbols if not hasattr(core, name)]
     assert not missing, f"[{COMPONENT}] native extension loaded but missing symbols: {missing}"
+
+
+@pytest.mark.sdk
+def test_python_sdk_functional_install() -> None:
+    """Core public API is actually usable, not just attribute-present.
+
+    A functional install must expose a callable initializer and a usable
+    exception hierarchy — beyond mere `hasattr` presence checks.
+    """
+    skip_if_package_missing("agent_assembly")
+    import agent_assembly
+
+    assert callable(agent_assembly.init_assembly), (
+        f"[{COMPONENT}] init_assembly is not callable: {agent_assembly.init_assembly!r}"
+    )
+
+    error_cls = agent_assembly.AssemblyError
+    assert isinstance(error_cls, type) and issubclass(error_cls, Exception), (
+        f"[{COMPONENT}] AssemblyError is not an exception class: {error_cls!r}"
+    )
+
+    # The exception must be raisable and catchable as a real exception.
+    with pytest.raises(agent_assembly.AssemblyError):
+        raise agent_assembly.AssemblyError("functional install probe")
