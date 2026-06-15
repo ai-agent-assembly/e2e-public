@@ -27,6 +27,8 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Live-core tests build + run aa-gateway from source — opt in with `-m live`.
+addopts = "-m 'not live'"
 markers = [
     "runtime: Runtime CLI smoke tests",
     "sdk: SDK init smoke tests (Python, Node.js, Go)",
