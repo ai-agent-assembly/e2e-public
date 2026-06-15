@@ -14,6 +14,7 @@ from __future__ import annotations
 import socket
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 #: Default minimal policy shipped alongside this module.
@@ -84,6 +85,54 @@ class LiveGateway:
             stderr=subprocess.DEVNULL,
         )
         return self
+
+    def await_ready(self, timeout: float = 30.0) -> None:
+        """Block until the gateway accepts a TCP connection on its port.
+
+        Polls ``connect`` to ``127.0.0.1:<port>`` until it succeeds or
+        *timeout* seconds elapse. Raises ``RuntimeError`` if the process
+        exits early or the listener never comes up.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._proc is not None and self._proc.poll() is not None:
+                raise RuntimeError(
+                    f"aa-gateway exited early (code {self._proc.returncode}) "
+                    f"before listening on {self.endpoint}"
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", self._port), timeout=0.2):
+                    return
+            except OSError:
+                time.sleep(0.1)
+        raise RuntimeError(
+            f"aa-gateway did not start accepting connections on "
+            f"{self.endpoint} within {timeout:.0f}s"
+        )
+
+    def stop(self) -> None:
+        """Terminate the gateway and remove its temp HOME directory.
+
+        Sends ``terminate`` (SIGTERM), waits briefly, then ``kill`` if it
+        has not exited. Idempotent — safe to call more than once.
+        """
+        if self._proc is not None:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+                self._proc.wait()
+            self._proc = None
+        if self._home is not None:
+            self._home.cleanup()
+            self._home = None
+
+    def __enter__(self) -> LiveGateway:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.stop()
 
 
 def _inherited_path() -> str:
