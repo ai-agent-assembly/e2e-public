@@ -18,9 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.live.build import build_gateway, missing_build_tools
+from tests.live.build import build_gateway, build_runtime, missing_build_tools
 from tests.live.core_source import DEFAULT_REF, resolve_core_source
 from tests.live.gateway import LiveGateway
+from tests.live.runtime import LiveRuntime
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +49,28 @@ def core_gateway_binary() -> Path:
     return build_gateway(source)
 
 
+@pytest.fixture(scope="session")
+def core_runtime_binary() -> Path:
+    """Build ``aa-runtime`` from the core source and return the binary.
+
+    The runtime sidecar is the real SDK→core endpoint (UDS). Skips the
+    session's live tests when the build toolchain is incomplete. Honours
+    ``AASM_CORE_REF`` for the git ref and ``AASM_CORE_SOURCE_DIR`` to reuse an
+    existing checkout, mirroring :func:`core_gateway_binary`.
+    """
+    missing = missing_build_tools()
+    if missing:
+        pytest.skip(
+            f"live runtime build needs: {', '.join(missing)} — "
+            "install them to run the live-core tests"
+        )
+
+    ref = os.environ.get("AASM_CORE_REF", DEFAULT_REF)
+    clone_dir = Path(tempfile.mkdtemp(prefix="aa-core-src-"))
+    source = resolve_core_source(clone_dir / "agent-assembly", ref=ref)
+    return build_runtime(source)
+
+
 @pytest.fixture
 def live_gateway(core_gateway_binary: Path) -> Iterator[LiveGateway]:
     """Yield a started, readiness-confirmed ``aa-gateway`` handle.
@@ -61,3 +84,20 @@ def live_gateway(core_gateway_binary: Path) -> Iterator[LiveGateway]:
         yield gateway
     finally:
         gateway.stop()
+
+
+@pytest.fixture
+def live_runtime(core_runtime_binary: Path) -> Iterator[LiveRuntime]:
+    """Yield a started, readiness-confirmed ``aa-runtime`` sidecar handle.
+
+    Launches the runtime on a unique UDS, waits until the socket accepts a
+    connection, and tears it down (terminate + socket/temp cleanup) on test
+    exit.
+    """
+    runtime = LiveRuntime(core_runtime_binary)
+    runtime.start()
+    try:
+        runtime.await_ready()
+        yield runtime
+    finally:
+        runtime.stop()
