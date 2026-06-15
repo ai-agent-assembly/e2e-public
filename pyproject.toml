@@ -33,6 +33,7 @@ markers = [
     "examples: Examples repo smoke tests",
     "conformance: Policy allow/deny conformance smoke tests",
     "release: Release artifact and registry install verification tests",
+    "live: Live-core tests that build and run aa-gateway from source",
 ]
 
 [tool.ruff]
