@@ -1,20 +1,22 @@
-"""Live smoke: register an agent with the Python SDK against ``aa-gateway``.
+"""Live smoke: the Python SDK's HTTP ``GatewayClient`` against ``aa-gateway``.
 
-This builds and runs ``aa-gateway`` from core source (via the
-``live_gateway`` fixture) and drives the *real* installed Python SDK
-(``agent_assembly``) at it. It skips cleanly when the SDK or the build
-toolchain is unavailable.
+SUPERSEDED (AAASM-2989): the SDK's hot-path events do *not* travel over HTTP to
+the gateway — they go ``SDK → aa-ffi → aa-runtime`` over a Unix socket. That
+real path is now covered by ``test_sdk_runtime.py``; this module is kept only as
+a record of the deviant HTTP→gateway probe and its known transport gap, not as
+the SDK→core verification.
 
-The registration step is wired honestly against the transport gap
-recorded in
-``verification-reports/AAASM-2985-sdk-transport-investigation.md``: the
-SDK speaks HTTP/REST, but the running gateway serves gRPC (the
-fixture's ``legacy-grpc`` mode) or an HTTP surface that does not mount
-the SDK's REST routes — and those routes live in ``aa-api``, a
-library-only crate with no binary. Until a REST front door exists,
-``register_agent()`` cannot succeed, so that test is marked ``xfail``
-(``strict=False``): it never produces a false green, and it will surface
-as ``XPASS`` the day the gap is closed — the signal to harden it.
+This builds and runs ``aa-gateway`` from core source (via the ``live_gateway``
+fixture) and drives the SDK's HTTP control-plane ``GatewayClient`` at it. It
+skips cleanly when the SDK or the build toolchain is unavailable.
+
+The registration step is wired honestly against the transport gap recorded in
+``verification-reports/AAASM-2985-sdk-transport-investigation.md``: the SDK's
+``GatewayClient`` speaks HTTP/REST, but the running gateway serves gRPC or an
+HTTP surface that does not mount the SDK's REST routes (those live in ``aa-api``,
+a library-only crate with no binary). So that test is marked ``xfail``
+(``strict=False``): it never produces a false green, and would surface as
+``XPASS`` the day a REST front door exists.
 """
 
 from __future__ import annotations

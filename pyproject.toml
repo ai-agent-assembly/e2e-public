@@ -27,7 +27,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Live-core tests build + run aa-gateway from source — opt in with `-m live`.
+# Live-core tests build + run aa-runtime / aa-gateway from source — opt in with `-m live`.
 addopts = "-m 'not live'"
 markers = [
     "runtime: Runtime CLI smoke tests",
@@ -35,7 +35,7 @@ markers = [
     "examples: Examples repo smoke tests",
     "conformance: Policy allow/deny conformance smoke tests",
     "release: Release artifact and registry install verification tests",
-    "live: Live-core tests that build and run aa-gateway from source",
+    "live: Live-core tests that build and run aa-runtime / aa-gateway from source",
 ]
 
 [tool.ruff]
