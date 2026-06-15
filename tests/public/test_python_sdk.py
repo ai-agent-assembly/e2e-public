@@ -2,10 +2,33 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
+
 from tests.public.conftest import skip_if_package_missing
 
 COMPONENT = "python-sdk"
+
+# The PyO3 native extension is published as a submodule of the package
+# (`module-name = "agent_assembly._core"` in python-sdk/pyproject.toml).
+NATIVE_MODULE = "agent_assembly._core"
+
+
+def _require_native_module() -> object:
+    """Import the compiled native extension or skip when it is absent.
+
+    The wheel ships in two flavours: pure-Python (no native ext) and
+    native-accelerated. Skip cleanly when the `_core` extension was not
+    built so the source/pure-Python install path stays green.
+    """
+    skip_if_package_missing("agent_assembly")
+    if importlib.util.find_spec(NATIVE_MODULE) is None:
+        pytest.skip(
+            f"[{COMPONENT}] native extension {NATIVE_MODULE!r} not built "
+            "(pure-Python install) — skipping native-binding check"
+        )
+    return importlib.import_module(NATIVE_MODULE)
 
 
 @pytest.mark.sdk
@@ -39,6 +62,48 @@ def test_python_sdk_public_exports() -> None:
 
     expected = ["init_assembly", "AssemblyContext", "AssemblyError"]
     missing = [name for name in expected if not hasattr(agent_assembly, name)]
-    assert not missing, (
-        f"[{COMPONENT}] Missing public exports: {missing}"
+    assert not missing, f"[{COMPONENT}] Missing public exports: {missing}"
+
+
+@pytest.mark.sdk
+def test_python_sdk_native_binding_loads() -> None:
+    """The compiled PyO3 `_core` extension loads from a platform binary.
+
+    Proves the install is native-accelerated, not merely pure-Python: the
+    extension module must originate from a compiled artifact (`.so`/`.pyd`),
+    and must expose its native-backed symbols.
+    """
+    core = _require_native_module()
+
+    origin = getattr(core, "__file__", None)
+    assert origin is not None and origin.endswith((".so", ".pyd", ".dylib")), (
+        f"[{COMPONENT}] {NATIVE_MODULE} did not load from a compiled extension; __file__={origin!r}"
     )
+
+    expected_symbols = ["RuntimeClient", "GovernanceEvent"]
+    missing = [name for name in expected_symbols if not hasattr(core, name)]
+    assert not missing, f"[{COMPONENT}] native extension loaded but missing symbols: {missing}"
+
+
+@pytest.mark.sdk
+def test_python_sdk_functional_install() -> None:
+    """Core public API is actually usable, not just attribute-present.
+
+    A functional install must expose a callable initializer and a usable
+    exception hierarchy — beyond mere `hasattr` presence checks.
+    """
+    skip_if_package_missing("agent_assembly")
+    import agent_assembly
+
+    assert callable(agent_assembly.init_assembly), (
+        f"[{COMPONENT}] init_assembly is not callable: {agent_assembly.init_assembly!r}"
+    )
+
+    error_cls = agent_assembly.AssemblyError
+    assert isinstance(error_cls, type) and issubclass(error_cls, Exception), (
+        f"[{COMPONENT}] AssemblyError is not an exception class: {error_cls!r}"
+    )
+
+    # The exception must be raisable and catchable as a real exception.
+    with pytest.raises(agent_assembly.AssemblyError):
+        raise agent_assembly.AssemblyError("functional install probe")
