@@ -175,3 +175,28 @@ def test_disabled_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
         )
     finally:
         context.shutdown()
+
+
+@pytest.mark.sdk
+def test_explicit_policy_rpc_is_transport_not_failopen(no_gateway_env: str) -> None:
+    """Document the boundary: the per-action RPC is transport, not fail-open.
+
+    Fail-open lives at the ``init_assembly`` boundary (the three tests above),
+    **not** in the explicit ``check_policy_compliance`` RPC. Against a dead
+    gateway that call raises ``GatewayError`` — a transport failure, not a
+    governance allow. We assert that honestly rather than pretending the RPC
+    returns an allow, so this file never fabricates a fail-open it cannot show.
+    """
+    _require_sdk()
+
+    import asyncio  # noqa: PLC0415 — local to keep import surface minimal
+
+    from agent_assembly.client.gateway import GatewayClient  # noqa: PLC0415 — optional dep
+    from agent_assembly.exceptions import GatewayError  # noqa: PLC0415 — optional dep
+
+    client = GatewayClient(gateway_url=no_gateway_env, agent_id="failopen-rpc-probe")
+    try:
+        with pytest.raises(GatewayError):
+            asyncio.run(client.check_policy_compliance("tool.call"))
+    finally:
+        client.close()
