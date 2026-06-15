@@ -91,6 +91,20 @@ runnable gateway binary. Closing the gap would require either:
 Faking a passing registration (e.g. stubbing an HTTP server in the test) was
 explicitly disallowed and would hide the gap, so I did not.
 
+### Empirical confirmation
+
+Installing the real Python SDK from `../python-sdk` and running the live smoke
+test against the running fixture gateway reproduces the gap concretely:
+
+- `test_sdk_can_reach_live_gateway` — **PASSED**: the real SDK `GatewayClient`
+  is configured at `http://127.0.0.1:<port>` and the gateway accepts the TCP
+  connection.
+- `test_sdk_registers_agent_against_live_gateway` — **XFAIL**: the SDK's HTTP/1.1
+  `POST /agents/{id}/register` against the gRPC (HTTP/2) listener fails with
+  `httpcore.RemoteProtocolError: illegal request line` (wrapped by the SDK as
+  `GatewayError`). The gRPC server rejects the HTTP/1.1 request line — a direct,
+  observable symptom of the transport mismatch, not a contrived failure.
+
 ## What this story delivers
 
 1. This investigation note (the documented gap).
