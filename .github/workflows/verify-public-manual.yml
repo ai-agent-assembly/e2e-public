@@ -45,9 +45,7 @@ on:
         required: false
         default: "master"
 
-permissions:
-  contents: read
-  issues: write
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -57,6 +55,8 @@ jobs:
   setup:
     name: Resolve test areas
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       areas: ${{ steps.select.outputs.areas }}
     steps:
@@ -79,6 +79,9 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
     # Shared by the run + summarize steps so the failure summary reads the report.
     env:
       PYTEST_JSON: /tmp/pytest-report-${{ matrix.area }}.json
