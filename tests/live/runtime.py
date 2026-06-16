@@ -61,7 +61,14 @@ class LiveRuntime:
     def __init__(self, binary: Path, *, agent_id: str | None = None) -> None:
         self._binary = Path(binary)
         self._agent_id = agent_id or unique_agent_id()
-        self._socket_path = Path(f"/tmp/aa-runtime-{self._agent_id}.sock")
+        # The aa-runtime binary hardcodes its IPC socket location to
+        # ``/tmp/aa-runtime-<agent_id>.sock`` (see aa-runtime/src/ipc/server.rs:34).
+        # This test harness must mirror that exact path to connect to the
+        # spawned runtime; we cannot redirect it to a per-test private tempdir
+        # without modifying the runtime binary itself. The path is collision-
+        # resistant via the per-test unique agent id (see ``unique_agent_id``),
+        # which mitigates the publicly-writable-directory risk that S5443 flags.
+        self._socket_path = Path(f"/tmp/aa-runtime-{self._agent_id}.sock")  # NOSONAR S5443 — path dictated by aa-runtime contract
         self._metrics_port = free_metrics_port()
         self._proc: subprocess.Popen[bytes] | None = None
         self._home: tempfile.TemporaryDirectory[str] | None = None
