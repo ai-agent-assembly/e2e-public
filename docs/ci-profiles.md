@@ -100,3 +100,29 @@ uv run pytest -m release   # with AASM_RELEASE_VERSION set
 # dashboard (needs Playwright Chromium)
 uv run aasm-verify public --mode latest --area examples
 ```
+
+### Installing the browser path (Playwright)
+
+Playwright is **not** a default dependency — a plain `uv sync` stays browser-free, so
+the dashboard browser smoke (`tests/dashboard/test_browser_smoke.py`, AAASM-3154 AC3)
+and the `examples` screenshot checks skip-guard cleanly on its absence (AAASM-3146).
+Install it on demand via the `browser` optional extra, then fetch the Chromium binary:
+
+```bash
+uv sync --extra browser          # installs playwright into the env
+playwright install chromium      # downloads the headless Chromium binary
+```
+
+Once both are present, `aasm-verify doctor` flips its `browser` capability from `WARN`
+(`playwright package not importable`) to `PASS`, and the opt-in browser smoke is
+runnable — set its own opt-in toggle and run it:
+
+```bash
+AASM_RUN_DASHBOARD=1 uv run pytest tests/dashboard/test_browser_smoke.py -v
+```
+
+The smoke layers prerequisites in order (opt-in `AASM_RUN_DASHBOARD=1` → dashboard
+checkout + pnpm/node toolchain → bindable loopback port → Playwright); any missing
+prerequisite yields a justified skip rather than a failure. In a supported environment
+headless Chromium launches fine once the extra and `playwright install chromium` are in
+place.

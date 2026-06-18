@@ -11,6 +11,14 @@ license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.optional-dependencies]
+# Opt-in extra for the dashboard browser smoke (AAASM-3154 AC3): installs
+# Playwright so `tests/dashboard/test_browser_smoke.py` can launch headless
+# Chromium. Not a default dependency — a plain `uv sync` stays browser-free and
+# the smoke skip-guards on its absence (AAASM-3146). After installing, run
+# `playwright install chromium` to fetch the browser binary.
+browser = ["playwright>=1.50"]
+
 [project.scripts]
 aasm-verify = "aasm_verify.cli:main"
 
