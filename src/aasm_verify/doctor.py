@@ -439,3 +439,97 @@ def area_statuses(checks: list[CheckResult]) -> dict[str, Status]:
             if area in by_area:
                 by_area[area].append(check.status)
     return {area: worst(statuses) for area, statuses in by_area.items()}
+
+
+def run_all_checks() -> list[CheckResult]:
+    """Run every capability probe and return the flat list of results.
+
+    Probe order is deterministic (tools, bind, network, caches, browser) so text
+    and JSON output is stable across runs and machines.
+    """
+    checks: list[CheckResult] = []
+    checks.extend(check_tools())
+    checks.append(check_localhost_bind())
+    checks.append(check_network())
+    checks.extend(check_caches())
+    checks.append(check_browser())
+    return checks
+
+
+@dataclass
+class DoctorReport:
+    """Full preflight report: the capability checks plus per-area rollup.
+
+    Attributes:
+        checks: Every capability :class:`CheckResult`, in probe order.
+        areas: Per-area aggregated :class:`Status` (worst gating capability).
+        overall: The single worst status across all areas — the CI exit signal.
+    """
+
+    checks: list[CheckResult]
+    areas: dict[str, Status]
+    overall: Status
+
+    @classmethod
+    def build(cls) -> DoctorReport:
+        """Run all probes and assemble the report."""
+        checks = run_all_checks()
+        areas = area_statuses(checks)
+        overall = worst(list(areas.values()))
+        return cls(checks=checks, areas=areas, overall=overall)
+
+    def recommended_env(self) -> dict[str, str]:
+        """Merge every check's recommended env vars into one mapping."""
+        merged: dict[str, str] = {}
+        for check in self.checks:
+            merged.update(check.recommend_env)
+        return merged
+
+    def as_dict(self) -> dict[str, object]:
+        """Render the report as a JSON-serializable structure for CI."""
+        return {
+            "overall": self.overall.value,
+            "areas": {area: status.value for area, status in self.areas.items()},
+            "checks": [check.as_dict() for check in self.checks],
+            "recommended_env": self.recommended_env(),
+        }
+
+
+# ASCII glyphs (not unicode) so the report is safe in any CI log encoding.
+_GLYPH: dict[Status, str] = {
+    Status.PASS: "[PASS]",
+    Status.WARN: "[WARN]",
+    Status.FAIL: "[FAIL]",
+}
+
+
+def render_text(report: DoctorReport) -> str:
+    """Render a human-readable pass/warn/fail report for a terminal or CI log."""
+    lines: list[str] = ["Environment preflight (aasm-verify doctor)", ""]
+
+    lines.append("Capabilities:")
+    for check in report.checks:
+        lines.append(f"  {_GLYPH[check.status]} {check.name}: {check.detail}")
+
+    lines.append("")
+    lines.append("Areas:")
+    for area in AREAS:
+        status = report.areas[area]
+        lines.append(f"  {_GLYPH[status]} {area}")
+
+    recommended = report.recommended_env()
+    if recommended:
+        lines.append("")
+        lines.append("Recommended environment variables:")
+        for key, value in sorted(recommended.items()):
+            lines.append(f"  export {key}={value}")
+
+    lines.append("")
+    lines.append(f"Overall: {_GLYPH[report.overall]} {report.overall.value}")
+    return "\n".join(lines)
+
+
+# A FAIL in any area is the only outcome that blocks the run; WARN is advisory.
+def exit_code(report: DoctorReport) -> int:
+    """Map the overall status to a CLI exit code (0 unless an area is ``FAIL``)."""
+    return 1 if report.overall is Status.FAIL else 0
