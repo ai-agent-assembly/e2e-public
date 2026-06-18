@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from aasm_verify import bundle
 from aasm_verify.bundle import EvidenceBundle, collect_env
+from aasm_verify.pathsafe import PathTraversalError
 from aasm_verify.reports import Suite, Summary
 
 # A run env carrying a deliberately-named fake secret. Every bundle file is
@@ -147,3 +150,38 @@ def test_allow_list_has_no_sensitive_keys() -> None:
     # The static allow-list itself must not name a credential-bearing key (AC5).
     leaks = [k for k in bundle.ENV_ALLOW_LIST if bundle._key_is_sensitive(k)]
     assert leaks == []
+
+
+class _TraversalName:
+    """A screenshot file whose ``.name`` is a traversal escape, not a basename.
+
+    Stands in for a real screenshot entry to prove the bundle routes each
+    per-file destination through ``safe_path``: a name that climbs out of the
+    bundle's ``screenshots/`` dir must be rejected, never copied (S8707).
+    """
+
+    suffix = ".png"
+    name = "../../escape.png"
+
+    @staticmethod
+    def is_file() -> bool:
+        return True
+
+
+class _TraversalSourceDir:
+    """A screenshot source dir yielding a single traversal-named file."""
+
+    @staticmethod
+    def is_dir() -> bool:
+        return True
+
+    @staticmethod
+    def rglob(_pattern: str) -> list[_TraversalName]:
+        return [_TraversalName()]
+
+
+def test_screenshot_traversal_name_is_rejected(tmp_path: Path) -> None:
+    # A copy whose destination name would escape screenshots/ must raise rather
+    # than write outside the bundle — the contract safe_path enforces (S8707).
+    with pytest.raises(PathTraversalError):
+        _bundle(tmp_path, screenshot_dirs=[_TraversalSourceDir()])
