@@ -25,10 +25,16 @@ report generators — no secrets or internal endpoints are echoed (AC5).
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
 import subprocess
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from aasm_verify import reports
+from aasm_verify.reports import Summary
 
 # Environment keys copied verbatim into ``env.json``. The list is an ALLOW-LIST,
 # not a deny-list: anything not named here is dropped, so a newly-introduced
@@ -127,3 +133,90 @@ def collect_env(env: dict[str, str] | None = None) -> dict[str, object]:
         "tools": tools,
         "ci_env": ci_env,
     }
+
+
+# Image suffixes copied into ``screenshots/`` when browser tests produced them.
+_SCREENSHOT_SUFFIXES: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".webp"})
+
+
+@dataclass
+class EvidenceBundle:
+    """One production-validation run, assembled into a QA-review folder.
+
+    Construct from a :class:`aasm_verify.reports.Summary` plus the run's
+    reproduction inputs (commands, CI links, the raw pytest JSON, optional
+    screenshots) and call :meth:`write` to materialize the folder. The same
+    object serves local and CI runs (AC1) — the caller supplies whatever context
+    it has; everything is optional except the summary.
+    """
+
+    summary: Summary
+    commands: list[str] = field(default_factory=list)
+    ci_links: list[str] = field(default_factory=list)
+    pytest_json_path: Path | None = None
+    screenshot_dirs: list[Path] = field(default_factory=list)
+    env: dict[str, str] | None = None
+
+    def jira_summary(self) -> str:
+        """Return the Jira-ready evidence text (AC3), reusing the report writer."""
+        return reports.render_jira_report(self.summary)
+
+    def _copy_pytest_json(self, dest_dir: Path) -> bool:
+        """Copy the raw pytest JSON into the bundle; tolerate a missing source."""
+        src = self.pytest_json_path
+        if src is None or not src.is_file():
+            return False
+        shutil.copyfile(src, dest_dir / "pytest-report.json")
+        return True
+
+    def _copy_screenshots(self, dest_dir: Path) -> list[str]:
+        """Best-effort copy of any browser-test screenshots (AC4).
+
+        Returns the relative paths copied. Missing source dirs and the
+        no-browser-tests case both yield an empty list — absence is tolerated,
+        never an error.
+        """
+        copied: list[str] = []
+        shots_dir = dest_dir / "screenshots"
+        for src_dir in self.screenshot_dirs:
+            if not src_dir.is_dir():
+                continue
+            for path in sorted(src_dir.rglob("*")):
+                if path.is_file() and path.suffix.lower() in _SCREENSHOT_SUFFIXES:
+                    shots_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(path, shots_dir / path.name)
+                    copied.append(f"screenshots/{path.name}")
+        return copied
+
+    def write(self, outdir: str | Path) -> Path:
+        """Materialize the bundle under *outdir* and return its path.
+
+        Writes ``summary.md``, ``report.json``, ``env.json``, ``commands.txt``,
+        ``ci-links.txt``, ``jira-summary.txt``, the raw ``pytest-report.json``
+        (when available), and ``screenshots/`` (when present). The folder is
+        created if missing. Every file is built from normalized data or the
+        sanitized env snapshot, so the bundle carries no secrets (AC5).
+        """
+        out = Path(outdir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        reports.write_report_md(str(out / "summary.md"), self.summary)
+        reports.write_summary_json(str(out / "report.json"), self.summary)
+
+        env_snapshot = collect_env(self.env)
+        (out / "env.json").write_text(
+            json.dumps(env_snapshot, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+        )
+
+        (out / "commands.txt").write_text(
+            "".join(f"{line}\n" for line in self.commands), encoding="utf-8"
+        )
+        (out / "ci-links.txt").write_text(
+            "".join(f"{link}\n" for link in self.ci_links), encoding="utf-8"
+        )
+        (out / "jira-summary.txt").write_text(self.jira_summary(), encoding="utf-8")
+
+        self._copy_pytest_json(out)
+        self._copy_screenshots(out)
+        return out
