@@ -1,0 +1,32 @@
+{
+  "_comment": "Offline snapshot of the GitHub Release asset list shape for the agent-assembly v0.0.1-beta.2 release. Trimmed to the fields the integrity/metadata tests consume (name, browser_download_url). Lets the asset-list validation and evidence-table logic run with no network. Refresh by re-recording from the GitHub Releases API when the published asset set changes.",
+  "tag_name": "v0.0.1-beta.2",
+  "draft": false,
+  "prerelease": true,
+  "assets": [
+    {
+      "name": "aasm-aarch64-apple-darwin.tar.gz",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/aasm-aarch64-apple-darwin.tar.gz"
+    },
+    {
+      "name": "aasm-aarch64-unknown-linux-gnu.tar.gz",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/aasm-aarch64-unknown-linux-gnu.tar.gz"
+    },
+    {
+      "name": "aasm-x86_64-apple-darwin.tar.gz",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/aasm-x86_64-apple-darwin.tar.gz"
+    },
+    {
+      "name": "aasm-x86_64-unknown-linux-gnu.tar.gz",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/aasm-x86_64-unknown-linux-gnu.tar.gz"
+    },
+    {
+      "name": "SHA256SUMS",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/SHA256SUMS"
+    },
+    {
+      "name": "SHA256SUMS.cosign.bundle",
+      "browser_download_url": "https://github.com/ai-agent-assembly/agent-assembly/releases/download/v0.0.1-beta.2/SHA256SUMS.cosign.bundle"
+    }
+  ]
+}
