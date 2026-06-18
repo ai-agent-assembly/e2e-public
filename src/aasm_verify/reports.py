@@ -101,6 +101,8 @@ class Summary:
     area_counts: dict[str, dict[str, int]] = field(default_factory=dict)
     # Skipped tests whose reason names no env requirement or Jira ref.
     unjustified_skips: list[dict] = field(default_factory=list)
+    # Nodeids of failed/errored tests, for the Jira-ready evidence report.
+    failed_tests: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.run_type not in RUN_TYPES:
@@ -149,6 +151,7 @@ class Summary:
         data["counts"] = self.counts
         data["area_counts"] = {area: dict(buckets) for area, buckets in self.area_counts.items()}
         data["unjustified_skips"] = [dict(s) for s in self.unjustified_skips]
+        data["failed_tests"] = list(self.failed_tests)
         return data
 
 
@@ -175,10 +178,9 @@ def summary_from_dict(data: dict) -> Summary:
         suites=suites,
         report_type=data.get("report_type", REPORT_TYPE),
         source_repo=data.get("source_repo", SOURCE_REPO),
-        area_counts={
-            area: dict(buckets) for area, buckets in data.get("area_counts", {}).items()
-        },
+        area_counts={area: dict(buckets) for area, buckets in data.get("area_counts", {}).items()},
         unjustified_skips=[dict(s) for s in data.get("unjustified_skips", [])],
+        failed_tests=list(data.get("failed_tests", [])),
     )
 
 
@@ -339,6 +341,123 @@ def write_report_md(path: str, summary: Summary) -> None:
         fh.write(render_report_md(summary))
 
 
+def render_jira_report(summary: Summary) -> str:
+    """Render a Jira-ready evidence report for an internal ticket/comment.
+
+    This is the internal-workflow companion to ``report.md`` (the published
+    public-integration artifact) and the GitHub-issue failure path
+    (``scripts/report-failure.sh``). It mirrors ``docs/evidence-template.md``
+    and includes the commands, refs, environment, per-area counts, failed-test
+    names, and the skip audit. Like every generator here it is built only from
+    normalized data, so no secrets or internal endpoints are echoed.
+    """
+    refs = ", ".join(summary.tested_refs) or "n/a"
+    verdict = {
+        "pass": "✅ PASS — verification complete",
+        "partial": "⚠️ PARTIAL — some areas failed",
+        "fail": "❌ FAIL — blocking failures",
+    }.get(summary.result, summary.result)
+
+    parts: list[str] = []
+    parts.append(f"h2. Verification Evidence — {summary.date}")
+    parts.append("")
+    parts.append(f"*Verdict:* {verdict}")
+    parts.append(f"*Trigger:* {summary.run_type}")
+    if summary.related_issue:
+        parts.append(f"*Related issue:* {summary.related_issue}")
+    parts.append("")
+
+    parts.append("h3. Refs under test")
+    parts.append("")
+    for ref in summary.tested_refs:
+        parts.append(f"* {ref}")
+    if not summary.tested_refs:
+        parts.append("* n/a")
+    parts.append("")
+
+    parts.append("h3. Environment")
+    parts.append("")
+    parts.append(f"* Source repo: {summary.source_repo}")
+    parts.append(f"* Run URL: {summary.workflow_run_url or 'n/a'}")
+    parts.append(f"* Retention: {summary.retain}")
+    parts.append("")
+
+    parts.append("h3. Commands")
+    parts.append("")
+    parts.append("{code}")
+    parts.append("# verify the public stack at the refs above")
+    parts.append("bash scripts/verify-public-stack.sh")
+    parts.append("# regenerate this report from the pytest JSON")
+    parts.append(
+        "aasm-verify report --pytest-json report.json --summary summary.json "
+        "--out report.md --jira jira-report.md --strict"
+    )
+    parts.append("{code}")
+    parts.append("")
+
+    parts.extend(_jira_area_counts(summary))
+    parts.extend(_jira_failures(summary, refs))
+    parts.extend(_jira_skip_audit(summary))
+    return "\n".join(parts)
+
+
+def _jira_area_counts(summary: Summary) -> list[str]:
+    """Per-area counts as a Jira table (empty when no counts are present)."""
+    if not summary.area_counts:
+        return []
+    lines = ["h3. Counts by area", ""]
+    lines.append(
+        "|| Area || Passed || Failed || Skipped || Unexpected skip || xfailed || xpassed ||"
+    )
+    for area in sorted(summary.area_counts):
+        b = summary.area_counts[area]
+        lines.append(
+            f"| {area} | {b.get('passed', 0)} | {b.get('failed', 0)} | "
+            f"{b.get('skipped', 0)} | {b.get('unexpected_skipped', 0)} | "
+            f"{b.get('xfailed', 0)} | {b.get('xpassed', 0)} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _jira_failures(summary: Summary, refs: str) -> list[str]:
+    """Failed-test names section for the Jira report."""
+    lines = ["h3. Failures", ""]
+    if not summary.failed_tests:
+        lines.append("None — no failed or errored tests.")
+        lines.append("")
+        return lines
+    lines.append(f"{len(summary.failed_tests)} failing test(s) against {refs}:")
+    for nodeid in summary.failed_tests:
+        lines.append(f"* {{{{{nodeid}}}}}")
+    lines.append("")
+    return lines
+
+
+def _jira_skip_audit(summary: Summary) -> list[str]:
+    """Skip-audit section for the Jira report."""
+    lines = ["h3. Skip audit", ""]
+    if not summary.unjustified_skips:
+        lines.append("All skips are justified (env requirement or linked Jira issue).")
+        lines.append("")
+        return lines
+    lines.append(
+        f"{len(summary.unjustified_skips)} un-justified skip(s) — strict mode "
+        f"(_{skip_audit.STRICT_ENV_VAR}=1_) fails the run on these:"
+    )
+    for s in summary.unjustified_skips:
+        reason = s.get("reason") or "<no reason given>"
+        lines.append(f"* {{{{{s.get('nodeid', '')}}}}} — {reason}")
+    lines.append("")
+    return lines
+
+
+def write_jira_report(path: str, summary: Summary) -> None:
+    """Write the Jira-ready evidence report deterministically."""
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(render_jira_report(summary))
+
+
 def _suite_name_from_nodeid(nodeid: str) -> str:
     """Derive a stable suite name from a pytest nodeid (file stem, no params)."""
     head = nodeid.split("::", 1)[0]
@@ -444,6 +563,15 @@ def area_counts_from_pytest(data: dict) -> dict[str, dict[str, int]]:
     return counts
 
 
+def _failed_tests_from_pytest(data: dict) -> list[str]:
+    """Return the nodeids of failed/errored tests, in file order."""
+    return [
+        test.get("nodeid", "")
+        for test in data.get("tests", [])
+        if test.get("outcome") in ("failed", "error")
+    ]
+
+
 def summary_from_pytest_json(
     data: dict,
     *,
@@ -477,4 +605,5 @@ def summary_from_pytest_json(
         suites=suites,
         area_counts=area_counts_from_pytest(data),
         unjustified_skips=[s.as_dict() for s in skip_audit.find_unjustified_skips(data)],
+        failed_tests=_failed_tests_from_pytest(data),
     )
