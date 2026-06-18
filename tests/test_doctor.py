@@ -132,3 +132,37 @@ def test_check_cache_not_writable_warns_with_env_recommendation(monkeypatch) -> 
     assert result.status is Status.WARN
     assert "GOCACHE" in result.recommend_env
     assert result.recommend_env["GOCACHE"].endswith("aasm-go-cache")
+
+
+def test_check_browser_no_playwright_warns(monkeypatch) -> None:
+    monkeypatch.setattr(doctor.importlib.util, "find_spec", lambda _: None)
+
+    result = doctor.check_browser()
+
+    assert result.status is Status.WARN
+    assert result.areas == ("examples",)
+    assert "playwright" in result.detail.lower()
+
+
+def test_check_browser_present_with_chromium_passes(tmp_path, monkeypatch) -> None:
+    browsers = tmp_path / "ms-playwright"
+    (browsers / "chromium-1187").mkdir(parents=True)
+    monkeypatch.setattr(doctor.importlib.util, "find_spec", lambda _: object())
+    monkeypatch.setattr(doctor, "_playwright_browsers_dir", lambda: browsers)
+
+    result = doctor.check_browser()
+
+    assert result.status is Status.PASS
+    assert "chromium" in result.detail.lower()
+
+
+def test_check_browser_present_without_chromium_warns(tmp_path, monkeypatch) -> None:
+    browsers = tmp_path / "ms-playwright"
+    browsers.mkdir()
+    monkeypatch.setattr(doctor.importlib.util, "find_spec", lambda _: object())
+    monkeypatch.setattr(doctor, "_playwright_browsers_dir", lambda: browsers)
+
+    result = doctor.check_browser()
+
+    assert result.status is Status.WARN
+    assert "Chromium" in result.detail
