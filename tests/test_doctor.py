@@ -201,17 +201,22 @@ def test_exit_code_zero_unless_fail() -> None:
 
 
 def test_report_recommended_env_merges_checks() -> None:
+    # Opaque cache-dir placeholders: this test only checks that recommend_env
+    # values merge across checks, so the strings need not be real paths — and
+    # must not be world-writable /tmp paths (S5443).
+    go_cache = "<gocache>"
+    uv_cache = "<uvcache>"
     checks = [
         doctor.CheckResult(
-            "cache:go", Status.WARN, areas=("sdk",), recommend_env={"GOCACHE": "/tmp/go"}
+            "cache:go", Status.WARN, areas=("sdk",), recommend_env={"GOCACHE": go_cache}
         ),
         doctor.CheckResult(
-            "cache:uv", Status.WARN, areas=("sdk",), recommend_env={"UV_CACHE_DIR": "/tmp/uv"}
+            "cache:uv", Status.WARN, areas=("sdk",), recommend_env={"UV_CACHE_DIR": uv_cache}
         ),
     ]
     report = _report_with(checks)
 
-    assert report.recommended_env() == {"GOCACHE": "/tmp/go", "UV_CACHE_DIR": "/tmp/uv"}
+    assert report.recommended_env() == {"GOCACHE": go_cache, "UV_CACHE_DIR": uv_cache}
 
 
 def test_render_text_includes_glyphs_and_overall() -> None:
