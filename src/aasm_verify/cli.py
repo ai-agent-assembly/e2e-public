@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-from aasm_verify import reports, runners
+from aasm_verify import doctor, reports, runners
 from aasm_verify.refs import ResolvedRefs, resolve_refs
 
 
@@ -110,6 +110,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument("--related-issue", default=None, metavar="ISSUE")
     report.add_argument("--scope", default="", metavar="TEXT")
+
+    doctor_cmd = sub.add_parser(
+        "doctor",
+        help="Preflight: check whether this machine can run each validation area.",
+    )
+    doctor_cmd.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the machine-readable report as JSON (for a CI summary).",
+    )
     return parser
 
 
@@ -194,6 +204,20 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Run the 'doctor' subcommand: preflight the environment by area.
+
+    Exit code is ``1`` only when an area is FAIL (a required capability is
+    missing); WARN is advisory and exits ``0``.
+    """
+    report = doctor.DoctorReport.build()
+    if args.json:
+        print(json.dumps(report.as_dict(), indent=2))
+    else:
+        print(doctor.render_text(report))
+    return doctor.exit_code(report)
+
+
 def _today_utc() -> str:
     """Return today's UTC date as ISO-8601 ``YYYY-MM-DD``."""
     from datetime import UTC, datetime
@@ -208,6 +232,8 @@ def main() -> None:
         sys.exit(cmd_public(args))
     if args.command == "report":
         sys.exit(cmd_report(args))
+    if args.command == "doctor":
+        sys.exit(cmd_doctor(args))
 
 
 if __name__ == "__main__":
