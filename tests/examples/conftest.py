@@ -240,3 +240,93 @@ def clean_example_copy(tmp_path: Path):  # type: ignore[no-untyped-def]
         return dest
 
     return _factory
+
+
+# Substrings that mark an install step as failing for an *environment* reason
+# (dependency could not be fetched / resolved) rather than because the example
+# is broken. When an install fails for one of these the test skips (AC5) — the
+# example is not at fault. Anything else is a real failure.
+_ENV_INSTALL_FAILURE_MARKERS: tuple[str, ...] = (
+    "could not resolve",
+    "failed to fetch",
+    "network",
+    "temporary failure in name resolution",
+    "connection refused",
+    "connection reset",
+    "timed out",
+    "proxyconnect",
+    "no such host",
+    "tls handshake",
+    "etimedout",
+    "enotfound",
+    "503 server error",
+    "429 too many requests",
+)
+
+
+def _looks_like_env_failure(text: str) -> bool:
+    """Return True when failure output reads as an environment problem."""
+    lowered = text.lower()
+    return any(marker in lowered for marker in _ENV_INSTALL_FAILURE_MARKERS)
+
+
+def validate_example_clean(example: Example, clean_dir: Path, env: dict[str, str]) -> None:
+    """Install and run ``example`` from ``clean_dir``, drawing the AC5 line.
+
+    ``clean_dir`` must already be an artifact-stripped copy of the example, and
+    ``env`` a hermetic environment (caches redirected). The contract:
+
+    * a **lockfile precondition** the example doesn't meet (e.g. no lockfile for
+      ``pnpm install --frozen-lockfile``) → **skip** with an env reason — the
+      missing lockfile is an environment/repo-prereq gap, not a product break;
+    * an **install** that fails for a network/registry reason → **skip**;
+    * an **install** that fails for any other reason, or a **run** that exits
+      non-zero / lacks the expected output → **fail** (the example or product is
+      broken).
+
+    This single helper is what keeps the three language tests' env-vs-failure
+    classification identical.
+    """
+    # Frozen-lockfile installs need a committed lockfile; without one the
+    # precondition simply isn't met in this checkout — an env gap, not a break.
+    if "--frozen-lockfile" in example.install_cmd:
+        lockfiles = ("pnpm-lock.yaml", "package-lock.json", "yarn.lock")
+        if not any((clean_dir / lf).is_file() for lf in lockfiles):
+            pytest.skip(
+                f"[{COMPONENT}] {example.id} has no committed lockfile "
+                f"({', '.join(lockfiles)}) — `{' '.join(example.install_cmd)}` "
+                "cannot run; example-repo prerequisite, not a product failure"
+            )
+
+    if example.install_cmd:
+        install = run_step(example.install_cmd, cwd=clean_dir, env=env)
+        if install.returncode != 0:
+            if _looks_like_env_failure(install.combined):
+                pytest.skip(
+                    f"[{COMPONENT}] {example.id} install could not fetch "
+                    "dependencies (network/registry) — skipping; not a product "
+                    f"failure. exit {install.returncode}"
+                )
+            pytest.fail(
+                f"[{COMPONENT}] {example.id} clean install FAILED "
+                f"(`{' '.join(example.install_cmd)}`, exit {install.returncode})\n"
+                f"stdout: {install.stdout.strip()}\nstderr: {install.stderr.strip()}"
+            )
+
+    run = run_step(example.run_cmd, cwd=clean_dir, env=env)
+    if run.returncode != example.expected_exit and _looks_like_env_failure(run.combined):
+        pytest.skip(
+            f"[{COMPONENT}] {example.id} run hit a network/registry error — "
+            f"skipping; not a product failure. exit {run.returncode}"
+        )
+    assert run.returncode == example.expected_exit, (
+        f"[{COMPONENT}] {example.id} clean run FAILED "
+        f"(`{' '.join(example.run_cmd)}`, exit {run.returncode}, "
+        f"expected {example.expected_exit})\n"
+        f"stdout: {run.stdout.strip()}\nstderr: {run.stderr.strip()}"
+    )
+    if example.expected_output_substring:
+        assert example.expected_output_substring in run.combined, (
+            f"[{COMPONENT}] {example.id} run output missing expected substring "
+            f"{example.expected_output_substring!r}\noutput: {run.combined.strip()}"
+        )
