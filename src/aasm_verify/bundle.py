@@ -88,7 +88,8 @@ def _tool_version(executable: str, *args: str) -> str | None:
     if shutil.which(executable) is None:
         return None
     try:
-        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        # Fixed argv, no shell — safe to run as-is.
+        proc = subprocess.run(  # noqa: S603
             [executable, *args],
             capture_output=True,
             text=True,
