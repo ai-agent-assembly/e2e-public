@@ -1,0 +1,161 @@
+{
+  "_comment": [
+    "Protocol verdict-resolution conformance vectors for AAASM-3158.",
+    "Each case names a policy (a versioned rule set), an action/resource request,",
+    "and the expected decision the Agent Assembly policy contract must return.",
+    "Resolution contract under test: rules are evaluated highest-priority-first;",
+    "the first rule whose action AND resource glob both match decides the verdict;",
+    "if no rule matches, the request is denied (fail-closed default-deny).",
+    "Glob semantics: '*' matches one or more path segments; a literal must match exactly.",
+    "This validates observable protocol behavior, not any product-internal parser."
+  ],
+  "cases": [
+    {
+      "id": "allow-all-catch-all",
+      "description": "Catch-all allow rule permits an arbitrary action.",
+      "policy": {
+        "version": "1",
+        "name": "allow-all",
+        "rules": [
+          {"id": "allow-all", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.read_file", "resource": "/etc/hosts"},
+      "expected": "allow"
+    },
+    {
+      "id": "deny-overrides-allow-by-priority",
+      "description": "A higher-priority deny rule wins over a lower-priority catch-all allow.",
+      "policy": {
+        "version": "1",
+        "name": "allow-deny-basic",
+        "rules": [
+          {"id": "deny-restricted", "effect": "deny", "priority": 10,
+           "match": {"action": "test.restricted", "resource": "*"}},
+          {"id": "allow-all", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "test.restricted", "resource": "anything"},
+      "expected": "deny"
+    },
+    {
+      "id": "allow-falls-through-when-deny-does-not-match",
+      "description": "When the deny rule's action does not match, the catch-all allow applies.",
+      "policy": {
+        "version": "1",
+        "name": "allow-deny-basic",
+        "rules": [
+          {"id": "deny-restricted", "effect": "deny", "priority": 10,
+           "match": {"action": "test.restricted", "resource": "*"}},
+          {"id": "allow-all", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "test.allowed", "resource": "anything"},
+      "expected": "allow"
+    },
+    {
+      "id": "network-prefix-glob-denies",
+      "description": "A 'network.*' deny rule blocks any network-prefixed action.",
+      "policy": {
+        "version": "1",
+        "name": "deny-network",
+        "rules": [
+          {"id": "deny-network", "effect": "deny", "priority": 10,
+           "match": {"action": "network.*", "resource": "*"}},
+          {"id": "allow-rest", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "network.connect", "resource": "203.0.113.5:443"},
+      "expected": "deny"
+    },
+    {
+      "id": "network-prefix-glob-allows-non-network",
+      "description": "The same 'network.*' policy allows a non-network action.",
+      "policy": {
+        "version": "1",
+        "name": "deny-network",
+        "rules": [
+          {"id": "deny-network", "effect": "deny", "priority": 10,
+           "match": {"action": "network.*", "resource": "*"}},
+          {"id": "allow-rest", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.read_file", "resource": "/tmp/data"},
+      "expected": "allow"
+    },
+    {
+      "id": "resource-scoped-deny",
+      "description": "Deny is scoped by resource glob: a secret path is denied, others fall through to allow.",
+      "policy": {
+        "version": "1",
+        "name": "deny-secret-resource",
+        "rules": [
+          {"id": "deny-secrets", "effect": "deny", "priority": 10,
+           "match": {"action": "tool.read_file", "resource": "/secrets/*"}},
+          {"id": "allow-all", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.read_file", "resource": "/secrets/api_key"},
+      "expected": "deny"
+    },
+    {
+      "id": "resource-scoped-deny-falls-through",
+      "description": "Same resource-scoped deny allows a non-secret resource.",
+      "policy": {
+        "version": "1",
+        "name": "deny-secret-resource",
+        "rules": [
+          {"id": "deny-secrets", "effect": "deny", "priority": 10,
+           "match": {"action": "tool.read_file", "resource": "/secrets/*"}},
+          {"id": "allow-all", "effect": "allow", "priority": 0,
+           "match": {"action": "*", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.read_file", "resource": "/tmp/data"},
+      "expected": "allow"
+    },
+    {
+      "id": "no-matching-rule-fails-closed",
+      "description": "Default-deny: a request matching no rule is denied (fail-closed contract).",
+      "policy": {
+        "version": "1",
+        "name": "narrow-allow",
+        "rules": [
+          {"id": "allow-read-only", "effect": "allow", "priority": 0,
+           "match": {"action": "tool.read_file", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.write_file", "resource": "/tmp/data"},
+      "expected": "deny"
+    },
+    {
+      "id": "empty-rule-set-fails-closed",
+      "description": "A policy with no rules denies everything (fail-closed contract).",
+      "policy": {"version": "1", "name": "empty", "rules": []},
+      "request": {"action": "tool.read_file", "resource": "/tmp/data"},
+      "expected": "deny"
+    },
+    {
+      "id": "equal-priority-first-listed-wins",
+      "description": "When two matching rules share a priority, the first listed decides (stable ordering).",
+      "policy": {
+        "version": "1",
+        "name": "tie-break",
+        "rules": [
+          {"id": "deny-first", "effect": "deny", "priority": 5,
+           "match": {"action": "tool.exec", "resource": "*"}},
+          {"id": "allow-second", "effect": "allow", "priority": 5,
+           "match": {"action": "tool.exec", "resource": "*"}}
+        ]
+      },
+      "request": {"action": "tool.exec", "resource": "/bin/sh"},
+      "expected": "deny"
+    }
+  ]
+}
