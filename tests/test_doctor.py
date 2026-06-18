@@ -108,3 +108,27 @@ def test_check_network_offline_degrades_to_warn(monkeypatch) -> None:
 
     assert result.status is Status.WARN
     assert "network unavailable" in result.detail
+
+
+def test_check_cache_writable_passes(tmp_path, monkeypatch) -> None:
+    cache = tmp_path / "gocache"
+    cache.mkdir()
+    monkeypatch.setenv("GOCACHE", str(cache))
+    spec = doctor.CacheSpec("go", "GOCACHE", ("GOCACHE",), ".cache/go-build", ("sdk",))
+
+    result = doctor.check_cache(spec)
+
+    assert result.status is Status.PASS
+    assert result.recommend_env == {}
+
+
+def test_check_cache_not_writable_warns_with_env_recommendation(monkeypatch) -> None:
+    # Force the resolved dir to be non-writable; expect WARN + a GOCACHE override.
+    monkeypatch.setattr(doctor, "_is_writable", lambda _d: False)
+    spec = doctor.CacheSpec("go", "GOCACHE", ("GOCACHE",), ".cache/go-build", ("sdk",))
+
+    result = doctor.check_cache(spec)
+
+    assert result.status is Status.WARN
+    assert "GOCACHE" in result.recommend_env
+    assert result.recommend_env["GOCACHE"].endswith("aasm-go-cache")
