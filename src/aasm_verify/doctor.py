@@ -28,6 +28,7 @@ CI workflows is intentionally deferred to AAASM-3160 to avoid shared-file churn.
 from __future__ import annotations
 
 import errno
+import importlib.util
 import os
 import shutil
 import socket
@@ -363,6 +364,67 @@ def check_cache(spec: CacheSpec) -> CheckResult:
 def check_caches() -> list[CheckResult]:
     """Probe every cache directory in the :data:`CACHE_MATRIX`."""
     return [check_cache(spec) for spec in CACHE_MATRIX]
+
+
+# Browser availability gates dashboard screenshot tests, which ride along with
+# the examples area. Its absence is a *warn*: screenshot coverage is optional and
+# the rest of the examples area still runs without a browser.
+_BROWSER_AREAS: tuple[str, ...] = ("examples",)
+
+
+def _playwright_browsers_dir() -> Path:
+    """Resolve the Playwright browser-cache directory without importing it."""
+    override = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if override and override not in ("0", "1"):
+        return Path(override)
+    home = Path.home()
+    # Platform default locations Playwright installs Chromium under.
+    candidates = (
+        home / "Library" / "Caches" / "ms-playwright",  # macOS
+        home / ".cache" / "ms-playwright",  # Linux
+        home / "AppData" / "Local" / "ms-playwright",  # Windows
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def check_browser() -> CheckResult:
+    """Detect a Playwright/Chromium install *without launching* a browser.
+
+    Detection is two-stage and never launches a process: the ``playwright``
+    Python package must be importable, and its browser cache must contain a
+    Chromium install. Absent either, return :data:`Status.WARN` (dashboard
+    screenshots are skipped, not fatal).
+    """
+    if importlib.util.find_spec("playwright") is None:
+        return CheckResult(
+            name="browser",
+            status=Status.WARN,
+            detail="playwright package not importable; dashboard screenshot tests skipped",
+            areas=_BROWSER_AREAS,
+        )
+    browsers_dir = _playwright_browsers_dir()
+    chromium_installs = (
+        sorted(browsers_dir.glob("chromium-*")) if browsers_dir.exists() else []
+    )
+    if not chromium_installs:
+        return CheckResult(
+            name="browser",
+            status=Status.WARN,
+            detail=(
+                f"playwright present but no Chromium in {browsers_dir}; "
+                "run 'playwright install chromium'"
+            ),
+            areas=_BROWSER_AREAS,
+        )
+    return CheckResult(
+        name="browser",
+        status=Status.PASS,
+        detail=f"playwright + chromium available: {chromium_installs[-1].name}",
+        areas=_BROWSER_AREAS,
+    )
 
 
 def area_statuses(checks: list[CheckResult]) -> dict[str, Status]:
