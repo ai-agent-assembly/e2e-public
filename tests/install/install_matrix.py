@@ -55,6 +55,9 @@ _SOURCE_MODES: frozenset[str] = frozenset({"source-branch", "tag", "sha"})
 # Modes that pull a published artifact and therefore need a release version.
 _REGISTRY_MODES: frozenset[str] = frozenset({"release", "pypi", "npm", "gomod"})
 
+# Placeholder substituted with the resolved git ref/SHA at run time.
+_REF_PLACEHOLDER = "{ref}"
+
 
 @dataclass(frozen=True)
 class InstallCase:
@@ -131,7 +134,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
     InstallCase(
         target="aasm",
         mode="source-branch",
-        install_argv=_aasm_clone_argv("{ref}"),
+        install_argv=_aasm_clone_argv(_REF_PLACEHOLDER),
         verify_argv=("git", "rev-parse", "HEAD"),
         expected_ref_kind="ref",
         expected_ref="the cloned branch tip SHA (AA_REF, default master)",
@@ -146,7 +149,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
             "--repo",
             "agent-assembly",
             "--tag",
-            "{ref}",
+            _REF_PLACEHOLDER,
             "--dest",
             "{dest}",
         ),
@@ -159,7 +162,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
     InstallCase(
         target="aasm",
         mode="sha",
-        install_argv=_aasm_clone_argv("{ref}"),
+        install_argv=_aasm_clone_argv(_REF_PLACEHOLDER),
         verify_argv=("git", "rev-parse", "HEAD"),
         expected_ref_kind="ref",
         expected_ref="the checked-out commit SHA (AA_CORE_SHA)",
