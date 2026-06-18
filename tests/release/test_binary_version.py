@@ -63,7 +63,9 @@ def test_runtime_binary_version_matches_release(tmp_path: Path) -> None:
     extract_dir = tmp_path / "extracted"
     extract_dir.mkdir()
     with tarfile.open(asset_path) as tf:
-        tf.extractall(extract_dir)  # noqa: S202 — controlled test artifact
+        # filter="data" is the safe extraction policy (Python >= 3.12) and silences
+        # the 3.14 deprecation; the tarball is a controlled release artifact.
+        tf.extractall(extract_dir, filter="data")  # noqa: S202
 
     binary = next((p for p in extract_dir.rglob("aasm") if p.is_file()), None)
     if binary is None:
