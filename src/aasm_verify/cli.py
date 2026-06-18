@@ -251,7 +251,14 @@ def cmd_report(args: argparse.Namespace) -> int:
         return 1
 
     if args.bundle is not None:
-        out = _write_bundle(args, summary)
+        # ``--bundle`` is an operator-supplied output dir; a relative ``../``
+        # value is rejected by the bundle's safe_path root guard (S8707), and
+        # surfaces here as the same clean one-line error as the other paths.
+        try:
+            out = _write_bundle(args, summary)
+        except PathTraversalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
         print(f"bundle:  {out}")
 
     # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
