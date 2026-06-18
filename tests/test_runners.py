@@ -108,3 +108,17 @@ def test_pytest_command_rejects_unknown_marker() -> None:
     # The payload below is inert test data — it is rejected, never executed.
     with pytest.raises(ValueError, match="unknown marker"):
         runners._pytest_command("sdk; --inject-extra-pytest-arg", None)
+
+
+def test_pytest_command_marker_originates_from_constant_allowlist() -> None:
+    # The marker placed in the argv must be the *constant* allowlist value, not
+    # the caller's parameter object — so no untrusted text can flow into the
+    # spawned command (S8705). Identity proves the data origin is the constant:
+    # a fresh, non-interned str equal to "sdk" must not be the object emitted.
+    marker = "".join(["sd", "k"])  # a new str object, not the literal "sdk"
+    cmd = runners._pytest_command(marker, None)
+    # The pytest selector marker is the argv element right before "-v" (the
+    # leading "-m" belongs to "python -m pytest", so don't index on that one).
+    emitted = cmd[cmd.index("-v") - 1]
+    assert emitted is runners._ALLOWED_MARKERS["sdk"]
+    assert emitted is not marker

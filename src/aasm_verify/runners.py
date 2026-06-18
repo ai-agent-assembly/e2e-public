@@ -64,18 +64,28 @@ def _build_env(refs: ResolvedRefs) -> dict[str, str]:
 # pytest ``-m`` expression, so it must come from this fixed allowlist — never
 # straight from a CLI arg or env var — to keep untrusted text out of the spawned
 # command (S8705: OS-command argument injection / sandbox escape).
-_ALLOWED_MARKERS: frozenset[str] = frozenset({*AREAS, "release"})
+#
+# This is a name->literal mapping rather than a set so the value that actually
+# reaches the subprocess argv is *fetched from this constant*, not the caller's
+# parameter: the marker passed in is used only as a lookup key, and the string
+# placed in ``cmd`` originates here. That makes the sanitization data-flow
+# explicit (a taint analyzer sees the argv value sourced from a constant, not
+# from untrusted input).
+_ALLOWED_MARKERS: dict[str, str] = {name: name for name in (*AREAS, "release")}
 
 
 def _pytest_command(marker: str, json_report: str | None) -> list[str]:
     """Build a ``pytest -m <marker>`` command, optionally emitting a JSON report.
 
-    *marker* must be one of :data:`_ALLOWED_MARKERS`; anything else is rejected
-    before it can reach the subprocess argv.
+    *marker* must be a key of :data:`_ALLOWED_MARKERS`; anything else is rejected
+    before it can reach the subprocess argv. The marker string placed in the argv
+    is the *constant* mapped value, never the caller-supplied parameter, so no
+    untrusted text can flow into the spawned command (S8705).
     """
-    if marker not in _ALLOWED_MARKERS:
+    safe_marker = _ALLOWED_MARKERS.get(marker)
+    if safe_marker is None:
         raise ValueError(f"refusing to run pytest with unknown marker {marker!r}")
-    cmd = [sys.executable, "-m", "pytest", "-m", marker, "-v"]
+    cmd = [sys.executable, "-m", "pytest", "-m", safe_marker, "-v"]
     if json_report:
         cmd += ["--json-report", f"--json-report-file={json_report}"]
     return cmd

@@ -185,3 +185,32 @@ def test_screenshot_traversal_name_is_rejected(tmp_path: Path) -> None:
     # than write outside the bundle — the contract safe_path enforces (S8707).
     with pytest.raises(PathTraversalError):
         _bundle(tmp_path, screenshot_dirs=[_TraversalSourceDir()])
+
+
+def test_write_rejects_relative_outdir_escape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The bundle *root* (``--bundle``/``--out``) is operator-supplied: a relative
+    # ``../`` value must be rejected before any mkdir, so the bundle can never be
+    # written outside the run's working tree (path traversal, S8707).
+    monkeypatch.chdir(tmp_path)
+    bundle_obj = EvidenceBundle(summary=_summary(), env=dict(_LEAKY_ENV))
+    with pytest.raises(PathTraversalError):
+        bundle_obj.write("../escape-bundle")
+
+
+def test_write_accepts_legitimate_relative_outdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A normal relative outdir that stays within the working tree still writes
+    # the full bundle — the guard must not break legitimate paths.
+    monkeypatch.chdir(tmp_path)
+    bundle_obj = EvidenceBundle(
+        summary=_summary(),
+        commands=["bash scripts/verify-public-stack.sh"],
+        env=dict(_LEAKY_ENV),
+    )
+    out = bundle_obj.write("out/bundle")
+    assert out == (tmp_path / "out" / "bundle").resolve()
+    names = {p.name for p in out.iterdir()}
+    assert {"summary.md", "report.json", "env.json"} <= names
