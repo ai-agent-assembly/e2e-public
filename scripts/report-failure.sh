@@ -57,8 +57,10 @@ if [[ "$STATUS" == "pass" ]]; then
   exit 0
 fi
 
+# Shared across the label-ensure, search, and create/comment calls below.
+TEST_FAILURE_LABEL="test-failure"
 AREA_LABEL="area: ${AREA}"
-ISSUE_TITLE="[test-failure] Scheduled verification failed: ${AREA}"
+ISSUE_TITLE="[${TEST_FAILURE_LABEL}] Scheduled verification failed: ${AREA}"
 
 ISSUE_BODY="## Scheduled verification failure
 
@@ -86,7 +88,7 @@ COMMENT_BODY="### Failure recurrence
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] Repo:   $REPO"
   echo "[dry-run] Area:   $AREA  Status: $STATUS"
-  echo "[dry-run] Would search for open/closed issue with labels: test-failure, $AREA_LABEL"
+  echo "[dry-run] Would search for open/closed issue with labels: ${TEST_FAILURE_LABEL}, $AREA_LABEL"
   echo "[dry-run] Would create or comment on: $ISSUE_TITLE"
   exit 0
 fi
@@ -95,10 +97,11 @@ fi
 # is idempotent (--force) and must never abort the run: a missing label previously
 # caused `gh issue create` to exit 1 and fail the whole reporting step.
 ensure_label() {
-  gh label create "$1" --repo "$REPO" --color "$2" --description "$3" --force \
-    >/dev/null 2>&1 || echo "warning: could not ensure label '$1' (continuing)" >&2
+  local name="$1" color="$2" description="$3"
+  gh label create "$name" --repo "$REPO" --color "$color" --description "$description" --force \
+    >/dev/null 2>&1 || echo "warning: could not ensure label '$name' (continuing)" >&2
 }
-ensure_label "test-failure"  "d73a4a" "Automated verification failure"
+ensure_label "$TEST_FAILURE_LABEL" "d73a4a" "Automated verification failure"
 ensure_label "scheduled-run" "0e8a16" "Filed by a scheduled verification run"
 ensure_label "needs-triage"  "fbca04" "Awaiting triage"
 ensure_label "$AREA_LABEL"   "1d76db" "Verification area"
@@ -106,7 +109,7 @@ ensure_label "$AREA_LABEL"   "1d76db" "Verification area"
 # Search for an existing open issue with the area label
 OPEN_NUMBER=$(gh issue list \
   --repo "$REPO" \
-  --label "test-failure" \
+  --label "$TEST_FAILURE_LABEL" \
   --label "$AREA_LABEL" \
   --state open \
   --json number \
@@ -121,7 +124,7 @@ fi
 # Search for a closed issue to reopen
 CLOSED_NUMBER=$(gh issue list \
   --repo "$REPO" \
-  --label "test-failure" \
+  --label "$TEST_FAILURE_LABEL" \
   --label "$AREA_LABEL" \
   --state closed \
   --json number \
@@ -142,7 +145,7 @@ gh issue create \
   --repo "$REPO" \
   --title "$ISSUE_TITLE" \
   --body "$ISSUE_BODY" \
-  --label "test-failure" \
+  --label "$TEST_FAILURE_LABEL" \
   --label "scheduled-run" \
   --label "needs-triage" \
   --label "$AREA_LABEL"

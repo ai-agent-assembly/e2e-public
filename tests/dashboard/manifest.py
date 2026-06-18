@@ -82,6 +82,10 @@ class ManifestProblem:
     problem: str
 
 
+# Sentinel route_id for manifest-level problems that belong to no single route.
+_MANIFEST_SCOPE = "<manifest>"
+
+
 def validate_route(route: DashboardRoute) -> list[ManifestProblem]:
     """Return schema problems for a single route (empty list when well-formed).
 
@@ -121,15 +125,15 @@ def validate_manifest() -> list[ManifestProblem]:
 
     ids = [r.id for r in DASHBOARD_ROUTES]
     if len(set(ids)) != len(ids):
-        problems.append(ManifestProblem("<manifest>", "duplicate route id(s) present"))
+        problems.append(ManifestProblem(_MANIFEST_SCOPE, "duplicate route id(s) present"))
 
     paths = [r.path for r in DASHBOARD_ROUTES]
     if len(set(paths)) != len(paths):
-        problems.append(ManifestProblem("<manifest>", "duplicate route path(s) present"))
+        problems.append(ManifestProblem(_MANIFEST_SCOPE, "duplicate route path(s) present"))
 
     expected_nums = [f"{i:02d}" for i in range(1, len(DASHBOARD_ROUTES) + 1)]
     if [r.num for r in DASHBOARD_ROUTES] != expected_nums:
         problems.append(
-            ManifestProblem("<manifest>", "num prefixes are not a contiguous 01..NN sequence")
+            ManifestProblem(_MANIFEST_SCOPE, "num prefixes are not a contiguous 01..NN sequence")
         )
     return problems

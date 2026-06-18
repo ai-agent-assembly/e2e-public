@@ -36,6 +36,31 @@ RESTRICTED_ACTION = "tool.restricted"
 ALLOWED_ACTION = "tool.search"
 
 
+def _assign_rule_field(
+    current: dict[str, object], stripped: str, indent: int, in_match: bool
+) -> bool:
+    """Apply one ``key: value`` line to *current*; return the next ``in_match``.
+
+    A nested ``match`` field (indented past the rule keys) lands in the rule's
+    ``match`` map; an ``id``/``effect``/``priority`` key lands on the rule itself
+    and ends any in-progress ``match`` block. Other lines are ignored.
+    """
+    if ":" not in stripped:
+        return in_match
+    key, _, value = stripped.partition(":")
+    key = key.strip()
+    value = value.strip().strip('"')
+    if in_match and indent > 6:
+        match_map = current["match"]
+        assert isinstance(match_map, dict)
+        match_map[key] = value
+        return in_match
+    if key in {"id", "effect", "priority"}:
+        current[key] = value
+        return False
+    return in_match
+
+
 def load_policy_rules(policy_path: Path = ENFORCEMENT_POLICY) -> list[dict[str, object]]:
     """Parse the enforcement policy's ``spec.rules`` with a stdlib-only reader.
 
@@ -77,18 +102,7 @@ def load_policy_rules(policy_path: Path = ENFORCEMENT_POLICY) -> list[dict[str, 
             current["match"] = {}
             continue
 
-        if ":" not in stripped:
-            continue
-        key, _, value = stripped.partition(":")
-        key = key.strip()
-        value = value.strip().strip('"')
-        if in_match and indent > 6:
-            match_map = current["match"]
-            assert isinstance(match_map, dict)
-            match_map[key] = value
-        elif key in {"id", "effect", "priority"}:
-            in_match = False
-            current[key] = value
+        in_match = _assign_rule_field(current, stripped, indent, in_match)
 
     if not rules:
         raise ValueError(f"{policy_path} has no spec.rules — not a usable enforcement policy")

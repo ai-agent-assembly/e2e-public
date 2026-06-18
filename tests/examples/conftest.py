@@ -165,7 +165,8 @@ def run_step(
     a distinct non-zero outcome so it is never mistaken for a passing run.
     """
     try:
-        proc = subprocess.run(  # noqa: S603 — fixed argv from the manifest, no shell.
+        # Fixed argv from the manifest, no shell — safe to run as-is.
+        proc = subprocess.run(  # noqa: S603
             list(argv),
             cwd=str(cwd),
             env=env,

@@ -144,7 +144,8 @@ def _tool_version(name: str, version_arg: str) -> str | None:
     caller can record the tool as unavailable without aborting the whole probe.
     """
     try:
-        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell.
+        # Fixed argv, no shell — safe to run as-is.
+        proc = subprocess.run(  # noqa: S603
             [name, version_arg],
             capture_output=True,
             text=True,

@@ -63,7 +63,7 @@ def test_check_localhost_bind_eperm_maps_to_fail(monkeypatch) -> None:
             return ("127.0.0.1", 0)
 
         def close(self):
-            pass
+            """No-op: the stub socket holds no real OS resource to release."""
 
     monkeypatch.setattr(doctor.socket, "socket", lambda *a, **k: _DeniedSocket())
 
@@ -82,7 +82,7 @@ def test_check_localhost_bind_eacces_maps_to_fail(monkeypatch) -> None:
             return ("127.0.0.1", 0)
 
         def close(self):
-            pass
+            """No-op: the stub socket holds no real OS resource to release."""
 
     monkeypatch.setattr(doctor.socket, "socket", lambda *a, **k: _DeniedSocket())
 

@@ -55,6 +55,9 @@ _SOURCE_MODES: frozenset[str] = frozenset({"source-branch", "tag", "sha"})
 # Modes that pull a published artifact and therefore need a release version.
 _REGISTRY_MODES: frozenset[str] = frozenset({"release", "pypi", "npm", "gomod"})
 
+# Placeholder substituted with the resolved git ref/SHA at run time.
+_REF_PLACEHOLDER = "{ref}"
+
 
 @dataclass(frozen=True)
 class InstallCase:
@@ -131,7 +134,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
     InstallCase(
         target="aasm",
         mode="source-branch",
-        install_argv=_aasm_clone_argv("{ref}"),
+        install_argv=_aasm_clone_argv(_REF_PLACEHOLDER),
         verify_argv=("git", "rev-parse", "HEAD"),
         expected_ref_kind="ref",
         expected_ref="the cloned branch tip SHA (AA_REF, default master)",
@@ -146,7 +149,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
             "--repo",
             "agent-assembly",
             "--tag",
-            "{ref}",
+            _REF_PLACEHOLDER,
             "--dest",
             "{dest}",
         ),
@@ -159,7 +162,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
     InstallCase(
         target="aasm",
         mode="sha",
-        install_argv=_aasm_clone_argv("{ref}"),
+        install_argv=_aasm_clone_argv(_REF_PLACEHOLDER),
         verify_argv=("git", "rev-parse", "HEAD"),
         expected_ref_kind="ref",
         expected_ref="the checked-out commit SHA (AA_CORE_SHA)",
@@ -303,18 +306,17 @@ def validate_case(case: InstallCase) -> list[SchemaError]:
             add("unsupported case must carry a non-empty unsupported_reason")
         if case.install_argv or case.verify_argv:
             add("unsupported case must have empty install_argv and verify_argv")
-        return errors
-
-    if not case.install_argv:
-        add("supported case must have a non-empty install_argv")
-    if not case.verify_argv:
-        add("supported case must have a non-empty verify_argv")
-    if case.expected_ref_kind not in ("ref", "version"):
-        add(f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}")
-    if not case.expected_ref.strip():
-        add("supported case must document a non-empty expected_ref")
-    if case.mode in _REGISTRY_MODES and not case.required_input_env:
-        add("registry-mode case must require a release-version input env var")
+    else:
+        if not case.install_argv:
+            add("supported case must have a non-empty install_argv")
+        if not case.verify_argv:
+            add("supported case must have a non-empty verify_argv")
+        if case.expected_ref_kind not in ("ref", "version"):
+            add(f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}")
+        if not case.expected_ref.strip():
+            add("supported case must document a non-empty expected_ref")
+        if case.mode in _REGISTRY_MODES and not case.required_input_env:
+            add("registry-mode case must require a release-version input env var")
 
     return errors
 

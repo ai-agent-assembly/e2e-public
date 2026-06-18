@@ -30,13 +30,14 @@ usage() {
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
-    case "$1" in
+    local opt="$1"
+    case "$opt" in
       --repo) REPO="$2"; shift 2 ;;
       --tag)  TAG="$2";  shift 2 ;;
       --org)  ORG="$2";  shift 2 ;;
       --dest) DEST="$2"; shift 2 ;;
       -h|--help) usage ;;
-      *) echo "Unknown option: $1" >&2; usage ;;
+      *) echo "Unknown option: $opt" >&2; usage ;;
     esac
   done
 }
