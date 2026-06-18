@@ -263,3 +263,39 @@ Where skips/xfails come from:
 
 ---
 
+## 7. Collecting evidence for Jira
+
+Strict validation runs must leave an auditable trail. The harness writes a
+sanitized JSON report; the `report` subcommand renders Markdown evidence.
+
+```bash
+# 1. Run with a JSON report (the orchestrator passes --json-report through to pytest)
+uv run aasm-verify public --mode latest --area all \
+  --json-report /tmp/pytest-report.json
+
+# 2. Render summary.json + report.md from the pytest JSON
+uv run aasm-verify report \
+  --pytest-json   /tmp/pytest-report.json \
+  --summary       /tmp/summary.json \
+  --out           /tmp/report.md \
+  --run-type      manual \
+  --tested-refs   "agent-assembly@master,python-sdk@v0.1.0" \
+  --related-issue AAASM-XXXX \
+  --run-url       "<github-actions-run-url>"
+```
+
+Then:
+
+1. Paste [`docs/evidence-template.md`](evidence-template.md) into the Jira ticket
+   and fill in refs, results, and the CI run URL.
+2. Attach or inline the rendered `report.md`.
+3. For substantive validations, also write a
+   `verification-reports/AAASM-XXXX-*.md` file in this repo (see the existing
+   files under `verification-reports/` for format).
+4. CI does this automatically on failure: `scripts/summarize-run.sh` produces a
+   sanitized `summary.json` and `scripts/report-failure.sh` opens/updates a
+   GitHub Issue (one per failing area). Evidence is sanitized — **no log dumps,
+   secrets, or internal endpoints**.
+
+---
+
