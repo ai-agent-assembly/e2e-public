@@ -28,11 +28,14 @@ CI workflows is intentionally deferred to AAASM-3160 to avoid shared-file churn.
 from __future__ import annotations
 
 import errno
+import os
 import shutil
 import socket
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 # Verification areas mirror aasm_verify.runners.AREAS. Kept as a local literal so
 # the doctor command stays importable without constructing a runner, and so the
@@ -229,6 +232,54 @@ def check_localhost_bind() -> CheckResult:
         status=Status.PASS,
         detail=f"bound 127.0.0.1:{port}",
         areas=_BIND_AREAS,
+    )
+
+
+# Network reachability gates every area that clones source or installs packages.
+# Offline is a *warn*, never a *fail* — flagging the limitation is the point.
+_NETWORK_AREAS: tuple[str, ...] = ("runtime", "sdk", "examples", "install", "conformance")
+# Probed host:port pairs; the first to connect wins. github.com serves source
+# clones, pypi.org serves the registry-install tests. Both are TCP 443.
+_NETWORK_TARGETS: tuple[tuple[str, int], ...] = (
+    ("github.com", 443),
+    ("pypi.org", 443),
+)
+
+
+def _can_connect(host: str, port: int, timeout: float) -> bool:
+    """Return ``True`` if a TCP connection to ``host:port`` succeeds in time."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def check_network(timeout: float = 3.0) -> CheckResult:
+    """Probe outbound network reachability with a short connect timeout.
+
+    Returns :data:`Status.PASS` when any target is reachable, else
+    :data:`Status.WARN` — being offline degrades install/release/example areas
+    but must not hard-fail the preflight (an offline run can still exercise the
+    areas that do not touch the network).
+    """
+    for host, port in _NETWORK_TARGETS:
+        if _can_connect(host, port, timeout):
+            return CheckResult(
+                name="network",
+                status=Status.PASS,
+                detail=f"reachable: {host}:{port}",
+                areas=_NETWORK_AREAS,
+            )
+    return CheckResult(
+        name="network",
+        status=Status.WARN,
+        detail=(
+            "network unavailable: no target reachable "
+            f"({', '.join(f'{h}:{p}' for h, p in _NETWORK_TARGETS)}); "
+            "install/release/example dependency tests will be skipped"
+        ),
+        areas=_NETWORK_AREAS,
     )
 
 
