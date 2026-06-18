@@ -1,0 +1,235 @@
+name: Verify Profiles (reusable)
+
+# Reusable verification workflow (AAASM-3160). Encapsulates the five CI
+# validation profiles so callers (the `verify.yml` dispatcher, scheduled runs,
+# or other workflows) select a profile by name instead of duplicating job
+# bodies. Each profile runs the `aasm-verify doctor` preflight first so the
+# environment's per-area capability is visible in the log before any build or
+# network work, then invokes a real `aasm-verify` / pytest command and uploads
+# its reports as a per-profile artifact.
+#
+# Profiles (see docs/ci-profiles.md):
+#   smoke     — doctor + runtime/sdk/conformance at latest source refs (fast).
+#   full      — every area at latest source refs + rendered report (strict).
+#   live      — builds + runs aa-gateway/aa-runtime from source (-m live).
+#   release   — registry installs + release pytest suite for a version (strict).
+#   dashboard — examples area with a real browser for dashboard screenshots.
+#
+# Expensive profiles (full/live/release/dashboard) are opt-in: the dispatcher
+# only schedules `smoke`, and the deeper profiles run on demand or on their own
+# schedule. Profiles whose host capability is missing (no browser for
+# dashboard, no cargo/protoc for live) skip cleanly rather than hard-fail —
+# the doctor preflight makes the reason explicit.
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: "Validation profile: smoke | full | live | release | dashboard"
+        required: true
+        type: string
+      area:
+        description: "Area selector for smoke/full (all | runtime | sdk | examples | install | conformance)"
+        required: false
+        default: "all"
+        type: string
+      agent_assembly_ref:
+        description: "agent-assembly ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+        type: string
+      python_sdk_ref:
+        description: "python-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+        type: string
+      node_sdk_ref:
+        description: "node-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+        type: string
+      go_sdk_ref:
+        description: "go-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+        type: string
+      examples_ref:
+        description: "agent-assembly-examples ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+        type: string
+      release_version:
+        description: "Version under test for the release profile, e.g. 0.0.1"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # smoke — fast confidence: doctor + runtime + sdk + conformance at latest
+  # source refs. Default scheduled/PR-style lane; no heavy toolchain build.
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: "smoke"
+    if: ${{ inputs.profile == 'smoke' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCTOR_JSON: /tmp/aasm-reports/doctor.json
+      PYTEST_JSON: /tmp/aasm-reports/pytest-smoke.json
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Preflight (aasm-verify doctor)
+        run: |
+          mkdir -p /tmp/aasm-reports
+          # Advisory: doctor exits non-zero only when a required capability is
+          # FAIL. Keep going so the smoke areas (which skip cleanly when their
+          # artifact is absent) still run and the JSON is always captured.
+          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+
+      - name: Smoke verification (runtime + sdk + conformance)
+        env:
+          AA_REF:         ${{ inputs.agent_assembly_ref }}
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref }}
+          NODE_SDK_REF:   ${{ inputs.node_sdk_ref }}
+          GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
+        run: |
+          for area in runtime sdk conformance; do
+            uv run aasm-verify public \
+              --mode latest \
+              --area "$area" \
+              --agent-assembly-ref "$AA_REF" \
+              --python-sdk-ref "$PYTHON_SDK_REF" \
+              --node-sdk-ref "$NODE_SDK_REF" \
+              --go-sdk-ref "$GO_SDK_REF" \
+              --json-report "/tmp/aasm-reports/pytest-$area.json"
+          done
+
+      - name: Upload smoke reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: verify-smoke-reports
+          path: /tmp/aasm-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # full — every area at latest source refs, plus a rendered report. Strict:
+  # AASM_VERIFY_STRICT=1 turns skip-tolerated gaps into failures (AAASM-3155).
+  # ---------------------------------------------------------------------------
+  full:
+    name: "full"
+    if: ${{ inputs.profile == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AASM_VERIFY_STRICT: "1"
+      DOCTOR_JSON: /tmp/aasm-reports/doctor.json
+      PYTEST_JSON: /tmp/aasm-reports/pytest-full.json
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: "24"
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
+        with:
+          go-version: "stable"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093  # v6.0.8
+        with:
+          version: latest
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Preflight (aasm-verify doctor)
+        run: |
+          mkdir -p /tmp/aasm-reports
+          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+
+      - name: Full verification (${{ inputs.area }})
+        env:
+          AREA:           ${{ inputs.area }}
+          AA_REF:         ${{ inputs.agent_assembly_ref }}
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref }}
+          NODE_SDK_REF:   ${{ inputs.node_sdk_ref }}
+          GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
+          EXAMPLES_REF:   ${{ inputs.examples_ref }}
+        run: |
+          uv run aasm-verify public \
+            --mode latest \
+            --area "${AREA:-all}" \
+            --agent-assembly-ref "$AA_REF" \
+            --python-sdk-ref "$PYTHON_SDK_REF" \
+            --node-sdk-ref "$NODE_SDK_REF" \
+            --go-sdk-ref "$GO_SDK_REF" \
+            --examples-ref "$EXAMPLES_REF" \
+            --json-report "$PYTEST_JSON"
+
+      - name: Render report
+        if: ${{ always() && hashFiles('/tmp/aasm-reports/pytest-full.json') != '' }}
+        env:
+          AA_REF: ${{ inputs.agent_assembly_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          uv run aasm-verify report \
+            --pytest-json "$PYTEST_JSON" \
+            --summary /tmp/aasm-reports/summary.json \
+            --out /tmp/aasm-reports/report.md \
+            --run-type manual \
+            --run-url "$RUN_URL" \
+            --tested-refs "agent-assembly=$AA_REF"
+
+      - name: Upload full reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: verify-full-reports
+          path: /tmp/aasm-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # live — builds + runs aa-gateway / aa-runtime from source and drives the SDK
+  # against it (-m live). Needs cargo + protoc; the live suite skips cleanly
+  # when the toolchain is absent, so doctor surfaces capability up front.
+  # ---------------------------------------------------------------------------
