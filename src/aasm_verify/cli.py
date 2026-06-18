@@ -8,6 +8,7 @@ import os
 import sys
 
 from aasm_verify import doctor, reports, runners
+from aasm_verify.pathsafe import PathTraversalError, safe_path
 from aasm_verify.refs import ResolvedRefs, resolve_refs
 
 
@@ -186,7 +187,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 
     try:
         if args.pytest_json is not None:
-            with open(args.pytest_json, encoding="utf-8") as fh:
+            with open(safe_path(args.pytest_json), encoding="utf-8") as fh:
                 pytest_data = json.load(fh)
             summary = reports.summary_from_pytest_json(
                 pytest_data,
@@ -201,8 +202,11 @@ def cmd_report(args: argparse.Namespace) -> int:
             )
             reports.write_summary_json(args.summary, summary)
         else:
-            with open(args.summary, encoding="utf-8") as fh:
+            with open(safe_path(args.summary), encoding="utf-8") as fh:
                 summary = reports.summary_from_dict(json.load(fh))
+    except PathTraversalError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -210,12 +214,16 @@ def cmd_report(args: argparse.Namespace) -> int:
         print(f"error: invalid summary data: {exc}", file=sys.stderr)
         return 1
 
-    reports.write_report_md(args.out, summary)
-    print(f"summary: {args.summary}")
-    print(f"report:  {args.out}")
-    if args.jira is not None:
-        reports.write_jira_report(args.jira, summary)
-        print(f"jira:    {args.jira}")
+    try:
+        reports.write_report_md(args.out, summary)
+        print(f"summary: {args.summary}")
+        print(f"report:  {args.out}")
+        if args.jira is not None:
+            reports.write_jira_report(args.jira, summary)
+            print(f"jira:    {args.jira}")
+    except PathTraversalError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
     if args.strict or reports.strict_mode_enabled():
