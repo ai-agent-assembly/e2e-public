@@ -7,6 +7,8 @@ tools, network, or browser the host machine happens to have.
 
 from __future__ import annotations
 
+import errno
+
 from aasm_verify import doctor
 from aasm_verify.doctor import Status
 
@@ -41,3 +43,49 @@ def test_check_tool_missing_optional_warns(monkeypatch) -> None:
     result = doctor.check_tool(spec)
 
     assert result.status is Status.WARN
+
+
+def test_check_localhost_bind_succeeds_when_allowed() -> None:
+    # In a normal environment a loopback bind succeeds; assert the happy path
+    # reports PASS and gates the server-booting areas.
+    result = doctor.check_localhost_bind()
+
+    assert result.status is Status.PASS
+    assert result.areas == ("runtime", "conformance")
+
+
+def test_check_localhost_bind_eperm_maps_to_fail(monkeypatch) -> None:
+    class _DeniedSocket:
+        def bind(self, _addr):
+            raise OSError(errno.EPERM, "Operation not permitted")
+
+        def getsockname(self):  # pragma: no cover - never reached on EPERM
+            return ("127.0.0.1", 0)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(doctor.socket, "socket", lambda *a, **k: _DeniedSocket())
+
+    result = doctor.check_localhost_bind()
+
+    assert result.status is Status.FAIL
+    assert "denied" in result.detail
+
+
+def test_check_localhost_bind_eacces_maps_to_fail(monkeypatch) -> None:
+    class _DeniedSocket:
+        def bind(self, _addr):
+            raise OSError(errno.EACCES, "Permission denied")
+
+        def getsockname(self):  # pragma: no cover
+            return ("127.0.0.1", 0)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(doctor.socket, "socket", lambda *a, **k: _DeniedSocket())
+
+    result = doctor.check_localhost_bind()
+
+    assert result.status is Status.FAIL
