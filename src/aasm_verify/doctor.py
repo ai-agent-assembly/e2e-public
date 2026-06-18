@@ -283,6 +283,88 @@ def check_network(timeout: float = 3.0) -> CheckResult:
     )
 
 
+@dataclass(frozen=True)
+class CacheSpec:
+    """A toolchain cache directory and how to relocate it.
+
+    Attributes:
+        label: Short name (``"go"``, ``"cargo"``, ``"pnpm"``, ``"uv"``).
+        env_var: Environment variable that overrides the cache location.
+        env_paths: Candidate env vars whose value is the cache dir, in order.
+        default: Default cache dir relative to ``$HOME`` when no env var is set.
+        areas: Verification areas a non-writable cache degrades.
+    """
+
+    label: str
+    env_var: str
+    env_paths: tuple[str, ...]
+    default: str
+    areas: tuple[str, ...]
+
+
+# Cache matrix. Each toolchain writes a build/download cache; on a read-only
+# HOME the run fails late, so probe writability now and recommend an env var
+# pointing at a writable temp dir when it is not writable.
+CACHE_MATRIX: tuple[CacheSpec, ...] = (
+    CacheSpec("go", "GOCACHE", ("GOCACHE",), ".cache/go-build", ("sdk", "examples")),
+    CacheSpec("cargo", "CARGO_HOME", ("CARGO_HOME",), ".cargo", ("runtime", "install", "conformance")),
+    CacheSpec("pnpm", "PNPM_HOME", ("PNPM_HOME",), ".local/share/pnpm", ("sdk", "examples")),
+    CacheSpec("uv", "UV_CACHE_DIR", ("UV_CACHE_DIR",), ".cache/uv", ("sdk", "examples")),
+)
+
+
+def _resolve_cache_dir(spec: CacheSpec) -> Path:
+    """Resolve the configured cache directory for ``spec``."""
+    for env in spec.env_paths:
+        value = os.environ.get(env)
+        if value:
+            return Path(value)
+    return Path.home() / spec.default
+
+
+def _is_writable(directory: Path) -> bool:
+    """Return ``True`` if a temp file can be created under ``directory``.
+
+    Creates parent directories if needed; any failure (missing, read-only,
+    permission denied) yields ``False``.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=directory, prefix=".aasm-doctor-"):
+            return True
+    except OSError:
+        return False
+
+
+def check_cache(spec: CacheSpec) -> CheckResult:
+    """Probe writability of one toolchain cache directory.
+
+    ``PASS`` when the resolved cache dir is writable; otherwise ``WARN`` with a
+    recommended env var pointing at a writable temp directory.
+    """
+    cache_dir = _resolve_cache_dir(spec)
+    if _is_writable(cache_dir):
+        return CheckResult(
+            name=f"cache:{spec.label}",
+            status=Status.PASS,
+            detail=f"{spec.env_var} writable: {cache_dir}",
+            areas=spec.areas,
+        )
+    fallback = str(Path(tempfile.gettempdir()) / f"aasm-{spec.label}-cache")
+    return CheckResult(
+        name=f"cache:{spec.label}",
+        status=Status.WARN,
+        detail=f"{spec.env_var} dir not writable: {cache_dir}",
+        areas=spec.areas,
+        recommend_env={spec.env_var: fallback},
+    )
+
+
+def check_caches() -> list[CheckResult]:
+    """Probe every cache directory in the :data:`CACHE_MATRIX`."""
+    return [check_cache(spec) for spec in CACHE_MATRIX]
+
+
 def area_statuses(checks: list[CheckResult]) -> dict[str, Status]:
     """Aggregate capability checks into a per-area status map.
 
