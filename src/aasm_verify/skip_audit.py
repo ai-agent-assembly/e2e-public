@@ -67,7 +67,7 @@ _ENV_REQ_RE = re.compile(
     r"|\bclone\b"
     r"|\binstall\b"
     r"|set [A-Z][A-Z0-9_]+"
-    r"|\b[A-Z][A-Z0-9_]{2,}=\S+"  # ENV_VAR=value
+    r"|\b[A-Z][A-Z0-9_]{2,}=\S+"  # matches an uppercase env-var assignment
     r"|\bAASM_[A-Z0-9_]+\b"
     r"|environment",
     re.IGNORECASE,
