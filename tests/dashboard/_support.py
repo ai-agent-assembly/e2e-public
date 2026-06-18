@@ -24,8 +24,10 @@ otherwise it skips with a justified reason.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
+import socket
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -165,6 +167,56 @@ def run_pnpm(args: list[str], *, cwd: Path, timeout: int) -> BuildResult:
         return BuildResult(returncode=124, stderr_tail=_tail(tail))
     combined = proc.stderr or proc.stdout or ""
     return BuildResult(returncode=proc.returncode, stderr_tail=_tail(combined))
+
+
+def can_bind_loopback() -> bool:
+    """True when a loopback TCP port can be bound in this environment.
+
+    The documented serve path (``pnpm serve`` / vite preview) and any browser
+    smoke need to bind a local port. Some sandboxes block this with
+    ``listen EPERM`` (observed in AAASM-3142 / AAASM-3145), so the serve and
+    browser checks skip cleanly when binding is denied rather than failing on a
+    permission error that is not a dashboard regression.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+        return True
+    except OSError:
+        return False
+
+
+def playwright_available() -> bool:
+    """True when the ``playwright`` Python package is importable.
+
+    The browser smoke (AC3) is optional and only runs where Playwright +
+    Chromium are usable; absence → a justified skip (AAASM-3146).
+    """
+    return importlib.util.find_spec("playwright") is not None
+
+
+def browser_skip_reason() -> str | None:
+    """Return a justified skip reason for the browser smoke, or ``None``.
+
+    The browser path layers extra prerequisites on top of the build path: the
+    build must be runnable (toolchain + checkout + opt-in), a loopback port must
+    be bindable to serve the build, and Playwright must be importable. Each
+    reason names the concrete blocker so the skip stays justified.
+    """
+    build_reason = dashboard_skip_reason()
+    if build_reason is not None:
+        return build_reason
+    if not can_bind_loopback():
+        return (
+            "loopback port bind is blocked in this environment (listen EPERM) — the "
+            "dashboard serve/browser path cannot bind a local port (AAASM-3145)"
+        )
+    if not playwright_available():
+        return (
+            "playwright not installed — the optional browser smoke path requires "
+            "Playwright + Chromium (AAASM-3146)"
+        )
+    return None
 
 
 def built_assets_present(dashboard_dir: Path, expected: tuple[str, ...]) -> list[str]:
