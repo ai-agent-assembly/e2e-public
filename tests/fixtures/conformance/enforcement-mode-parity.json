@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Cross-SDK enforcement-mode + payload-shape parity vectors for AAASM-3158 (AC4).",
+    "The Agent Assembly enforcement-mode constant is a shared contract: every SDK must",
+    "expose the SAME ordered set of modes. Node ships ENFORCEMENT_MODES as a readonly",
+    "array (see tests/public/test_node_sdk.py); Python and Go expose the equivalent set.",
+    "The 'canonical' list is the source of truth; 'sdk_exposed' records how each SDK",
+    "names/exposes it so the offline parity test can assert all three agree without a",
+    "live SDK install. The live cross-SDK comparison (actually importing each SDK) is",
+    "skip-guarded because it needs the published SDKs / runtimes installed."
+  ],
+  "canonical_modes": ["enforce", "observe", "disabled"],
+  "canonical_decisions": ["allow", "deny", "observe"],
+  "sdk_exposed": {
+    "node": {
+      "symbol": "ENFORCEMENT_MODES",
+      "kind": "readonly-array",
+      "modes": ["enforce", "observe", "disabled"]
+    },
+    "python": {
+      "symbol": "init_assembly(enforcement=...)",
+      "kind": "accepted-string-values",
+      "modes": ["enforce", "observe", "disabled"]
+    },
+    "go": {
+      "symbol": "EnforcementMode constants",
+      "kind": "string-constants",
+      "modes": ["enforce", "observe", "disabled"]
+    }
+  }
+}
