@@ -55,12 +55,17 @@ _NODEID_AREAS: tuple[tuple[str, str], ...] = (
 
 # A skip reason is justified when it references a Jira issue ...
 _JIRA_RE = re.compile(r"\bAAASM-\d+\b")
-# ... or names an environment requirement (a binary/package/env var that must
-# be present). These are the phrasings the conftest skip helpers emit.
+# ... or names an environment requirement (a binary/package/repo/env var that
+# must be present). These are the phrasings the conftest skip helpers emit:
+# "X not found in PATH", "package X not installed", "requires Y", "clone Z
+# alongside this repo", "set ENV_VAR", "ENV_VAR=value".
 _ENV_REQ_RE = re.compile(
-    r"not found in PATH"
+    r"not found"
     r"|not installed"
+    r"|not available"
     r"|requires?\b"
+    r"|\bclone\b"
+    r"|\binstall\b"
     r"|set [A-Z][A-Z0-9_]+"
     r"|\b[A-Z][A-Z0-9_]{2,}=\S+"  # ENV_VAR=value
     r"|\bAASM_[A-Z0-9_]+\b"
