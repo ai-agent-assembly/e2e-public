@@ -19,12 +19,12 @@ from __future__ import annotations
 import pytest
 
 from tests.dashboard import _support
-from tests.dashboard.manifest import EXPECTED_BUILD_ASSETS
 from tests.dashboard._support import (
     BuildResult,
     BuildVerdict,
     classify_build_result,
 )
+from tests.dashboard.manifest import EXPECTED_BUILD_ASSETS
 
 # Bounds for the opt-in online build. Install can pull packages; build runs
 # tsc + vite. Generous so a slow first install does not flake, but bounded so a
