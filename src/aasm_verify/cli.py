@@ -110,6 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument("--related-issue", default=None, metavar="ISSUE")
     report.add_argument("--scope", default="", metavar="TEXT")
+    report.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail the run on un-justified skips. Also enabled by "
+        "AASM_VERIFY_STRICT=1 (contract shared with AAASM-3160 CI profiles).",
+    )
 
     doctor_cmd = sub.add_parser(
         "doctor",
@@ -201,6 +207,21 @@ def cmd_report(args: argparse.Namespace) -> int:
     reports.write_report_md(args.out, summary)
     print(f"summary: {args.summary}")
     print(f"report:  {args.out}")
+
+    # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
+    if args.strict or reports.strict_mode_enabled():
+        violations = reports.strict_skip_violations(summary)
+        if violations:
+            print(
+                f"error: strict mode: {len(violations)} un-justified skip(s) "
+                "(reason must name an env requirement or a Jira issue):",
+                file=sys.stderr,
+            )
+            for v in violations:
+                reason = v["reason"] or "<no reason given>"
+                print(f"  - [{v['area']}] {v['nodeid']}: {reason}", file=sys.stderr)
+            return 1
+
     return 0
 
 

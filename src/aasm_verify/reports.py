@@ -20,6 +20,7 @@ names (never raw log text), so no secrets are echoed.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 
 from aasm_verify import skip_audit
@@ -344,6 +345,22 @@ def _result_from_suites(suites: list[Suite]) -> str:
             return "partial"
         return "fail"
     return "pass"
+
+
+def strict_mode_enabled(env: dict[str, str] | None = None) -> bool:
+    """Return True when strict mode is requested via ``AASM_VERIFY_STRICT``.
+
+    Truthy values are ``1``/``true``/``yes``/``on`` (case-insensitive). The
+    env-var name is a contract shared with AAASM-3160's CI profiles.
+    """
+    source = os.environ if env is None else env
+    value = source.get(skip_audit.STRICT_ENV_VAR, "")
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def strict_skip_violations(summary: Summary) -> list[dict]:
+    """Return the un-justified skips that fail a run under strict mode."""
+    return [dict(s) for s in summary.unjustified_skips]
 
 
 def _empty_area_buckets() -> dict[str, int]:
