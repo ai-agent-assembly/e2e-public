@@ -213,6 +213,52 @@ def render_frontmatter(summary: Summary) -> str:
     return "\n".join(lines)
 
 
+def _area_counts_table(summary: Summary) -> list[str]:
+    """Render the per-area outcome counts as a Markdown table (empty if none)."""
+    if not summary.area_counts:
+        return []
+    lines = [
+        "## Counts by area",
+        "",
+        "| Area | Passed | Failed | Skipped | Unexpected skip | xfailed | xpassed |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for area in sorted(summary.area_counts):
+        b = summary.area_counts[area]
+        lines.append(
+            f"| {area} | {b.get('passed', 0)} | {b.get('failed', 0)} | "
+            f"{b.get('skipped', 0)} | {b.get('unexpected_skipped', 0)} | "
+            f"{b.get('xfailed', 0)} | {b.get('xpassed', 0)} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _skip_audit_block(summary: Summary) -> list[str]:
+    """Render the skip-audit block listing un-justified skips (empty if none)."""
+    lines = ["## Skip audit", ""]
+    if not summary.unjustified_skips:
+        lines.append(
+            "All skips are justified — each names an environment requirement "
+            "or a linked Jira issue."
+        )
+        lines.append("")
+        return lines
+    lines.append(
+        f"{len(summary.unjustified_skips)} skip(s) name no environment "
+        "requirement or Jira issue. In strict mode "
+        f"(`{skip_audit.STRICT_ENV_VAR}=1`) these fail the run."
+    )
+    lines.append("")
+    lines.append("| Area | Test | Reason |")
+    lines.append("|---|---|---|")
+    for s in summary.unjustified_skips:
+        reason = s.get("reason") or "—"
+        lines.append(f"| {s.get('area', '')} | {s.get('nodeid', '')} | {reason} |")
+    lines.append("")
+    return lines
+
+
 def render_report_md(summary: Summary) -> str:
     """Render the curated ``report.md`` body for the public-integration channel."""
     fm = summary.frontmatter()
@@ -253,6 +299,9 @@ def render_report_md(summary: Summary) -> str:
         notes = suite.notes or ""
         parts.append(f"| {suite.name} | {suite.result} | {notes} |")
     parts.append("")
+
+    parts.extend(_area_counts_table(summary))
+    parts.extend(_skip_audit_block(summary))
 
     parts.append("## Failures and follow-up")
     parts.append("")
