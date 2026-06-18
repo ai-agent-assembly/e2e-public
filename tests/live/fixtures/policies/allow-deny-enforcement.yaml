@@ -1,0 +1,30 @@
+# allow-deny-enforcement.yaml — Allow/deny policy the live gateway loads for the
+# SDK→runtime enforcement E2E (AAASM-3152).
+#
+# Shape mirrors the gateway's GovernancePolicy contract used by the live harness
+# (see tests/live/fixtures/policies/minimal.yaml), but adds two rules so an E2E
+# test can drive BOTH outcomes through a real core:
+#   * deny-restricted-tool — a specific tool action that MUST be blocked,
+#   * allow-all            — a catch-all so every other action is permitted.
+#
+# The deny rule has the higher priority so it wins over the catch-all for the
+# restricted action. This fixture is for test environments only — NEVER production.
+apiVersion: agent-assembly.dev/v1alpha1
+kind: GovernancePolicy
+metadata:
+  name: live-it-allow-deny-enforcement
+  version: "0.1.0"
+spec:
+  rules:
+    - id: deny-restricted-tool
+      effect: deny
+      priority: 10
+      match:
+        action: "tool.restricted"
+        resource: "*"
+    - id: allow-all
+      effect: allow
+      priority: 0
+      match:
+        action: "*"
+        resource: "*"
