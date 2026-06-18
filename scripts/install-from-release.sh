@@ -41,7 +41,8 @@ usage() {
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
-    case "$1" in
+    local opt="$1"
+    case "$opt" in
       --python-sdk) PYTHON_SDK_VERSION="$2"; shift 2 ;;
       --node-sdk)   NODE_SDK_VERSION="$2";   shift 2 ;;
       --go-sdk)     GO_SDK_VERSION="$2";     shift 2 ;;
@@ -49,7 +50,7 @@ parse_args() {
       --version)    SINGLE_VERSION="$2";     shift 2 ;;
       --tmpdir)     TMPDIR_ROOT="$2";        shift 2 ;;
       -h|--help)    usage ;;
-      *) echo "Unknown option: $1" >&2; usage ;;
+      *) echo "Unknown option: $opt" >&2; usage ;;
     esac
   done
 
