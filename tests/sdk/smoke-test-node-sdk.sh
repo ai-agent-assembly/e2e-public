@@ -15,7 +15,8 @@ log()  { echo "[smoke-test-node-sdk] $*"; }
 fail() { echo "[smoke-test-node-sdk] FAIL: $*" >&2; exit 1; }
 
 require_cmd() {
-  command -v "$1" &>/dev/null || { log "SKIP: $1 not available"; exit 0; }
+  local cmd="$1"
+  command -v "$cmd" &>/dev/null || { log "SKIP: $cmd not available"; exit 0; }
 }
 
 require_cmd node
