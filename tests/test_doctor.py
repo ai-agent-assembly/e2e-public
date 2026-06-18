@@ -89,3 +89,22 @@ def test_check_localhost_bind_eacces_maps_to_fail(monkeypatch) -> None:
     result = doctor.check_localhost_bind()
 
     assert result.status is Status.FAIL
+
+
+def test_check_network_passes_when_reachable(monkeypatch) -> None:
+    monkeypatch.setattr(doctor, "_can_connect", lambda *a, **k: True)
+
+    result = doctor.check_network()
+
+    assert result.status is Status.PASS
+    assert "reachable" in result.detail
+
+
+def test_check_network_offline_degrades_to_warn(monkeypatch) -> None:
+    # Being offline must WARN, never FAIL — flagging the limit is the point.
+    monkeypatch.setattr(doctor, "_can_connect", lambda *a, **k: False)
+
+    result = doctor.check_network()
+
+    assert result.status is Status.WARN
+    assert "network unavailable" in result.detail
