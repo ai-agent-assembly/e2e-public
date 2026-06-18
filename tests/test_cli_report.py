@@ -191,3 +191,70 @@ def test_report_accepts_all_run_types(tmp_path, run_type: str) -> None:
         ]
     )
     assert code == 0
+
+
+def _mixed_args(tmp_path) -> list[str]:
+    return [
+        "report",
+        "--pytest-json",
+        str(FIXTURES / "pytest-report-mixed.json"),
+        "--summary",
+        str(tmp_path / "s.json"),
+        "--out",
+        str(tmp_path / "r.md"),
+        "--tested-refs",
+        "master",
+        "--related-issue",
+        "AAASM-1",
+    ]
+
+
+def test_report_jira_flag_writes_jira_report(tmp_path) -> None:
+    jira_path = tmp_path / "jira.md"
+    code = _run(_mixed_args(tmp_path) + ["--jira", str(jira_path)])
+    assert code == 0
+    text = jira_path.read_text()
+    assert "h2. Verification Evidence" in text
+    assert "tests/public/test_node_sdk.py::test_node_sdk_init" in text
+
+
+def test_strict_flag_fails_on_unjustified_skip(tmp_path, capsys) -> None:
+    code = _run(_mixed_args(tmp_path) + ["--strict"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "un-justified skip" in err
+    assert "test_allow_deny" in err
+
+
+def test_strict_env_var_fails_on_unjustified_skip(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("AASM_VERIFY_STRICT", "1")
+    code = _run(_mixed_args(tmp_path))
+    assert code == 1
+
+
+def test_strict_mode_passes_when_all_skips_justified(tmp_path, monkeypatch) -> None:
+    # The all-pass fixture's lone skip carries an env-justified reason once
+    # routed through the auditor, so a justified-only run exits 0 under strict.
+    monkeypatch.setenv("AASM_VERIFY_STRICT", "1")
+    summary_path = tmp_path / "s.json"
+    data = {
+        "tests": [
+            {
+                "nodeid": "tests/public/test_a.py::t",
+                "keywords": ["sdk"],
+                "outcome": "skipped",
+                "call": {"longrepr": ["a.py", 1, "Skipped: binary not found in PATH"]},
+            }
+        ]
+    }
+    s = reports.summary_from_pytest_json(
+        data,
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="",
+        tested_refs=["master"],
+        retain="short-term",
+    )
+    reports.write_summary_json(str(summary_path), s)
+    code = _run(["report", "--summary", str(summary_path), "--out", str(tmp_path / "r.md")])
+    assert code == 0
