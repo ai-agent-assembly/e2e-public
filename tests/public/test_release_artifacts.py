@@ -116,7 +116,7 @@ def test_github_release_asset_checksum(tmp_path: Path) -> None:
         )
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+    except urllib.error.URLError as exc:
         pytest.skip(
             f"[{COMPONENT}] Cannot fetch release metadata: {exc} — "
             "classification: known_prerequisite"
@@ -184,7 +184,7 @@ def test_github_release_binary_executes(tmp_path: Path) -> None:
         )
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+    except urllib.error.URLError as exc:
         pytest.skip(
             f"[{COMPONENT}] Cannot fetch release metadata: {exc} — "
             "classification: known_prerequisite"

@@ -54,7 +54,7 @@ def test_runtime_binary_version_matches_release(tmp_path: Path) -> None:
     try:
         with urllib.request.urlopen(assets[asset_name], timeout=60) as resp:  # noqa: S310
             asset_path.write_bytes(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+    except urllib.error.URLError as exc:
         pytest.skip(
             f"[{COMPONENT}] could not download {asset_name!r} ({exc}) — offline "
             "environment (classification: external_flake)"

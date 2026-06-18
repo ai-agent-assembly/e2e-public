@@ -88,7 +88,7 @@ def test_live_asset_checksum_matches_published(tmp_path: Path) -> None:
             assets[manifest.checksums_asset_name()], timeout=30
         ) as resp:
             sums_text = resp.read().decode("utf-8", "replace")
-    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+    except urllib.error.URLError as exc:
         pytest.skip(
             f"[{COMPONENT}] could not download asset/checksums ({exc}) — offline "
             "environment (classification: external_flake)"
