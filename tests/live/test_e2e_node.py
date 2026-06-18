@@ -40,6 +40,12 @@ from tests.live.enforcement import (
     node_sdk_available,
     policy_denies,
 )
+from tests.live.runtime import LiveRuntime
+from tests.live.sdk_drivers import (
+    DriverUnavailable,
+    locate_node_driver,
+    run_node_allow_driver,
+)
 
 pytestmark = [pytest.mark.live, pytest.mark.e2e, pytest.mark.sdk]
 
@@ -66,18 +72,31 @@ def test_node_enforcement_policy_is_well_formed() -> None:
     assert policy_denies(rules, ALLOWED_ACTION) is False
 
 
-def test_node_allow_path_event_session() -> None:
+def test_node_allow_path_event_session(live_runtime: LiveRuntime) -> None:
     """Allow path: the Node SDK ships an allowed-action event to the live runtime.
 
-    Skips cleanly (justified env requirement) until the Node toolchain + a built
-    ``@agent-assembly/sdk`` are present to spawn the genuine
-    ``SDK → aa-ffi → aa-runtime`` path for a permitted action.
+    Drives the genuine ``@agent-assembly/sdk`` native client (via the
+    ``enforce_allow.mjs`` subprocess driver) over the live runtime's UDS to ship
+    a permitted-action event — the real ``SDK → aa-ffi → aa-runtime`` path for an
+    action the policy allows, the Node analogue of
+    ``test_python_allow_path_event_session``. Skips cleanly (justified env
+    requirement) when the Node toolchain or a built SDK is absent; the driver
+    deliberately does not assert a clean ``close()`` (AAASM-3000), so the allow
+    path stays green when the transport is reachable.
     """
     _require_node_toolchain()
-    pytest.skip(
-        "Node SDK live driver not wired here — requires a built @agent-assembly/sdk "
-        "checkout (AAASM-3152): allow-path covered once the Node SDK harness lands"
-    )
+    try:
+        driver = locate_node_driver()
+    except DriverUnavailable as exc:
+        pytest.skip(str(exc))
+
+    result = run_node_allow_driver(driver, live_runtime.socket_path, ALLOWED_ACTION)
+    # The driver returns the parsed JSON result of shipping the permitted event;
+    # an ``ok`` result with the action it ran is the observed allowed-action
+    # event reaching the live runtime without being refused at the transport.
+    assert result["ok"] is True
+    assert result["action"] == ALLOWED_ACTION
+    assert result["denied"] is False
 
 
 # AAASM-3172 FLIP SITE: when a fixed SDK release ships (AAASM-3000 + AAASM-3021
