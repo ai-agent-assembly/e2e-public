@@ -306,18 +306,17 @@ def validate_case(case: InstallCase) -> list[SchemaError]:
             add("unsupported case must carry a non-empty unsupported_reason")
         if case.install_argv or case.verify_argv:
             add("unsupported case must have empty install_argv and verify_argv")
-        return errors
-
-    if not case.install_argv:
-        add("supported case must have a non-empty install_argv")
-    if not case.verify_argv:
-        add("supported case must have a non-empty verify_argv")
-    if case.expected_ref_kind not in ("ref", "version"):
-        add(f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}")
-    if not case.expected_ref.strip():
-        add("supported case must document a non-empty expected_ref")
-    if case.mode in _REGISTRY_MODES and not case.required_input_env:
-        add("registry-mode case must require a release-version input env var")
+    else:
+        if not case.install_argv:
+            add("supported case must have a non-empty install_argv")
+        if not case.verify_argv:
+            add("supported case must have a non-empty verify_argv")
+        if case.expected_ref_kind not in ("ref", "version"):
+            add(f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}")
+        if not case.expected_ref.strip():
+            add("supported case must document a non-empty expected_ref")
+        if case.mode in _REGISTRY_MODES and not case.required_input_env:
+            add("registry-mode case must require a release-version input env var")
 
     return errors
 
