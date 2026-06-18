@@ -20,8 +20,7 @@ def test_offline_sample_asset_list_is_complete(sample_asset_names: list[str]) ->
     """The offline sample publishes every expected platform binary, no extras."""
     result = manifest.validate_asset_list(sample_asset_names)
     assert result.ok, (
-        f"sample release missing={result.missing_binaries} "
-        f"unexpected={result.unexpected_binaries}"
+        f"sample release missing={result.missing_binaries} unexpected={result.unexpected_binaries}"
     )
     assert result.missing_binaries == ()
     assert result.unexpected_binaries == ()

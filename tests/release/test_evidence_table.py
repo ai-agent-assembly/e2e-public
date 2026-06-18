@@ -58,9 +58,7 @@ def test_evidence_table_reports_full_platform_coverage(
 
 
 @pytest.mark.release
-def test_evidence_table_records_signature_gap(
-    tmp_path: Path, sample_release_data: dict
-) -> None:
+def test_evidence_table_records_signature_gap(tmp_path: Path, sample_release_data: dict) -> None:
     """The table records the AC4 signature-verification gap, not a silent pass."""
     tag = sample_release_data["tag_name"]
     text = evidence.write_evidence_table(tmp_path, tag, _urls(sample_release_data)).read_text()
@@ -69,9 +67,7 @@ def test_evidence_table_records_signature_gap(
 
 
 @pytest.mark.release
-def test_evidence_table_flags_missing_platform(
-    tmp_path: Path, sample_release_data: dict
-) -> None:
+def test_evidence_table_flags_missing_platform(tmp_path: Path, sample_release_data: dict) -> None:
     """A missing platform binary is shown as not-present, lowering coverage (AC5)."""
     tag = sample_release_data["tag_name"]
     urls = _urls(sample_release_data)

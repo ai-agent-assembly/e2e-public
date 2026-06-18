@@ -70,8 +70,7 @@ def test_runtime_binary_version_matches_release(tmp_path: Path) -> None:
     binary = next((p for p in extract_dir.rglob("aasm") if p.is_file()), None)
     if binary is None:
         pytest.fail(
-            f"[{COMPONENT}] no 'aasm' binary in {asset_name!r} — "
-            "classification: release_blocker"
+            f"[{COMPONENT}] no 'aasm' binary in {asset_name!r} — classification: release_blocker"
         )
 
     binary.chmod(binary.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)

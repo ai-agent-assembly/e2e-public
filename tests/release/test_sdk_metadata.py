@@ -43,8 +43,7 @@ def _check_pypi(version: str) -> None:
     status, body = _http_get(f"https://pypi.org/pypi/{PYPI_PACKAGE}/{bare}/json")
     if status == 0:
         pytest.skip(
-            "[python-sdk] PyPI unreachable — offline environment "
-            "(classification: external_flake)"
+            "[python-sdk] PyPI unreachable — offline environment (classification: external_flake)"
         )
     if status == 404:
         pytest.skip(
