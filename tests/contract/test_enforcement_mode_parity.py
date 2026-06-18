@@ -265,7 +265,12 @@ def _node_assembly_modes() -> frozenset[str]:
 
     with open(mode_ts, encoding="utf-8") as handle:
         source = handle.read()
-    match = re.search(r"type\s+AssemblyMode\s*=\s*([^;]+);", source)
+    # ``[^;]`` already matches whitespace, so the capture group absorbs the run
+    # after ``=`` with no ``\s*`` flanking it — that overlap is what made the
+    # previous pattern prone to polynomial backtracking on input without a
+    # terminating ``;`` (S5852). The captured text is fed to a quoted-token
+    # findall below, so leading whitespace inside the group is irrelevant.
+    match = re.search(r"type\s+AssemblyMode\s*=([^;]+);", source)
     assert match is not None, "[node-sdk] could not locate `type AssemblyMode = ...`"
     return frozenset(re.findall(r'"([^"]+)"', match.group(1)))
 

@@ -46,6 +46,9 @@ def gateway_http_url(gateway: LiveGateway) -> str:
     SDK's REST routes at this URL is the open gap (see the investigation
     note) — this helper only produces the address the SDK would dial.
     """
+    # Plain http:// is intentional and safe here: ``gateway.endpoint`` is a
+    # 127.0.0.1 loopback host:port spun up by the live-test fixture in-process,
+    # never a remote endpoint, so there is no transport to secure (S5332).
     return f"http://{gateway.endpoint}"
 
 

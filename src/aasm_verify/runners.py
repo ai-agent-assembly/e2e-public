@@ -60,8 +60,21 @@ def _build_env(refs: ResolvedRefs) -> dict[str, str]:
     return env
 
 
+# Markers accepted by ``_pytest_command``. The marker is interpolated into the
+# pytest ``-m`` expression, so it must come from this fixed allowlist — never
+# straight from a CLI arg or env var — to keep untrusted text out of the spawned
+# command (S8705: OS-command argument injection / sandbox escape).
+_ALLOWED_MARKERS: frozenset[str] = frozenset({*AREAS, "release"})
+
+
 def _pytest_command(marker: str, json_report: str | None) -> list[str]:
-    """Build a ``pytest -m <marker>`` command, optionally emitting a JSON report."""
+    """Build a ``pytest -m <marker>`` command, optionally emitting a JSON report.
+
+    *marker* must be one of :data:`_ALLOWED_MARKERS`; anything else is rejected
+    before it can reach the subprocess argv.
+    """
+    if marker not in _ALLOWED_MARKERS:
+        raise ValueError(f"refusing to run pytest with unknown marker {marker!r}")
     cmd = [sys.executable, "-m", "pytest", "-m", marker, "-v"]
     if json_report:
         cmd += ["--json-report", f"--json-report-file={json_report}"]

@@ -92,3 +92,19 @@ def test_run_areas_runs_every_area_despite_failure() -> None:
     runners.run_areas(_refs(), list(runners.AREAS), _runner=rec)
     # Every area is attempted even though the first fails.
     assert len(rec.calls) == len(runners.AREAS)
+
+
+def test_pytest_command_allows_known_markers() -> None:
+    for marker in (*runners.AREAS, "release"):
+        if marker == "install":
+            continue  # install has no pytest marker; it runs the smoke script
+        cmd = runners._pytest_command(marker, None)
+        assert cmd[:5] == [runners.sys.executable, "-m", "pytest", "-m", marker]
+
+
+def test_pytest_command_rejects_unknown_marker() -> None:
+    # Defense-in-depth against OS-command argument injection (S8705): a marker
+    # must come from the fixed allowlist, never straight from untrusted input.
+    # The payload below is inert test data — it is rejected, never executed.
+    with pytest.raises(ValueError, match="unknown marker"):
+        runners._pytest_command("sdk; --inject-extra-pytest-arg", None)
