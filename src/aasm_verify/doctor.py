@@ -27,7 +27,9 @@ CI workflows is intentionally deferred to AAASM-3160 to avoid shared-file churn.
 
 from __future__ import annotations
 
+import errno
 import shutil
+import socket
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
@@ -188,6 +190,46 @@ def check_tool(spec: ToolSpec) -> CheckResult:
 def check_tools() -> list[CheckResult]:
     """Probe every tool in the :data:`TOOL_MATRIX`."""
     return [check_tool(spec) for spec in TOOL_MATRIX]
+
+
+# Binding a localhost port is required by any area that boots a local server:
+# the runtime CLI smoke and conformance suites start aa-gateway on 127.0.0.1.
+_BIND_AREAS: tuple[str, ...] = ("runtime", "conformance")
+
+
+def check_localhost_bind() -> CheckResult:
+    """Attempt to bind an ephemeral ``127.0.0.1`` port.
+
+    Sandboxes commonly forbid loopback binds; the syscall fails with ``EPERM``
+    or ``EACCES``. Those map to :data:`Status.FAIL` (the gated areas cannot run).
+    Any other ``OSError`` is also a fail but reported verbatim.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    except OSError as exc:
+        if exc.errno in (errno.EPERM, errno.EACCES):
+            detail = (
+                f"loopback bind denied ({errno.errorcode.get(exc.errno, exc.errno)}): "
+                "this sandbox forbids binding 127.0.0.1"
+            )
+        else:
+            detail = f"loopback bind failed: {exc}"
+        return CheckResult(
+            name="bind",
+            status=Status.FAIL,
+            detail=detail,
+            areas=_BIND_AREAS,
+        )
+    finally:
+        sock.close()
+    return CheckResult(
+        name="bind",
+        status=Status.PASS,
+        detail=f"bound 127.0.0.1:{port}",
+        areas=_BIND_AREAS,
+    )
 
 
 def area_statuses(checks: list[CheckResult]) -> dict[str, Status]:
