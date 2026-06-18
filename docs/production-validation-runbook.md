@@ -299,3 +299,102 @@ Then:
 
 ---
 
+## 8. Troubleshooting QA-environment blockers
+
+These are **environment** problems (tracked under Epic
+[AAASM-3144](https://lightning-dust-mite.atlassian.net/browse/AAASM-3144)), not
+product bugs. Apply the supported workaround and re-run; only escalate to a
+product bug if the failure reproduces in a clean supported environment.
+
+### 8.1 localhost port-bind denied (sandbox `EPERM`)
+
+**Symptom:** the `live` area fails to start `aa-gateway`/`aa-runtime`, or a test
+helper cannot bind a TCP/UDS port — `PermissionError`/`EPERM` on `bind()`.
+
+**Cause:** sandboxed QA environments deny binding loopback ports.
+
+**Supported path:** run the `live` area in a network-enabled lane (local
+developer machine or standard CI runner), not a locked-down sandbox. The live
+fixtures bind a UDS / free TCP port and need that permission. If you only need
+non-live coverage, scope to areas that do not bind ports
+(`uv run pytest -m conformance`, or `--area sdk`/`install` which clone/build but
+do not serve).
+
+### 8.2 browser / Playwright launch denied
+
+**Symptom:** a browser automation step fails to launch Chromium (host
+permissions denied).
+
+**Status:** **no area in this repo launches a browser today** — there is no
+Playwright/Chromium dependency in the harness. This note exists for the case
+where an `examples` web-UI flow is added later.
+
+**Supported path (future web flows):** run browser-driven `examples` checks in a
+lane that permits Chromium launch (standard CI runner or a local machine), not a
+restricted sandbox. Do not classify a launch-permission failure as a product bug.
+
+### 8.3 Python offline install (missing wheels)
+
+**Symptom:** `uv sync` / installing the Python SDK fails because the network is
+disabled or the local package cache lacks the required wheels (including the
+native `_core` wheel, which several `sdk`/`live` tests require —
+`tests/live/test_sdk_runtime.py` skips without it).
+
+**Supported path:** run Python install paths in a **network-enabled lane** so uv
+can fetch wheels from PyPI. The pure-Python SDK tests skip gracefully when only
+the native flavor is missing; for full coverage, install the native wheel
+(CI install-matrix, or build locally with maturin). Do not treat a missing-wheel
+skip as a pass under strict validation.
+
+### 8.4 Node offline (`ERR_PNPM_NO_OFFLINE_TARBALL`)
+
+**Symptom:** `pnpm install` for a node SDK/examples flow fails with
+`ERR_PNPM_NO_OFFLINE_TARBALL` because pnpm's content-addressable store has no
+cached tarball and the network is disabled.
+
+**Supported path:** run node areas with network access so pnpm can fetch
+tarballs, or pre-populate the pnpm store before going offline. Do not run node
+`sdk`/`examples` validation in an offline sandbox and report the resulting
+failure as a product defect.
+
+### 8.5 Go cache outside the workspace (`GOCACHE` workaround) — verified
+
+**Symptom:** Go example/SDK steps fail because the Go toolchain cannot write its
+build cache to the default `$HOME/.cache/go-build` (permission denied in a
+restricted sandbox).
+
+**Verified workaround:** point the Go cache at a writable temp dir before running
+any Go area:
+
+```bash
+export GOCACHE=/tmp/go-build-cache
+mkdir -p "$GOCACHE"
+# now run the Go-touching areas:
+uv run aasm-verify public --mode latest --area examples
+uv run pytest -m sdk -v          # includes the Go SDK probes
+```
+
+Relatedly, the Go probes already set `GOFLAGS=-mod=mod` (so `go get`/`go build`
+may update `go.mod`/`go.sum`) — see `tests/public/test_go_sdk.py` and
+`tests/behavioral/test_go_*`. A Go-proxy fetch failure surfaces as
+"offline or proxy unreachable"; that is an environment blocker, not a product
+bug.
+
+---
+
+## 9. Quick reference
+
+```bash
+uv sync                                                   # bootstrap harness
+uv run aasm-verify public --mode latest --area all        # full latest validation
+uv run aasm-verify public --mode latest --area sdk        # one area
+uv run pytest -m conformance -v                           # pure-fixture, offline-safe
+uv run pytest -m live -v                                  # opt-in from-source core interop
+AASM_RELEASE_VERSION=<v> uv run pytest -m release -v      # published registry paths
+uv run aasm-verify public ... --json-report /tmp/r.json   # capture evidence
+export GOCACHE=/tmp/go-build-cache                        # Go sandbox workaround (AAASM-3144)
+```
+
+See also: [`verification-modes.md`](verification-modes.md),
+[`evidence-template.md`](evidence-template.md), and the repository
+[`README.md`](../README.md).
