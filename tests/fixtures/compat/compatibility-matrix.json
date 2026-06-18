@@ -1,0 +1,122 @@
+{
+  "_comment": [
+    "Cross-version runtime x SDK compatibility matrix for AAASM-3157.",
+    "Each entry pairs one aa-runtime channel/version with one language-SDK",
+    "version and records whether that combination is a SUPPORTED integration",
+    "target. Every row carries a reason string; unsupported rows must explain",
+    "WHY the pair is not validated (e.g. the SDK predates a wire-protocol change).",
+    "Channels: 'latest-branch' tracks master HEAD, 'latest-release' is the most",
+    "recent published release, 'previous-release' is the prior supported release",
+    "kept under compatibility validation (AC4).",
+    "This data is consumed offline by tests/compat/matrix.py; the live build of",
+    "any single combination is opt-in and skip-guarded (cargo/protoc + SDK",
+    "toolchains are not present in CI/offline sandboxes)."
+  ],
+  "runtime_repo": "agent-assembly",
+  "sdk_repos": {
+    "python": "python-sdk",
+    "node": "node-sdk",
+    "go": "go-sdk"
+  },
+  "entries": [
+    {
+      "id": "latest-branch-python-master",
+      "runtime_channel": "latest-branch",
+      "runtime_version": "master",
+      "sdk": "python",
+      "sdk_version": "master",
+      "supported": true,
+      "reason": "master x master is the primary development integration target."
+    },
+    {
+      "id": "latest-branch-node-master",
+      "runtime_channel": "latest-branch",
+      "runtime_version": "master",
+      "sdk": "node",
+      "sdk_version": "master",
+      "supported": true,
+      "reason": "master x master is the primary development integration target."
+    },
+    {
+      "id": "latest-branch-go-master",
+      "runtime_channel": "latest-branch",
+      "runtime_version": "master",
+      "sdk": "go",
+      "sdk_version": "master",
+      "supported": true,
+      "reason": "master x master is the primary development integration target."
+    },
+    {
+      "id": "latest-release-python-0.0.1",
+      "runtime_channel": "latest-release",
+      "runtime_version": "0.0.1",
+      "sdk": "python",
+      "sdk_version": "0.0.1",
+      "supported": true,
+      "reason": "Latest published release: runtime and python-sdk ship at the same tag."
+    },
+    {
+      "id": "latest-release-node-0.0.1",
+      "runtime_channel": "latest-release",
+      "runtime_version": "0.0.1",
+      "sdk": "node",
+      "sdk_version": "0.0.1",
+      "supported": true,
+      "reason": "Latest published release: runtime and node-sdk ship at the same tag."
+    },
+    {
+      "id": "latest-release-go-0.0.1",
+      "runtime_channel": "latest-release",
+      "runtime_version": "0.0.1",
+      "sdk": "go",
+      "sdk_version": "v0.0.1",
+      "supported": true,
+      "reason": "Latest published release: runtime and go-sdk ship at the same tag (go uses v-prefix)."
+    },
+    {
+      "id": "previous-release-python-0.0.1-alpha.1",
+      "runtime_channel": "previous-release",
+      "runtime_version": "0.0.1-alpha.1",
+      "sdk": "python",
+      "sdk_version": "0.0.1-alpha.1",
+      "supported": true,
+      "reason": "Previous supported release: prior alpha kept under compatibility validation (AC4)."
+    },
+    {
+      "id": "previous-release-node-0.0.1-alpha.1",
+      "runtime_channel": "previous-release",
+      "runtime_version": "0.0.1-alpha.1",
+      "sdk": "node",
+      "sdk_version": "0.0.1-alpha.1",
+      "supported": true,
+      "reason": "Previous supported release: prior alpha kept under compatibility validation (AC4)."
+    },
+    {
+      "id": "previous-release-go-0.0.1-alpha.1",
+      "runtime_channel": "previous-release",
+      "runtime_version": "0.0.1-alpha.1",
+      "sdk": "go",
+      "sdk_version": "v0.0.1-alpha.1",
+      "supported": true,
+      "reason": "Previous supported release: prior alpha kept under compatibility validation (AC4)."
+    },
+    {
+      "id": "latest-branch-python-0.0.1-alpha.1",
+      "runtime_channel": "latest-branch",
+      "runtime_version": "master",
+      "sdk": "python",
+      "sdk_version": "0.0.1-alpha.1",
+      "supported": false,
+      "reason": "Unsupported: alpha.1 python-sdk predates the master wire-protocol change; an old SDK against a new runtime is not validated."
+    },
+    {
+      "id": "previous-release-node-0.0.1",
+      "runtime_channel": "previous-release",
+      "runtime_version": "0.0.1-alpha.1",
+      "sdk": "node",
+      "sdk_version": "0.0.1",
+      "supported": false,
+      "reason": "Unsupported: a newer node-sdk release against an older runtime release is not a validated upgrade path."
+    }
+  ]
+}
