@@ -205,34 +205,61 @@ def cmd_public(args: argparse.Namespace) -> int:
     return runners.run_areas(refs, areas, json_report=args.json_report)
 
 
+def _load_report_summary(args: argparse.Namespace) -> reports.Summary:
+    """Build the summary from a pytest-json run, or load an existing summary.json.
+
+    Raises the underlying ``PathTraversalError`` / ``FileNotFoundError`` /
+    ``ValueError`` / ``KeyError`` so :func:`cmd_report` can map each to a clean
+    one-line error.
+    """
+    if args.pytest_json is not None:
+        date = args.date or _today_utc()
+        tested_refs = [r.strip() for r in args.tested_refs.split(",") if r.strip()]
+        with open(safe_path(args.pytest_json), encoding="utf-8") as fh:
+            pytest_data = json.load(fh)
+        summary = reports.summary_from_pytest_json(
+            pytest_data,
+            run_type=args.run_type,
+            date=date,
+            workflow_run_url=args.run_url,
+            tested_refs=tested_refs,
+            retain=args.retain,
+            related_issue=args.related_issue,
+            scope=args.scope,
+            result=args.result,
+        )
+        reports.write_summary_json(args.summary, summary)
+        return summary
+    with open(safe_path(args.summary), encoding="utf-8") as fh:
+        return reports.summary_from_dict(json.load(fh))
+
+
+def _report_strict_violations(args: argparse.Namespace, summary: reports.Summary) -> int:
+    """Print strict-mode skip violations and return its exit code (0 = clean).
+
+    Strict mode (CLI flag or ``AASM_VERIFY_STRICT=1``) fails on un-justified skips.
+    """
+    if not (args.strict or reports.strict_mode_enabled()):
+        return 0
+    violations = reports.strict_skip_violations(summary)
+    if not violations:
+        return 0
+    print(
+        f"error: strict mode: {len(violations)} un-justified skip(s) "
+        "(reason must name an env requirement or a Jira issue):",
+        file=sys.stderr,
+    )
+    for v in violations:
+        reason = v["reason"] or "<no reason given>"
+        print(f"  - [{v['area']}] {v['nodeid']}: {reason}", file=sys.stderr)
+    return 1
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     """Run the 'report' subcommand: build summary.json and render report.md."""
-    date = args.date or _today_utc()
-    tested_refs = [r.strip() for r in args.tested_refs.split(",") if r.strip()]
-
     try:
-        if args.pytest_json is not None:
-            with open(safe_path(args.pytest_json), encoding="utf-8") as fh:
-                pytest_data = json.load(fh)
-            summary = reports.summary_from_pytest_json(
-                pytest_data,
-                run_type=args.run_type,
-                date=date,
-                workflow_run_url=args.run_url,
-                tested_refs=tested_refs,
-                retain=args.retain,
-                related_issue=args.related_issue,
-                scope=args.scope,
-                result=args.result,
-            )
-            reports.write_summary_json(args.summary, summary)
-        else:
-            with open(safe_path(args.summary), encoding="utf-8") as fh:
-                summary = reports.summary_from_dict(json.load(fh))
-    except PathTraversalError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except FileNotFoundError as exc:
+        summary = _load_report_summary(args)
+    except (PathTraversalError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except (ValueError, KeyError) as exc:
@@ -261,21 +288,7 @@ def cmd_report(args: argparse.Namespace) -> int:
             return 1
         print(f"bundle:  {out}")
 
-    # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
-    if args.strict or reports.strict_mode_enabled():
-        violations = reports.strict_skip_violations(summary)
-        if violations:
-            print(
-                f"error: strict mode: {len(violations)} un-justified skip(s) "
-                "(reason must name an env requirement or a Jira issue):",
-                file=sys.stderr,
-            )
-            for v in violations:
-                reason = v["reason"] or "<no reason given>"
-                print(f"  - [{v['area']}] {v['nodeid']}: {reason}", file=sys.stderr)
-            return 1
-
-    return 0
+    return _report_strict_violations(args, summary)
 
 
 def _write_bundle(args: argparse.Namespace, summary: reports.Summary) -> str:
