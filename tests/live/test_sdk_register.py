@@ -53,6 +53,9 @@ def test_sdk_can_reach_live_gateway(live_gateway: LiveGateway) -> None:
 
     client = make_sdk_client(live_gateway, agent_id="live-smoke-agent")
     try:
+        # Plain http:// is intentional: the fixture gateway listens on a
+        # 127.0.0.1 loopback port for the duration of this test only, so there
+        # is no remote transport to encrypt (S5332).
         assert client.gateway_url == f"http://{live_gateway.endpoint}"
         with socket.create_connection(("127.0.0.1", live_gateway.port), timeout=2):
             pass  # a successful connect proves the listener is up
