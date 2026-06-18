@@ -200,10 +200,13 @@ class EvidenceBundle:
         created if missing. Every file is built from normalized data or the
         sanitized env snapshot, so the bundle carries no secrets (AC5).
         """
-        # Resolve the bundle root once; every file written below is then derived
-        # via safe_path(name, base=out) so each write is provably contained in
-        # the bundle dir — a traversal-style name can never escape it (S8707).
-        out = Path(outdir).resolve()
+        # The bundle root comes from the operator (``--bundle``/``--out``), so it
+        # is itself an untrusted path: a relative ``../`` value could place the
+        # whole bundle — and its mkdir — outside the run's working tree. Vet the
+        # root through safe_path first (resolve + reject relative escapes), then
+        # derive every file below via safe_path(name, base=out) so each write is
+        # provably contained in the vetted bundle dir (path traversal, S8707).
+        out = safe_path(str(outdir))
         out.mkdir(parents=True, exist_ok=True)
 
         reports.write_report_md(str(safe_path("summary.md", base=out)), self.summary)
