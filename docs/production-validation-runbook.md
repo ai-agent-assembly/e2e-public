@@ -83,7 +83,7 @@ Install only what the area you are running needs. Every area **skips cleanly**
 | **protoc** (protobuf-compiler) | Any build of `agent-assembly` (aa-proto's build script invokes `protoc`) — `install`, `live` | `apt-get install -y protobuf-compiler` / `brew install protobuf` |
 | **Node ≥ 20 + [pnpm](https://pnpm.io/)** | `sdk` (node), `examples` (node flows) | `corepack enable pnpm` or `npm i -g pnpm` |
 | **Go (stable)** | `sdk` (go), `examples` (go flows), `release` (Go module proxy) | <https://go.dev/dl/> |
-| **Browser / Playwright** | Not required by any area in this repo today. Only relevant if an `examples` flow ever drives a web UI; see the [browser blocker note](#52-browser--playwright-launch-denied). | n/a |
+| **Browser / Playwright** | Optional — the `dashboard` browser smoke (`tests/dashboard/test_browser_smoke.py`, AAASM-3154) launches headless Chromium when enabled; skip-guarded otherwise. See [§8.2](#82-browser--playwright-launch-denied). | `uv sync --extra browser` then `playwright install chromium` |
 
 CI pins (see the workflows): Python `3.14`, Node `24`, Go `stable`, Rust
 `stable`, pnpm `latest`, and `protobuf-compiler` via apt.
@@ -348,15 +348,28 @@ do not serve).
 ### 8.2 browser / Playwright launch denied
 
 **Symptom:** a browser automation step fails to launch Chromium (host
-permissions denied).
+permissions denied), or `aasm-verify doctor` reports
+`[WARN] browser: playwright package not importable`.
 
-**Status:** **no area in this repo launches a browser today** — there is no
-Playwright/Chromium dependency in the harness. This note exists for the case
-where an `examples` web-UI flow is added later.
+**Status:** the `dashboard` browser smoke (`tests/dashboard/test_browser_smoke.py`,
+AAASM-3154) launches headless Chromium to load a route and capture a screenshot.
+Playwright is an **optional** dependency — a plain `uv sync` stays browser-free and
+the smoke skip-guards on its absence, so a missing browser never fails the suite. A
+doctor `[WARN]` means the package is simply not installed (not a sandbox denial);
+once installed, headless Chromium launches in a supported environment (verified —
+the doctor `browser` capability flips `WARN` → `PASS`).
 
-**Supported path (future web flows):** run browser-driven `examples` checks in a
-lane that permits Chromium launch (standard CI runner or a local machine), not a
-restricted sandbox. Do not classify a launch-permission failure as a product bug.
+**Supported screenshot / evidence capture path:**
+
+```bash
+uv sync --extra browser        # installs Playwright (the `browser` extra)
+playwright install chromium    # one-time browser download
+AASM_RUN_DASHBOARD=1 uv run pytest tests/dashboard/test_browser_smoke.py -v
+```
+
+Run this on a standard CI runner or local machine that permits Chromium launch, not
+a restricted sandbox. A launch-permission denial on a locked-down host is an
+environment/ops constraint — do not classify it as a product bug.
 
 ### 8.3 Python offline install (missing wheels)
 
