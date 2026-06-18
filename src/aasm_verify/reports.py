@@ -24,6 +24,7 @@ import os
 from dataclasses import dataclass, field
 
 from aasm_verify import skip_audit
+from aasm_verify.pathsafe import safe_path
 
 # Fixed identity for the public-integration channel (AAASM-2236).
 REPORT_TYPE: str = "public-integration"
@@ -187,7 +188,7 @@ def summary_from_dict(data: dict) -> Summary:
 def write_summary_json(path: str, summary: Summary) -> None:
     """Write the machine-readable ``summary.json`` deterministically."""
     text = json.dumps(summary.as_dict(), indent=2, sort_keys=False)
-    with open(path, "w", encoding="utf-8") as fh:
+    with open(safe_path(path), "w", encoding="utf-8") as fh:
         fh.write(text)
         fh.write("\n")
 
@@ -337,7 +338,7 @@ def render_report_md(summary: Summary) -> str:
 
 def write_report_md(path: str, summary: Summary) -> None:
     """Write the curated ``report.md`` deterministically."""
-    with open(path, "w", encoding="utf-8") as fh:
+    with open(safe_path(path), "w", encoding="utf-8") as fh:
         fh.write(render_report_md(summary))
 
 
@@ -454,7 +455,7 @@ def _jira_skip_audit(summary: Summary) -> list[str]:
 
 def write_jira_report(path: str, summary: Summary) -> None:
     """Write the Jira-ready evidence report deterministically."""
-    with open(path, "w", encoding="utf-8") as fh:
+    with open(safe_path(path), "w", encoding="utf-8") as fh:
         fh.write(render_jira_report(summary))
 
 
