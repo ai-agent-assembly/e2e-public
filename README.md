@@ -33,6 +33,7 @@ agent-assembly-integration-tests/
     policies/                  # sample policy files for test inputs
     expected-output/           # expected output snapshots for assertions
   docs/
+    production-validation-runbook.md  # how to run this repo as the production validation harness
     verification-modes.md      # how to use each verification mode
     evidence-template.md       # template for Jira / release report evidence
   .github/workflows/
@@ -42,6 +43,14 @@ agent-assembly-integration-tests/
     verify-public-manual.yml       # manual: verify selected mode/area with ref inputs
     verify-public-scheduled.yml    # scheduled (1st/15th): full public stack health check
 ```
+
+## Documentation
+
+| Doc | Purpose |
+|---|---|
+| [`docs/production-validation-runbook.md`](docs/production-validation-runbook.md) | Practical runbook: prerequisites, how to run each validation area, strict-vs-smoke, skip/xfail interpretation, QA-environment troubleshooting, and Jira evidence |
+| [`docs/verification-modes.md`](docs/verification-modes.md) | Which ref/mode to target (`latest` / `tag` / `sha` / `release`) |
+| [`docs/evidence-template.md`](docs/evidence-template.md) | Template for Jira / release verification evidence |
 
 ## Verification modes
 
