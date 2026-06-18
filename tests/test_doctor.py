@@ -202,8 +202,12 @@ def test_exit_code_zero_unless_fail() -> None:
 
 def test_report_recommended_env_merges_checks() -> None:
     checks = [
-        doctor.CheckResult("cache:go", Status.WARN, areas=("sdk",), recommend_env={"GOCACHE": "/tmp/go"}),
-        doctor.CheckResult("cache:uv", Status.WARN, areas=("sdk",), recommend_env={"UV_CACHE_DIR": "/tmp/uv"}),
+        doctor.CheckResult(
+            "cache:go", Status.WARN, areas=("sdk",), recommend_env={"GOCACHE": "/tmp/go"}
+        ),
+        doctor.CheckResult(
+            "cache:uv", Status.WARN, areas=("sdk",), recommend_env={"UV_CACHE_DIR": "/tmp/uv"}
+        ),
     ]
     report = _report_with(checks)
 

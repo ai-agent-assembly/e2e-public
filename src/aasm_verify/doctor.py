@@ -35,7 +35,7 @@ import socket
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 # Verification areas mirror aasm_verify.runners.AREAS. Kept as a local literal so
@@ -44,7 +44,7 @@ from pathlib import Path
 AREAS: tuple[str, ...] = ("runtime", "sdk", "examples", "install", "conformance")
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     """Tri-state outcome for a capability check or an aggregated area.
 
     String-valued so it serializes directly into ``--json`` output.
@@ -308,7 +308,9 @@ class CacheSpec:
 # pointing at a writable temp dir when it is not writable.
 CACHE_MATRIX: tuple[CacheSpec, ...] = (
     CacheSpec("go", "GOCACHE", ("GOCACHE",), ".cache/go-build", ("sdk", "examples")),
-    CacheSpec("cargo", "CARGO_HOME", ("CARGO_HOME",), ".cargo", ("runtime", "install", "conformance")),
+    CacheSpec(
+        "cargo", "CARGO_HOME", ("CARGO_HOME",), ".cargo", ("runtime", "install", "conformance")
+    ),
     CacheSpec("pnpm", "PNPM_HOME", ("PNPM_HOME",), ".local/share/pnpm", ("sdk", "examples")),
     CacheSpec("uv", "UV_CACHE_DIR", ("UV_CACHE_DIR",), ".cache/uv", ("sdk", "examples")),
 )
@@ -406,9 +408,7 @@ def check_browser() -> CheckResult:
             areas=_BROWSER_AREAS,
         )
     browsers_dir = _playwright_browsers_dir()
-    chromium_installs = (
-        sorted(browsers_dir.glob("chromium-*")) if browsers_dir.exists() else []
-    )
+    chromium_installs = sorted(browsers_dir.glob("chromium-*")) if browsers_dir.exists() else []
     if not chromium_installs:
         return CheckResult(
             name="browser",
