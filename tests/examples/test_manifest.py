@@ -61,8 +61,7 @@ def test_example_rel_path_is_under_language(example: Example) -> None:
         f"{example.id}: rel_path must use forward slashes, got {example.rel_path!r}"
     )
     assert example.rel_path.startswith(f"{example.language}/"), (
-        f"{example.id}: rel_path {example.rel_path!r} must start with "
-        f"{example.language!r}/"
+        f"{example.id}: rel_path {example.rel_path!r} must start with {example.language!r}/"
     )
 
 
@@ -85,8 +84,7 @@ def test_example_run_cmd_is_nonempty_argv(example: Example) -> None:
 def test_example_install_cmd_tokens_are_strings(example: Example) -> None:
     """The install command (when present) is plain string-token argv."""
     assert all(isinstance(tok, str) and tok for tok in example.install_cmd), (
-        f"{example.id}: install_cmd tokens must be non-empty strings: "
-        f"{example.install_cmd!r}"
+        f"{example.id}: install_cmd tokens must be non-empty strings: {example.install_cmd!r}"
     )
 
 
@@ -105,8 +103,7 @@ def test_example_declares_required_tools(example: Example) -> None:
 def test_example_classification_is_known(example: Example) -> None:
     """Each example is classified quick or framework_heavy (AC4)."""
     assert example.classification in CLASSIFICATIONS, (
-        f"{example.id}: classification {example.classification!r} not in "
-        f"{CLASSIFICATIONS}"
+        f"{example.id}: classification {example.classification!r} not in {CLASSIFICATIONS}"
     )
 
 
@@ -121,8 +118,7 @@ def test_optional_or_heavy_examples_state_a_reason(example: Example) -> None:
     needs_reason = example.optional or example.classification == FRAMEWORK_HEAVY
     if needs_reason:
         assert example.optional_reason.strip(), (
-            f"{example.id}: optional/framework_heavy example must state an "
-            "optional_reason (AC4)"
+            f"{example.id}: optional/framework_heavy example must state an optional_reason (AC4)"
         )
 
 

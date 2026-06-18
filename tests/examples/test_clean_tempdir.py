@@ -51,9 +51,7 @@ def test_clean_copy_strips_dependency_artifacts(tmp_path: Path) -> None:
 
 
 @pytest.mark.examples
-def test_clean_example_copy_fixture_produces_clean_tree(
-    clean_example_copy, tmp_path: Path
-) -> None:
+def test_clean_example_copy_fixture_produces_clean_tree(clean_example_copy, tmp_path: Path) -> None:
     """The fixture factory returns a copy with artifacts stripped."""
     src = tmp_path / "src_example"
     _make_dirty_tree(src)
