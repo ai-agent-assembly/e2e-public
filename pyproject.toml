@@ -36,6 +36,7 @@ markers = [
     "conformance: Policy allow/deny conformance smoke tests",
     "release: Release artifact and registry install verification tests",
     "live: Live-core tests that build and run aa-runtime / aa-gateway from source",
+    "e2e: Live SDK→runtime policy enforcement end-to-end tests",
     "compat: Cross-version runtime×SDK compatibility matrix tests",
 ]
 
