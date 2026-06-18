@@ -258,3 +258,50 @@ def test_strict_mode_passes_when_all_skips_justified(tmp_path, monkeypatch) -> N
     reports.write_summary_json(str(summary_path), s)
     code = _run(["report", "--summary", str(summary_path), "--out", str(tmp_path / "r.md")])
     assert code == 0
+
+
+def test_report_rejects_pytest_json_traversal(tmp_path, monkeypatch, capsys) -> None:
+    """A relative ``..`` --pytest-json path is rejected, not opened (S8707)."""
+    monkeypatch.chdir(tmp_path)
+    code = _run(
+        [
+            "report",
+            "--pytest-json",
+            "../../../etc/passwd",
+            "--summary",
+            "summary.json",
+            "--out",
+            "report.md",
+        ]
+    )
+    assert code == 1
+    assert "outside the allowed base" in capsys.readouterr().err
+    assert not (tmp_path / "summary.json").exists()
+
+
+def test_report_rejects_summary_input_traversal(tmp_path, monkeypatch, capsys) -> None:
+    """A relative ``..`` --summary input path is rejected before any read."""
+    monkeypatch.chdir(tmp_path)
+    code = _run(["report", "--summary", "../../secret.json", "--out", "report.md"])
+    assert code == 1
+    assert "outside the allowed base" in capsys.readouterr().err
+
+
+def test_report_rejects_out_traversal(tmp_path, monkeypatch, capsys) -> None:
+    """A relative ``..`` --out path is rejected before report.md is written."""
+    monkeypatch.chdir(tmp_path)
+    code = _run(
+        [
+            "report",
+            "--pytest-json",
+            str(FIXTURES / "pytest-report-pass.json"),
+            "--summary",
+            "summary.json",
+            "--out",
+            "../../escape.md",
+            "--tested-refs",
+            "master",
+        ]
+    )
+    assert code == 1
+    assert "outside the allowed base" in capsys.readouterr().err
