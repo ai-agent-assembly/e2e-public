@@ -38,6 +38,12 @@ from tests.live.enforcement import (
     load_policy_rules,
     policy_denies,
 )
+from tests.live.runtime import LiveRuntime
+from tests.live.sdk_drivers import (
+    DriverUnavailable,
+    locate_go_driver,
+    run_go_allow_driver,
+)
 
 pytestmark = [pytest.mark.live, pytest.mark.e2e, pytest.mark.sdk]
 
@@ -63,18 +69,29 @@ def test_go_enforcement_policy_is_well_formed() -> None:
     assert policy_denies(rules, ALLOWED_ACTION) is False
 
 
-def test_go_allow_path_event_session() -> None:
-    """Allow path: the Go SDK ships an allowed-action event to the live runtime.
+def test_go_allow_path_event_session(live_runtime: LiveRuntime) -> None:
+    """Allow path: the Go SDK runs an allowed governed tool against the live runtime.
 
-    Skips cleanly (justified env requirement) until ``go`` + the Go SDK are
-    present to spawn the genuine ``SDK → aa-ffi → aa-runtime`` path for a
-    permitted action.
+    Drives the real ``github.com/AI-agent-assembly/go-sdk`` governed-tool wrapper
+    (via the ``enforce_allow.go`` subprocess driver, built under the ``aa_ffi_go``
+    cgo tag so it links the genuine FFI transport) for an action the policy
+    allows, and asserts the wrapped tool actually executes — the Go analogue of
+    ``test_python_allow_path_event_session``. Skips cleanly (justified env
+    requirement) when ``go``, the go-sdk checkout, or the built cgo FFI library is
+    absent; the driver does not assert a clean ``close()`` (AAASM-3000).
     """
     _require_go_toolchain()
-    pytest.skip(
-        "Go SDK live driver not wired here — requires the go-sdk module checkout "
-        "(AAASM-3152): allow-path covered once the Go SDK harness lands"
-    )
+    try:
+        driver = locate_go_driver()
+    except DriverUnavailable as exc:
+        pytest.skip(str(exc))
+
+    result = run_go_allow_driver(driver, live_runtime.socket_path, ALLOWED_ACTION)
+    # An ``ok`` result means the governed wrapper saw ALLOW and let the underlying
+    # tool run — the permitted action was not refused at the SDK boundary.
+    assert result["ok"] is True
+    assert result["action"] == ALLOWED_ACTION
+    assert result["denied"] is False
 
 
 # AAASM-3172 FLIP SITE: when a fixed SDK release ships (AAASM-3000 + AAASM-3021
