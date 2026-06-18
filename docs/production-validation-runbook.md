@@ -71,3 +71,124 @@ Note the asymmetry, taken from `src/aasm_verify/runners.py`:
 
 ---
 
+## 3. Local prerequisites
+
+Install only what the area you are running needs. Every area **skips cleanly**
+(not fails) when its toolchain is absent — see [§6](#6-interpreting-skips-xfails-and-known-gaps).
+
+| Tool | Needed for | Install |
+|---|---|---|
+| **Python ≥ 3.12 + [uv](https://docs.astral.sh/uv/)** | The harness itself (`aasm-verify`, pytest) | `pip install uv` |
+| **Rust (stable) + Cargo** | `install`, `live`, `release` (GitHub-Release binary) | <https://rustup.rs> |
+| **protoc** (protobuf-compiler) | Any build of `agent-assembly` (aa-proto's build script invokes `protoc`) — `install`, `live` | `apt-get install -y protobuf-compiler` / `brew install protobuf` |
+| **Node ≥ 20 + [pnpm](https://pnpm.io/)** | `sdk` (node), `examples` (node flows) | `corepack enable pnpm` or `npm i -g pnpm` |
+| **Go (stable)** | `sdk` (go), `examples` (go flows), `release` (Go module proxy) | <https://go.dev/dl/> |
+| **Browser / Playwright** | Not required by any area in this repo today. Only relevant if an `examples` flow ever drives a web UI; see the [browser blocker note](#52-browser--playwright-launch-denied). | n/a |
+
+CI pins (see the workflows): Python `3.14`, Node `24`, Go `stable`, Rust
+`stable`, pnpm `latest`, and `protobuf-compiler` via apt.
+
+Bootstrap the harness once:
+
+```bash
+uv sync   # installs pytest, pytest-json-report, pytest-xdist, ruff
+```
+
+---
+
+## 4. How to run each area
+
+There are two equivalent entry points: the **`aasm-verify` orchestrator** (what
+CI uses) and **direct pytest / smoke scripts** (handy for one area in isolation).
+
+### 4.1 Orchestrated (recommended — matches CI)
+
+```bash
+# All areas, latest base branches (the scheduled-CI behavior)
+uv run aasm-verify public --mode latest --area all
+
+# One area
+uv run aasm-verify public --mode latest --area runtime
+uv run aasm-verify public --mode latest --area sdk
+uv run aasm-verify public --mode latest --area examples
+uv run aasm-verify public --mode latest --area install
+uv run aasm-verify public --mode latest --area conformance
+
+# Pin specific refs across repos (mirrors verify-public-manual.yml inputs)
+uv run aasm-verify public \
+  --mode latest --area sdk \
+  --agent-assembly-ref master \
+  --python-sdk-ref v0.1.0 \
+  --node-sdk-ref   master \
+  --go-sdk-ref     master \
+  --examples-ref   master
+
+# Plan only — print the resolved target matrix and exit (no clone/build)
+uv run aasm-verify public --mode latest --area all --dry-run
+```
+
+### 4.2 Direct pytest / scripts (one area, no orchestrator)
+
+```bash
+uv run pytest -m runtime     -v          # runtime CLI
+uv run pytest -m sdk         -v          # SDK init + cross-SDK contract + behavioral
+uv run pytest -m examples    -v          # example flows
+uv run pytest -m conformance -v          # policy allow/deny conformance
+bash tests/install/smoke-test-rust-build.sh   # install area (no marker)
+```
+
+`install`, `sdk`, and `examples` smoke scripts honor ref env vars:
+
+```bash
+AA_REF=v0.1.0          bash tests/install/smoke-test-rust-build.sh
+PYTHON_SDK_REF=v0.1.0  bash tests/sdk/smoke-test-python-sdk.sh
+NODE_SDK_REF=master    bash tests/sdk/smoke-test-node-sdk.sh
+EXAMPLES_REF=master    bash tests/examples/smoke-test-examples.sh
+AA_REF=master          bash tests/conformance/smoke-test-conformance.sh
+```
+
+### 4.3 `release` area — published registry install paths
+
+`release` validates what real end users can install. It installs from PyPI/npm/Go
+proxy, then runs the `release` marker:
+
+```bash
+# Install published SDKs, then run the release suite (mirrors verify-release.yml)
+bash scripts/install-from-release.sh --repo python-sdk --version 0.1.0
+bash scripts/install-from-release.sh --repo node-sdk   --version 0.1.0
+bash scripts/install-from-release.sh --repo go-sdk     --version v0.1.0
+
+AASM_RELEASE_VERSION=0.0.1 uv run pytest -m release -v --tb=short
+```
+
+`test_release_artifacts.py` additionally checks the **GitHub Release** has a
+platform binary asset for the current platform (the asset suffix is derived from
+`platform.system()`/`platform.machine()` in `tests/public/conftest.py`).
+
+### 4.4 `live` area — from-source core interop (opt-in)
+
+`live` builds `aa-runtime` / `aa-gateway` from the `agent-assembly` source and
+runs a real SDK against it. It is **excluded by default** and slow (clone +
+`cargo build`), so opt in explicitly:
+
+```bash
+# Needs cargo + protoc on PATH (REQUIRED_TOOLS in tests/live/build.py); else skips.
+uv run pytest -m live -v
+
+# Pin / reuse the core source:
+AASM_CORE_REF=master            uv run pytest -m live -v    # git ref to clone
+AASM_CORE_SOURCE_DIR=/path/aa   uv run pytest -m live -v    # reuse an existing checkout
+```
+
+### 4.5 CI workflow → area mapping
+
+| Workflow | Trigger | Areas / mode |
+|---|---|---|
+| `verify-latest.yml` | Wed+Sat 02:00 UTC + dispatch | install, sdk, examples, conformance @ base branches (direct smoke scripts) |
+| `verify-public-scheduled.yml` | 1st/15th 02:00 UTC + dispatch | `runtime,sdk,examples,install,conformance` matrix via `aasm-verify`, opens failure issues |
+| `verify-public-manual.yml` | dispatch | choose `mode` + `test_group` + per-repo refs |
+| `verify-tag.yml` | dispatch | per-repo tag inputs, exact-snapshot smoke scripts |
+| `verify-release.yml` | release published + dispatch | `release` marker against registry versions |
+
+---
+
