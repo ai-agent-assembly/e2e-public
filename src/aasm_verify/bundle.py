@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from aasm_verify import reports
+from aasm_verify.pathsafe import safe_path
 from aasm_verify.reports import Summary
 
 # Environment keys copied verbatim into ``env.json``. The list is an ALLOW-LIST,
@@ -166,7 +167,7 @@ class EvidenceBundle:
         src = self.pytest_json_path
         if src is None or not src.is_file():
             return False
-        shutil.copyfile(src, dest_dir / "pytest-report.json")
+        shutil.copyfile(src, safe_path("pytest-report.json", base=dest_dir))
         return True
 
     def _copy_screenshots(self, dest_dir: Path) -> list[str]:
@@ -184,7 +185,9 @@ class EvidenceBundle:
             for path in sorted(src_dir.rglob("*")):
                 if path.is_file() and path.suffix.lower() in _SCREENSHOT_SUFFIXES:
                     shots_dir.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(path, shots_dir / path.name)
+                    # path.name is a basename, but routing the destination through
+                    # safe_path keeps the copy provably inside shots_dir (S8707).
+                    shutil.copyfile(path, safe_path(path.name, base=shots_dir))
                     copied.append(f"screenshots/{path.name}")
         return copied
 
@@ -197,25 +200,30 @@ class EvidenceBundle:
         created if missing. Every file is built from normalized data or the
         sanitized env snapshot, so the bundle carries no secrets (AC5).
         """
-        out = Path(outdir)
+        # Resolve the bundle root once; every file written below is then derived
+        # via safe_path(name, base=out) so each write is provably contained in
+        # the bundle dir — a traversal-style name can never escape it (S8707).
+        out = Path(outdir).resolve()
         out.mkdir(parents=True, exist_ok=True)
 
-        reports.write_report_md(str(out / "summary.md"), self.summary)
-        reports.write_summary_json(str(out / "report.json"), self.summary)
+        reports.write_report_md(str(safe_path("summary.md", base=out)), self.summary)
+        reports.write_summary_json(str(safe_path("report.json", base=out)), self.summary)
 
         env_snapshot = collect_env(self.env)
-        (out / "env.json").write_text(
+        safe_path("env.json", base=out).write_text(
             json.dumps(env_snapshot, indent=2, sort_keys=False) + "\n",
             encoding="utf-8",
         )
 
-        (out / "commands.txt").write_text(
+        safe_path("commands.txt", base=out).write_text(
             "".join(f"{line}\n" for line in self.commands), encoding="utf-8"
         )
-        (out / "ci-links.txt").write_text(
+        safe_path("ci-links.txt", base=out).write_text(
             "".join(f"{link}\n" for link in self.ci_links), encoding="utf-8"
         )
-        (out / "jira-summary.txt").write_text(self.jira_summary(), encoding="utf-8")
+        safe_path("jira-summary.txt", base=out).write_text(
+            self.jira_summary(), encoding="utf-8"
+        )
 
         self._copy_pytest_json(out)
         self._copy_screenshots(out)
