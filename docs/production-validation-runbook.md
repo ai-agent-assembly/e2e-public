@@ -192,3 +192,74 @@ AASM_CORE_SOURCE_DIR=/path/aa   uv run pytest -m live -v    # reuse an existing 
 
 ---
 
+## 5. Strict production validation vs. lightweight dev smoke
+
+The same areas serve two postures. The difference is **how much you install** and
+**whether skips are acceptable**.
+
+### Lightweight development smoke (fast inner loop)
+
+Goal: "did I obviously break the harness / one path?" Skips are fine.
+
+```bash
+uv run aasm-verify public --mode latest --area all --dry-run   # plan only
+uv run pytest -m conformance -v                                # pure-fixture, no network
+uv run aasm-verify public --mode latest --area sdk             # skips SDKs you lack
+```
+
+- Run only the area(s) you touched.
+- Toolchain gaps that cause **skips** are acceptable here.
+- No evidence collection required.
+
+### Strict production validation (release gate / QA sign-off)
+
+Goal: "can a real user install and run the published stack, and does the
+from-source core interoperate?" **Skips of a relevant area are NOT acceptable** —
+a skip means the check did not actually run.
+
+1. Install the **full toolchain** from [§3](#3-local-prerequisites): Rust+Cargo,
+   `protoc`, Python/uv, Node/pnpm, Go.
+2. Run every area, plus `release` and `live`, with no relevant skips:
+   ```bash
+   uv run aasm-verify public --mode latest --area all     # runtime/sdk/examples/install/conformance
+   uv run pytest -m live -v                                # from-source core interop
+   # for a published release:
+   AASM_RELEASE_VERSION=<ver> uv run pytest -m release -v --tb=short
+   ```
+3. For a release cut, run in **`tag`** or **`release`** mode against the exact
+   versions (see `verification-modes.md`), not `latest`.
+4. Capture a JSON report and produce evidence — see [§7](#7-collecting-evidence-for-jira).
+5. Verify the report shows **0 unexpected skips** for areas in scope. If a
+   relevant area skipped, fix the environment and re-run before signing off.
+
+---
+
+## 6. Interpreting skips, xfails, and known gaps
+
+The harness distinguishes "the environment couldn't run this" (skip) from "we
+expect this to fail until the product is fixed" (xfail).
+
+| Outcome | Meaning | What to do |
+|---|---|---|
+| **PASS** | The path works. | Nothing. |
+| **SKIP** | A prerequisite is absent — binary not on PATH, SDK package not installed, toolchain incomplete (`skip_if_binary_missing`, `skip_if_package_missing` in `tests/public/conftest.py`; `missing_build_tools()` in `tests/live/build.py`). | **Dev smoke:** acceptable. **Strict validation:** install the missing tool and re-run; a skip is *not* a pass. |
+| **XFAIL** | A **known product gap** is pinned here so drift is caught. E.g. the cross-SDK init/runtime-mode divergence (`tests/contract/test_enforcement_mode_parity.py`) and live with-core SDK paths (`tests/behavioral/*_with_core.py`). | Expected — do not "fix" the test. Track the gap via its linked Jira ticket. |
+| **XPASS** | A test marked xfail unexpectedly **passed** — a product gap may have been closed. | Investigate; the xfail marker (and its Jira reference) likely needs to be removed. |
+| **FAIL** | A real regression in the cross-repo path. | Triage: is it a product bug, or an environment blocker ([§8](#8-troubleshooting-qa-environment-blockers))? Only file a product bug if it reproduces in a clean supported environment. |
+
+Where skips/xfails come from:
+
+- **Binary/package missing** → `tests/public/conftest.py` (`skip_if_binary_missing`,
+  `skip_if_package_missing`).
+- **Build toolchain missing** (`cargo`, `protoc`) → `tests/live/build.py`
+  `REQUIRED_TOOLS` / `missing_build_tools()`; the install smoke script also
+  `exit 0`s (skip, not fail) when `cargo`/`protoc` are absent.
+- **Known cross-SDK gaps** → `@pytest.mark.xfail` in the contract/behavioral
+  suites, each citing its Jira ticket in the docstring.
+
+> Classification rule (from Epic [AAASM-3144](https://lightning-dust-mite.atlassian.net/browse/AAASM-3144)):
+> a failure is a **validation-environment defect**, not a product bug, unless it
+> reproduces in a clean supported developer/CI environment.
+
+---
+
