@@ -1,0 +1,94 @@
+name: Verify
+
+# Profile dispatcher (AAASM-3160). One entry point to select a validation
+# profile (smoke / full / live / release / dashboard) plus area and ref
+# overrides, delegating the job bodies to the reusable `verify-profiles.yml`.
+#
+# Triggers, by design:
+#   * workflow_dispatch — pick any profile on demand with full input control.
+#   * schedule          — only the fast `smoke` profile runs unattended; the
+#                         expensive profiles stay opt-in (run them via dispatch
+#                         or their dedicated verify-*.yml workflows), keeping
+#                         scheduled cost low while still catching drift early.
+#
+# This is additive: the existing verify-latest / verify-public-* / verify-tag /
+# verify-release workflows keep their own schedule/release/tag triggers and are
+# untouched. This dispatcher is the selectable, documented front door.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Validation profile"
+        required: true
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - full
+          - live
+          - release
+          - dashboard
+      area:
+        description: "Area for smoke/full (ignored by live/release/dashboard)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - runtime
+          - sdk
+          - examples
+          - install
+          - conformance
+      agent_assembly_ref:
+        description: "agent-assembly ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      python_sdk_ref:
+        description: "python-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      node_sdk_ref:
+        description: "node-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      go_sdk_ref:
+        description: "go-sdk ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      examples_ref:
+        description: "agent-assembly-examples ref (branch/tag/SHA)"
+        required: false
+        default: "master"
+      release_version:
+        description: "Version for the release profile, e.g. 0.0.1"
+        required: false
+        default: ""
+  schedule:
+    # Weekly fast smoke confidence check (Mondays 03:00 UTC). Expensive profiles
+    # are intentionally not scheduled here.
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.profile || 'smoke' }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: "verify [${{ inputs.profile || 'smoke' }}]"
+    uses: ./.github/workflows/verify-profiles.yml
+    with:
+      # On a scheduled run `inputs` is empty, so default every value here. The
+      # scheduled lane always runs the fast `smoke` profile at latest refs.
+      profile: ${{ inputs.profile || 'smoke' }}
+      area: ${{ inputs.area || 'all' }}
+      agent_assembly_ref: ${{ inputs.agent_assembly_ref || 'master' }}
+      python_sdk_ref: ${{ inputs.python_sdk_ref || 'master' }}
+      node_sdk_ref: ${{ inputs.node_sdk_ref || 'master' }}
+      go_sdk_ref: ${{ inputs.go_sdk_ref || 'master' }}
+      examples_ref: ${{ inputs.examples_ref || 'master' }}
+      release_version: ${{ inputs.release_version || '' }}
