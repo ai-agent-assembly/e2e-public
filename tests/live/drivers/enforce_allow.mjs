@@ -78,4 +78,8 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(fail);
+try {
+  await main();
+} catch (error) {
+  fail(error);
+}
