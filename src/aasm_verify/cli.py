@@ -111,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--related-issue", default=None, metavar="ISSUE")
     report.add_argument("--scope", default="", metavar="TEXT")
     report.add_argument(
+        "--jira",
+        default=None,
+        metavar="PATH",
+        help="Also write a Jira-ready evidence report (markdown) to this path.",
+    )
+    report.add_argument(
         "--strict",
         action="store_true",
         help="Fail the run on un-justified skips. Also enabled by "
@@ -207,6 +213,9 @@ def cmd_report(args: argparse.Namespace) -> int:
     reports.write_report_md(args.out, summary)
     print(f"summary: {args.summary}")
     print(f"report:  {args.out}")
+    if args.jira is not None:
+        reports.write_jira_report(args.jira, summary)
+        print(f"jira:    {args.jira}")
 
     # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
     if args.strict or reports.strict_mode_enabled():
