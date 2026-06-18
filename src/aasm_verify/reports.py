@@ -22,6 +22,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
+from aasm_verify import skip_audit
+
 # Fixed identity for the public-integration channel (AAASM-2236).
 REPORT_TYPE: str = "public-integration"
 SOURCE_REPO: str = "agent-assembly-integration-tests"
@@ -30,6 +32,18 @@ SOURCE_REPO: str = "agent-assembly-integration-tests"
 RUN_TYPES: tuple[str, ...] = ("pr", "scheduled", "release", "manual")
 RESULTS: tuple[str, ...] = ("pass", "fail", "partial")
 RETAINS: tuple[str, ...] = ("long-term", "short-term")
+
+# Per-area count buckets, in display order. ``unexpected_skipped`` is the
+# subset of ``skipped`` whose reason carries no env requirement or Jira ref;
+# in strict mode it fails the run (AAASM-3155).
+AREA_COUNT_KEYS: tuple[str, ...] = (
+    "passed",
+    "failed",
+    "skipped",
+    "unexpected_skipped",
+    "xfailed",
+    "xpassed",
+)
 
 # The nine frontmatter keys, in schema order.
 FRONTMATTER_FIELDS: tuple[str, ...] = (
@@ -82,6 +96,10 @@ class Summary:
     suites: list[Suite] = field(default_factory=list)
     report_type: str = REPORT_TYPE
     source_repo: str = SOURCE_REPO
+    # Per-area test-outcome counts: {area: {bucket: n}} over AREA_COUNT_KEYS.
+    area_counts: dict[str, dict[str, int]] = field(default_factory=dict)
+    # Skipped tests whose reason names no env requirement or Jira ref.
+    unjustified_skips: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.run_type not in RUN_TYPES:
@@ -128,6 +146,8 @@ class Summary:
         data["scope"] = self.scope
         data["suites"] = [s.as_dict() for s in self.suites]
         data["counts"] = self.counts
+        data["area_counts"] = {area: dict(buckets) for area, buckets in self.area_counts.items()}
+        data["unjustified_skips"] = [dict(s) for s in self.unjustified_skips]
         return data
 
 
@@ -154,6 +174,10 @@ def summary_from_dict(data: dict) -> Summary:
         suites=suites,
         report_type=data.get("report_type", REPORT_TYPE),
         source_repo=data.get("source_repo", SOURCE_REPO),
+        area_counts={
+            area: dict(buckets) for area, buckets in data.get("area_counts", {}).items()
+        },
+        unjustified_skips=[dict(s) for s in data.get("unjustified_skips", [])],
     )
 
 
@@ -322,6 +346,38 @@ def _result_from_suites(suites: list[Suite]) -> str:
     return "pass"
 
 
+def _empty_area_buckets() -> dict[str, int]:
+    return dict.fromkeys(AREA_COUNT_KEYS, 0)
+
+
+def area_counts_from_pytest(data: dict) -> dict[str, dict[str, int]]:
+    """Tally per-area test outcomes from a pytest-json-report mapping.
+
+    Returns ``{area: {bucket: n}}`` over :data:`AREA_COUNT_KEYS`. Areas appear
+    in first-seen order so output is deterministic. ``unexpected_skipped`` is
+    the subset of ``skipped`` whose reason is not justified (no env requirement
+    or Jira ref) — it is counted *in addition to* ``skipped``.
+    """
+    counts: dict[str, dict[str, int]] = {}
+    for test in data.get("tests", []):
+        area = skip_audit.area_for_test(test)
+        bucket = counts.setdefault(area, _empty_area_buckets())
+        outcome = test.get("outcome", "")
+        if outcome in ("failed", "error"):
+            bucket["failed"] += 1
+        elif outcome == "skipped":
+            bucket["skipped"] += 1
+            if not skip_audit.is_justified(skip_audit.extract_skip_reason(test)):
+                bucket["unexpected_skipped"] += 1
+        elif outcome == "xfailed":
+            bucket["xfailed"] += 1
+        elif outcome == "xpassed":
+            bucket["xpassed"] += 1
+        else:
+            bucket["passed"] += 1
+    return counts
+
+
 def summary_from_pytest_json(
     data: dict,
     *,
@@ -337,7 +393,9 @@ def summary_from_pytest_json(
     """Normalize a pytest-json-report mapping into a :class:`Summary`.
 
     ``result`` defaults to the rollup of the per-suite outcomes but may be
-    overridden (e.g. when the caller already knows the aggregate verdict).
+    overridden (e.g. when the caller already knows the aggregate verdict). The
+    summary also carries per-area outcome counts and the list of un-justified
+    skips for production-grade (AAASM-3155) reporting.
     """
     suites = _suites_from_pytest(data)
     verdict = result if result is not None else _result_from_suites(suites)
@@ -351,4 +409,6 @@ def summary_from_pytest_json(
         related_issue=related_issue,
         scope=scope,
         suites=suites,
+        area_counts=area_counts_from_pytest(data),
+        unjustified_skips=[s.as_dict() for s in skip_audit.find_unjustified_skips(data)],
     )
