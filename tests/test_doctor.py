@@ -184,3 +184,37 @@ def test_area_statuses_takes_worst_status_per_area() -> None:
 
 def test_worst_of_empty_is_pass() -> None:
     assert doctor.worst([]) is Status.PASS
+
+
+def _report_with(checks: list[doctor.CheckResult]) -> doctor.DoctorReport:
+    areas = doctor.area_statuses(checks)
+    overall = doctor.worst(list(areas.values()))
+    return doctor.DoctorReport(checks=checks, areas=areas, overall=overall)
+
+
+def test_exit_code_zero_unless_fail() -> None:
+    warn_report = _report_with([doctor.CheckResult("n", Status.WARN, areas=("sdk",))])
+    fail_report = _report_with([doctor.CheckResult("b", Status.FAIL, areas=("runtime",))])
+
+    assert doctor.exit_code(warn_report) == 0
+    assert doctor.exit_code(fail_report) == 1
+
+
+def test_report_recommended_env_merges_checks() -> None:
+    checks = [
+        doctor.CheckResult("cache:go", Status.WARN, areas=("sdk",), recommend_env={"GOCACHE": "/tmp/go"}),
+        doctor.CheckResult("cache:uv", Status.WARN, areas=("sdk",), recommend_env={"UV_CACHE_DIR": "/tmp/uv"}),
+    ]
+    report = _report_with(checks)
+
+    assert report.recommended_env() == {"GOCACHE": "/tmp/go", "UV_CACHE_DIR": "/tmp/uv"}
+
+
+def test_render_text_includes_glyphs_and_overall() -> None:
+    report = _report_with([doctor.CheckResult("bind", Status.FAIL, areas=("runtime",))])
+
+    text = doctor.render_text(report)
+
+    assert "[FAIL]" in text
+    assert "Overall:" in text
+    assert "runtime" in text
