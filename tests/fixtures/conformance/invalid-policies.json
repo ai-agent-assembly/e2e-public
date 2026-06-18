@@ -1,0 +1,70 @@
+{
+  "_comment": [
+    "Invalid-policy conformance vectors for AAASM-3158 (AC2: fail-closed / stable error).",
+    "Each case is a structurally-invalid policy document and the contract violation it",
+    "must be rejected for. A conformant policy loader must reject these deterministically",
+    "(stable error) rather than silently accepting them or crashing — accepting a malformed",
+    "policy is a fail-OPEN bug. The 'reason' is a stable machine-checkable violation code,",
+    "validated here against the public structural contract (no product-internal parser)."
+  ],
+  "cases": [
+    {
+      "id": "not-a-mapping",
+      "description": "A policy document that is a list, not a mapping.",
+      "policy": ["version", "1"],
+      "reason": "not-a-mapping"
+    },
+    {
+      "id": "missing-version",
+      "description": "Policy missing the required top-level 'version' key.",
+      "policy": {"name": "no-version", "rules": []},
+      "reason": "missing-version"
+    },
+    {
+      "id": "missing-name",
+      "description": "Policy missing the required top-level 'name' key.",
+      "policy": {"version": "1", "rules": []},
+      "reason": "missing-name"
+    },
+    {
+      "id": "missing-rules",
+      "description": "Policy missing the required top-level 'rules' key.",
+      "policy": {"version": "1", "name": "no-rules"},
+      "reason": "missing-rules"
+    },
+    {
+      "id": "rules-not-a-list",
+      "description": "'rules' is a mapping instead of a list.",
+      "policy": {"version": "1", "name": "bad-rules", "rules": {"id": "x"}},
+      "reason": "rules-not-a-list"
+    },
+    {
+      "id": "rule-missing-effect",
+      "description": "A rule with no 'effect' field.",
+      "policy": {"version": "1", "name": "bad-rule",
+        "rules": [{"id": "r1", "match": {"action": "*", "resource": "*"}}]},
+      "reason": "rule-missing-effect"
+    },
+    {
+      "id": "rule-invalid-effect",
+      "description": "A rule whose effect is neither 'allow' nor 'deny'.",
+      "policy": {"version": "1", "name": "bad-effect",
+        "rules": [{"id": "r1", "effect": "maybe", "match": {"action": "*", "resource": "*"}}]},
+      "reason": "rule-invalid-effect"
+    },
+    {
+      "id": "rule-missing-match",
+      "description": "A rule with no 'match' clause.",
+      "policy": {"version": "1", "name": "no-match",
+        "rules": [{"id": "r1", "effect": "allow"}]},
+      "reason": "rule-missing-match"
+    },
+    {
+      "id": "rule-match-missing-action",
+      "description": "A rule whose match clause omits 'action'.",
+      "policy": {"version": "1", "name": "no-action",
+        "rules": [{"id": "r1", "effect": "allow", "match": {"resource": "*"}}]},
+      "reason": "rule-match-missing-action"
+    }
+  ]
+}

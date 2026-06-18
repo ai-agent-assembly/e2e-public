@@ -1,0 +1,47 @@
+{
+  "_comment": [
+    "Invalid-request conformance vectors for AAASM-3158 (AC2: stable error on bad input).",
+    "Each case is a malformed policy-check request and the violation it must be rejected",
+    "for. A conformant check endpoint must reject a structurally-invalid request with a",
+    "stable error instead of evaluating it (which could fail open). 'reason' is a stable",
+    "machine-checkable violation code validated against the public request contract."
+  ],
+  "cases": [
+    {
+      "id": "request-not-a-mapping",
+      "description": "Request is a bare string, not a mapping.",
+      "request": "tool.read_file",
+      "reason": "request-not-a-mapping"
+    },
+    {
+      "id": "request-missing-action",
+      "description": "Request omits the required 'action' field.",
+      "request": {"resource": "/etc/hosts"},
+      "reason": "missing-action"
+    },
+    {
+      "id": "request-missing-resource",
+      "description": "Request omits the required 'resource' field.",
+      "request": {"action": "tool.read_file"},
+      "reason": "missing-resource"
+    },
+    {
+      "id": "request-action-not-string",
+      "description": "'action' is a number, not a string.",
+      "request": {"action": 42, "resource": "/etc/hosts"},
+      "reason": "action-not-string"
+    },
+    {
+      "id": "request-resource-not-string",
+      "description": "'resource' is a list, not a string.",
+      "request": {"action": "tool.read_file", "resource": ["/etc/hosts"]},
+      "reason": "resource-not-string"
+    },
+    {
+      "id": "request-empty-action",
+      "description": "'action' is an empty string.",
+      "request": {"action": "", "resource": "/etc/hosts"},
+      "reason": "empty-action"
+    }
+  ]
+}

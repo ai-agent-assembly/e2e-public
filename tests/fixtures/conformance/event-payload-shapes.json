@@ -1,0 +1,99 @@
+{
+  "_comment": [
+    "Audit / governance event payload-shape conformance vectors for AAASM-3158 (AC3).",
+    "These describe the PUBLIC wire contract an Agent Assembly governance/audit event",
+    "must satisfy: a stable set of required fields with declared types, and an enum of",
+    "decision values. The 'valid_samples' must satisfy the contract; the 'invalid_samples'",
+    "each violate it for the named reason. This validates the observable payload shape only",
+    "— not any product-internal serializer.",
+    "Field contract reference: the audit subject is assembly.audit.<tenant>.<agent>; a",
+    "governance event carries the agent identity, the action attempted, the resolved",
+    "decision, and an emission timestamp."
+  ],
+  "required_fields": {
+    "event_type": "str",
+    "agent_id": "str",
+    "action": "str",
+    "decision": "str",
+    "timestamp": "str"
+  },
+  "decision_enum": ["allow", "deny", "observe"],
+  "valid_samples": [
+    {
+      "id": "allow-event",
+      "payload": {
+        "event_type": "tool_call",
+        "agent_id": "agent-1",
+        "action": "tool.read_file",
+        "decision": "allow",
+        "timestamp": "2026-06-18T00:00:00Z"
+      }
+    },
+    {
+      "id": "deny-event",
+      "payload": {
+        "event_type": "tool_call",
+        "agent_id": "agent-2",
+        "action": "network.connect",
+        "decision": "deny",
+        "timestamp": "2026-06-18T00:00:01Z",
+        "resource": "203.0.113.5:443"
+      }
+    },
+    {
+      "id": "observe-event-with-extra-fields",
+      "payload": {
+        "event_type": "tool_result",
+        "agent_id": "agent-3",
+        "action": "tool.write_file",
+        "decision": "observe",
+        "timestamp": "2026-06-18T00:00:02Z",
+        "metadata": {"tenant": "t1"}
+      }
+    }
+  ],
+  "invalid_samples": [
+    {
+      "id": "missing-decision",
+      "reason": "missing-required-field:decision",
+      "payload": {
+        "event_type": "tool_call",
+        "agent_id": "agent-1",
+        "action": "tool.read_file",
+        "timestamp": "2026-06-18T00:00:00Z"
+      }
+    },
+    {
+      "id": "missing-agent-id",
+      "reason": "missing-required-field:agent_id",
+      "payload": {
+        "event_type": "tool_call",
+        "action": "tool.read_file",
+        "decision": "allow",
+        "timestamp": "2026-06-18T00:00:00Z"
+      }
+    },
+    {
+      "id": "decision-wrong-type",
+      "reason": "wrong-type:decision",
+      "payload": {
+        "event_type": "tool_call",
+        "agent_id": "agent-1",
+        "action": "tool.read_file",
+        "decision": 1,
+        "timestamp": "2026-06-18T00:00:00Z"
+      }
+    },
+    {
+      "id": "decision-not-in-enum",
+      "reason": "decision-not-in-enum:maybe",
+      "payload": {
+        "event_type": "tool_call",
+        "agent_id": "agent-1",
+        "action": "tool.read_file",
+        "decision": "maybe",
+        "timestamp": "2026-06-18T00:00:00Z"
+      }
+    }
+  ]
+}
