@@ -122,6 +122,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail the run on un-justified skips. Also enabled by "
         "AASM_VERIFY_STRICT=1 (contract shared with AAASM-3160 CI profiles).",
     )
+    report.add_argument(
+        "--bundle",
+        default=None,
+        metavar="OUTDIR",
+        help="Also assemble a QA evidence bundle (summary, sanitized env, "
+        "commands, CI links, screenshots) under OUTDIR (AAASM-3162).",
+    )
+    report.add_argument(
+        "--bundle-command",
+        action="append",
+        default=None,
+        metavar="CMD",
+        dest="bundle_commands",
+        help="Reproduction command to record in the bundle transcript "
+        "(repeatable). Only used with --bundle.",
+    )
+    report.add_argument(
+        "--bundle-screenshots",
+        action="append",
+        default=None,
+        metavar="DIR",
+        dest="bundle_screenshots",
+        help="Directory to scan for browser-test screenshots to copy into the "
+        "bundle (repeatable, best-effort). Only used with --bundle.",
+    )
 
     doctor_cmd = sub.add_parser(
         "doctor",
@@ -217,6 +242,10 @@ def cmd_report(args: argparse.Namespace) -> int:
         reports.write_jira_report(args.jira, summary)
         print(f"jira:    {args.jira}")
 
+    if args.bundle is not None:
+        out = _write_bundle(args, summary)
+        print(f"bundle:  {out}")
+
     # Strict mode (CLI flag or AASM_VERIFY_STRICT=1) fails on un-justified skips.
     if args.strict or reports.strict_mode_enabled():
         violations = reports.strict_skip_violations(summary)
@@ -232,6 +261,28 @@ def cmd_report(args: argparse.Namespace) -> int:
             return 1
 
     return 0
+
+
+def _write_bundle(args: argparse.Namespace, summary: reports.Summary) -> str:
+    """Assemble the QA evidence bundle from the report args (AAASM-3162).
+
+    Reuses the report's reproduction inputs (``--pytest-json``, ``--run-url``)
+    and the bundle-only flags. Screenshot dirs are best-effort: absent ones are
+    silently tolerated by the assembler.
+    """
+    from pathlib import Path
+
+    from aasm_verify import bundle as bundle_mod
+
+    ci_links = [args.run_url] if args.run_url else []
+    evidence = bundle_mod.EvidenceBundle(
+        summary=summary,
+        commands=list(args.bundle_commands or []),
+        ci_links=ci_links,
+        pytest_json_path=Path(args.pytest_json) if args.pytest_json else None,
+        screenshot_dirs=[Path(d) for d in (args.bundle_screenshots or [])],
+    )
+    return str(evidence.write(args.bundle))
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
