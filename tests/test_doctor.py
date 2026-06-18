@@ -166,3 +166,21 @@ def test_check_browser_present_without_chromium_warns(tmp_path, monkeypatch) -> 
 
     assert result.status is Status.WARN
     assert "Chromium" in result.detail
+
+
+def test_area_statuses_takes_worst_status_per_area() -> None:
+    checks = [
+        doctor.CheckResult("a", Status.PASS, areas=("runtime",)),
+        doctor.CheckResult("b", Status.FAIL, areas=("runtime",)),
+        doctor.CheckResult("c", Status.WARN, areas=("sdk",)),
+    ]
+
+    areas = doctor.area_statuses(checks)
+
+    assert areas["runtime"] is Status.FAIL  # worst of PASS + FAIL
+    assert areas["sdk"] is Status.WARN
+    assert areas["install"] is Status.PASS  # no gating check defaults to PASS
+
+
+def test_worst_of_empty_is_pass() -> None:
+    assert doctor.worst([]) is Status.PASS
