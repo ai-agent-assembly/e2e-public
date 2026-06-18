@@ -48,6 +48,11 @@ QUICK: str = "quick"
 FRAMEWORK_HEAVY: str = "framework_heavy"
 CLASSIFICATIONS: tuple[str, ...] = (QUICK, FRAMEWORK_HEAVY)
 
+# Documented per-language "run the example's tests" commands, shared by every
+# example of that language (the examples follow one convention per language).
+_PYTEST_RUN_CMD: tuple[str, ...] = ("uv", "run", "pytest", "tests/", "-q")
+_GO_TEST_RUN_CMD: tuple[str, ...] = ("go", "test", "./...")
+
 
 @dataclass(frozen=True)
 class Example:
@@ -119,7 +124,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="python",
         rel_path="python/custom-tool-policy",
         install_cmd=("uv", "sync", "--extra", "dev"),
-        run_cmd=("uv", "run", "pytest", "tests/", "-q"),
+        run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         classification=QUICK,
     ),
@@ -128,7 +133,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="python",
         rel_path="python/llamaindex-tool-policy",
         install_cmd=("uv", "sync", "--extra", "dev"),
-        run_cmd=("uv", "run", "pytest", "tests/", "-q"),
+        run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         classification=QUICK,
     ),
@@ -137,7 +142,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="python",
         rel_path="python/langchain-research-agent",
         install_cmd=("uv", "sync", "--extra", "dev"),
-        run_cmd=("uv", "run", "pytest", "tests/", "-q"),
+        run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         required_services=("gateway",),
         classification=FRAMEWORK_HEAVY,
@@ -194,7 +199,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="go",
         rel_path="go/basic-agent",
         install_cmd=(),  # `go test` resolves modules itself; no separate install.
-        run_cmd=("go", "test", "./..."),
+        run_cmd=_GO_TEST_RUN_CMD,
         required_tools=("go",),
         classification=QUICK,
     ),
@@ -203,7 +208,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="go",
         rel_path="go/tool-policy",
         install_cmd=(),
-        run_cmd=("go", "test", "./..."),
+        run_cmd=_GO_TEST_RUN_CMD,
         required_tools=("go",),
         classification=QUICK,
     ),
@@ -212,7 +217,7 @@ EXAMPLES: tuple[Example, ...] = (
         language="go",
         rel_path="go/cli-runtime-integration",
         install_cmd=(),
-        run_cmd=("go", "test", "./..."),
+        run_cmd=_GO_TEST_RUN_CMD,
         required_tools=("go",),
         required_services=("aasm-runtime",),
         classification=FRAMEWORK_HEAVY,
