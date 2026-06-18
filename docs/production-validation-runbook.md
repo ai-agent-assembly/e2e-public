@@ -232,6 +232,15 @@ a skip means the check did not actually run.
 5. Verify the report shows **0 unexpected skips** for areas in scope. If a
    relevant area skipped, fix the environment and re-run before signing off.
 
+To enforce step 5 mechanically, render the report in **strict mode** — either
+`aasm-verify report --strict` or by exporting `AASM_VERIFY_STRICT=1` (the same
+env var CI profiles set). Strict mode exits non-zero when any skip is
+*un-justified* — i.e. its reason names neither an environment requirement
+(binary/package/env var) nor a linked Jira issue (`AAASM-NNN`). A skip that
+*does* name a justification (e.g. "`aasm` not found in PATH", "blocked by
+AAASM-3000") is allowed even in strict mode, because it is an auditable,
+expected gap rather than silent erosion of coverage.
+
 ---
 
 ## 6. Interpreting skips, xfails, and known gaps
@@ -273,16 +282,32 @@ sanitized JSON report; the `report` subcommand renders Markdown evidence.
 uv run aasm-verify public --mode latest --area all \
   --json-report /tmp/pytest-report.json
 
-# 2. Render summary.json + report.md from the pytest JSON
+# 2. Render summary.json + report.md (and a Jira-ready report) from the pytest JSON
 uv run aasm-verify report \
   --pytest-json   /tmp/pytest-report.json \
   --summary       /tmp/summary.json \
   --out           /tmp/report.md \
+  --jira          /tmp/jira-report.md \
+  --strict \
   --run-type      manual \
   --tested-refs   "agent-assembly@master,python-sdk@v0.1.0" \
   --related-issue AAASM-XXXX \
   --run-url       "<github-actions-run-url>"
 ```
+
+The rendered `summary.json` and `report.md` carry, in addition to the per-suite
+results:
+
+- **Counts by area** — passed / failed / skipped / unexpected-skip / xfailed /
+  xpassed for each area (`runtime`/`sdk`/`examples`/`install`/`conformance`).
+- **Skip audit** — every skip whose reason names no environment requirement or
+  Jira issue. With `--strict` (or `AASM_VERIFY_STRICT=1`) these fail the render.
+- **Failed-test names** — the exact nodeids of failing tests (in the Jira report).
+
+`--jira` additionally writes a Jira-markup evidence report (verdict, refs,
+environment, commands, per-area counts, failed-test names, skip audit) ready to
+paste into a ticket — alongside the published `report.md` and the GitHub-issue
+failure path below.
 
 Then:
 

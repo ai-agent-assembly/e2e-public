@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from aasm_verify import reports
 from aasm_verify.reports import Suite, Summary
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _mixed_data() -> dict:
+    return json.loads((FIXTURES / "pytest-report-mixed.json").read_text())
 
 
 def _summary(**overrides: object) -> Summary:
@@ -204,3 +211,119 @@ def test_generator_output_does_not_leak_token_like_strings() -> None:
     for needle in ("ghp_", "github_pat_", "AASM_", "Bearer ", "token="):
         assert needle not in md
         assert needle not in summary_json
+
+
+def test_area_counts_from_pytest_buckets_every_outcome() -> None:
+    counts = reports.area_counts_from_pytest(_mixed_data())
+    assert counts["sdk"] == {
+        "passed": 1,
+        "failed": 1,
+        "skipped": 0,
+        "unexpected_skipped": 0,
+        "xfailed": 0,
+        "xpassed": 1,
+    }
+    assert counts["runtime"]["xfailed"] == 1
+    # The bare "temporarily disabled" conformance skip is the only unexpected skip.
+    assert counts["conformance"]["skipped"] == 1
+    assert counts["conformance"]["unexpected_skipped"] == 1
+    # The env-justified runtime skip is counted as skipped but not unexpected.
+    assert counts["runtime"]["skipped"] == 1
+    assert counts["runtime"]["unexpected_skipped"] == 0
+
+
+def test_area_counts_classifies_release_marked_test_by_nodeid() -> None:
+    counts = reports.area_counts_from_pytest(_mixed_data())
+    # test_package_install.py carries the 'release' marker (not an area); it is
+    # classified into the 'install' area by its file stem.
+    assert "install" in counts
+    assert counts["install"]["passed"] == 1
+
+
+def test_summary_from_pytest_json_carries_area_and_skip_audit() -> None:
+    s = reports.summary_from_pytest_json(
+        _mixed_data(),
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="https://example/run/1",
+        tested_refs=["master"],
+        retain="short-term",
+        related_issue="AAASM-1",
+    )
+    assert s.area_counts  # populated
+    assert [u["nodeid"] for u in s.unjustified_skips] == [
+        "tests/public/test_policy_conformance.py::test_allow_deny"
+    ]
+    assert s.failed_tests == ["tests/public/test_node_sdk.py::test_node_sdk_init"]
+
+
+def test_strict_mode_enabled_reads_env() -> None:
+    assert reports.strict_mode_enabled({"AASM_VERIFY_STRICT": "1"})
+    assert reports.strict_mode_enabled({"AASM_VERIFY_STRICT": "true"})
+    assert not reports.strict_mode_enabled({"AASM_VERIFY_STRICT": "0"})
+    assert not reports.strict_mode_enabled({})
+
+
+def test_report_md_includes_area_counts_and_skip_audit() -> None:
+    s = reports.summary_from_pytest_json(
+        _mixed_data(),
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="https://example/run/1",
+        tested_refs=["master"],
+        retain="short-term",
+        related_issue="AAASM-1",
+    )
+    md = reports.render_report_md(s)
+    assert "## Counts by area" in md
+    assert "## Skip audit" in md
+    assert "test_allow_deny" in md  # the un-justified skip is listed
+
+
+def test_render_jira_report_includes_evidence_sections() -> None:
+    s = reports.summary_from_pytest_json(
+        _mixed_data(),
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="https://example/run/1",
+        tested_refs=["master", "python-sdk@master"],
+        retain="short-term",
+        related_issue="AAASM-1",
+    )
+    out = reports.render_jira_report(s)
+    assert "h2. Verification Evidence" in out
+    assert "h3. Refs under test" in out
+    assert "h3. Environment" in out
+    assert "h3. Commands" in out
+    assert "h3. Counts by area" in out
+    # Failed-test name is present in the evidence.
+    assert "tests/public/test_node_sdk.py::test_node_sdk_init" in out
+    # The un-justified skip is surfaced under the skip audit.
+    assert "test_allow_deny" in out
+
+
+def test_jira_report_is_deterministic() -> None:
+    s = reports.summary_from_pytest_json(
+        _mixed_data(),
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="https://example/run/1",
+        tested_refs=["master"],
+        retain="short-term",
+        related_issue="AAASM-1",
+    )
+    assert reports.render_jira_report(s) == reports.render_jira_report(s)
+
+
+def test_summary_roundtrip_preserves_area_and_skip_audit() -> None:
+    s = reports.summary_from_pytest_json(
+        _mixed_data(),
+        run_type="scheduled",
+        date="2026-06-18",
+        workflow_run_url="https://example/run/1",
+        tested_refs=["master"],
+        retain="short-term",
+        related_issue="AAASM-1",
+    )
+    rebuilt = reports.summary_from_dict(s.as_dict())
+    assert rebuilt.as_dict() == s.as_dict()

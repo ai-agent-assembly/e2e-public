@@ -1,0 +1,75 @@
+{
+  "created": 1750000000.0,
+  "duration": 41.0,
+  "exitcode": 1,
+  "root": "/work/agent-assembly-integration-tests",
+  "summary": {
+    "passed": 2,
+    "failed": 1,
+    "skipped": 3,
+    "xfailed": 1,
+    "xpassed": 1,
+    "total": 8,
+    "collected": 8
+  },
+  "tests": [
+    {
+      "nodeid": "tests/public/test_python_sdk.py::test_python_sdk_init",
+      "keywords": ["sdk", "test_python_sdk.py"],
+      "outcome": "passed",
+      "duration": 12.0
+    },
+    {
+      "nodeid": "tests/public/test_node_sdk.py::test_node_sdk_init",
+      "keywords": ["sdk", "test_node_sdk.py"],
+      "outcome": "failed",
+      "duration": 8.0,
+      "call": {"longrepr": "AssertionError: node init failed"}
+    },
+    {
+      "nodeid": "tests/public/test_runtime_cli.py::test_runtime_version",
+      "keywords": ["runtime", "test_runtime_cli.py"],
+      "outcome": "skipped",
+      "duration": 0.0,
+      "call": {
+        "longrepr": ["tests/public/test_runtime_cli.py", 14, "Skipped: 'aasm' not found in PATH — install the binary to run this test"]
+      }
+    },
+    {
+      "nodeid": "tests/public/test_examples.py::test_examples_present",
+      "keywords": ["examples", "test_examples.py"],
+      "outcome": "skipped",
+      "duration": 0.0,
+      "call": {
+        "longrepr": ["tests/public/test_examples.py", 30, "Skipped: blocked by AAASM-3000 IPC deadlock"]
+      }
+    },
+    {
+      "nodeid": "tests/public/test_policy_conformance.py::test_allow_deny",
+      "keywords": ["conformance", "test_policy_conformance.py"],
+      "outcome": "skipped",
+      "duration": 0.0,
+      "call": {
+        "longrepr": ["tests/public/test_policy_conformance.py", 21, "Skipped: temporarily disabled"]
+      }
+    },
+    {
+      "nodeid": "tests/public/test_runtime_cli.py::test_runtime_topology",
+      "keywords": ["runtime", "test_runtime_cli.py"],
+      "outcome": "xfailed",
+      "duration": 0.5
+    },
+    {
+      "nodeid": "tests/public/test_python_sdk.py::test_python_sdk_check",
+      "keywords": ["sdk", "test_python_sdk.py"],
+      "outcome": "xpassed",
+      "duration": 1.0
+    },
+    {
+      "nodeid": "tests/public/test_package_install.py::test_pip_install",
+      "keywords": ["release", "test_package_install.py"],
+      "outcome": "passed",
+      "duration": 5.0
+    }
+  ]
+}
