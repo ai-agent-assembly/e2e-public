@@ -218,3 +218,33 @@ def test_render_text_includes_glyphs_and_overall() -> None:
     assert "[FAIL]" in text
     assert "Overall:" in text
     assert "runtime" in text
+
+
+def test_cli_doctor_json_output_shape(capsys) -> None:
+    import json
+
+    from aasm_verify import cli
+
+    args = cli.build_parser().parse_args(["doctor", "--json"])
+    code = cli.cmd_doctor(args)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert code in (0, 1)
+    assert payload["overall"] in ("pass", "warn", "fail")
+    assert set(payload["areas"]) == set(doctor.AREAS)
+    assert isinstance(payload["checks"], list)
+    assert isinstance(payload["recommended_env"], dict)
+    # Every check carries the four documented keys.
+    for check in payload["checks"]:
+        assert {"name", "status", "detail", "areas", "recommend_env"} <= set(check)
+
+
+def test_cli_doctor_text_output_is_human_readable(capsys) -> None:
+    from aasm_verify import cli
+
+    args = cli.build_parser().parse_args(["doctor"])
+    cli.cmd_doctor(args)
+
+    out = capsys.readouterr().out
+    assert "Environment preflight" in out
+    assert "Areas:" in out
