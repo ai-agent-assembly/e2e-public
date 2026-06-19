@@ -1,0 +1,58 @@
+name: CodeQL
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+    branches:
+      - master
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # First-party code is Python (CLI + suites) plus one Node driver
+          # (tests/live/drivers/enforce_allow.mjs). Both are interpreted, so
+          # build-mode none lets CodeQL extract them without a build step.
+          # Go is intentionally omitted: the only module
+          # (tests/live/drivers/go) uses a replace() pointing at a sibling
+          # go-sdk checkout that does not exist in CI, so autobuild cannot
+          # resolve it. Tracked as a CodeQL follow-up.
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@65216971a11ded447a6b76263d5a144519e5eee1 # codeql-bundle-v2.25.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@65216971a11ded447a6b76263d5a144519e5eee1 # codeql-bundle-v2.25.2
+        with:
+          category: "/language:${{ matrix.language }}"
