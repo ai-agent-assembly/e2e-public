@@ -1,7 +1,9 @@
-apiVersion: agent-assembly.dev/v1alpha1
-kind: GovernancePolicy
-metadata:
-  name: live-it-minimal
-  version: "0.1.0"
-spec:
-  rules: []
+# minimal.yaml — the baseline policy the live gateway loads for the harness.
+#
+# Section-based schema (scope + network/schedule/budget/data/tools/capabilities).
+# An empty `tools:` section imposes no tool restrictions, so the gateway boots
+# with a permissive baseline. The legacy rule-list / GovernancePolicy schema
+# (top-level `rules:`) is rejected by the gateway since AAASM-3351 — see
+# AAASM-3504. Test environments only — NEVER production.
+scope: global
+tools: {}
