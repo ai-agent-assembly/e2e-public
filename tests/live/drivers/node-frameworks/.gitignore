@@ -1,0 +1,11 @@
+# Generated / machine-specific artifacts of the Node framework smoke fixtures.
+# The committed sources are the driver `.mjs` files + each group's
+# `package.json` / `package-lock.json`; everything below is materialised by the
+# Python orchestrator (`tests/live/node_frameworks.py`) at run time.
+
+# Installed framework deps — `npm install` per group dir (see node_frameworks.py).
+node_modules/
+
+# Symlink to the SDK's native binding, created per group dir so the SDK native
+# client loads when a driver runs with cwd = the group dir. Machine-specific.
+native/
