@@ -72,7 +72,7 @@ def test_go_enforcement_policy_is_well_formed() -> None:
 def test_go_allow_path_event_session(live_runtime: LiveRuntime) -> None:
     """Allow path: the Go SDK runs an allowed governed tool against the live runtime.
 
-    Drives the real ``github.com/AI-agent-assembly/go-sdk`` governed-tool wrapper
+    Drives the real ``github.com/ai-agent-assembly/go-sdk`` governed-tool wrapper
     (via the ``enforce_allow.go`` subprocess driver, built under the ``aa_ffi_go``
     cgo tag so it links the genuine FFI transport) for an action the policy
     allows, and asserts the wrapped tool actually executes — the Go analogue of

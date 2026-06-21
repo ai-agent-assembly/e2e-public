@@ -286,7 +286,7 @@ def run_go_allow_driver(driver: GoDriver, socket_path: Path, action: str) -> dic
                 "mod",
                 "edit",
                 "-replace",
-                f"github.com/AI-agent-assembly/go-sdk={driver.sdk_dir.resolve()}",
+                f"github.com/ai-agent-assembly/go-sdk={driver.sdk_dir.resolve()}",
             ],
             cwd=str(build_dir),
             check=True,

@@ -4,7 +4,7 @@
 // in-process via its importable `_core` extension, but the Go SDK is reached
 // only through its own toolchain. This tiny program is the Go analogue of the
 // Python allow path in `test_e2e_python.py::test_python_allow_path_event_session`:
-// it exercises the genuine `github.com/AI-agent-assembly/go-sdk/assembly`
+// it exercises the genuine `github.com/ai-agent-assembly/go-sdk/assembly`
 // governed-tool wrapper for an action the policy ALLOWS, and proves the wrapped
 // tool actually executes (the allow decision lets the call through) — the real
 // SDK code path, not a stub.
@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AI-agent-assembly/go-sdk/assembly"
+	"github.com/ai-agent-assembly/go-sdk/assembly"
 )
 
 // allowTool is a minimal tool whose Call records that it ran. The allow path is
