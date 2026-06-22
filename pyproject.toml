@@ -19,6 +19,30 @@ dependencies = []
 # `playwright install chromium` to fetch the browser binary.
 browser = ["playwright>=1.50"]
 
+# Opt-in extra for the AAASM-3525 Python framework live smokes
+# (`tests/live/test_framework_python_*.py`). These do an in-process
+# `import agent_assembly` *and* import the AI-agent framework under test, so the
+# framework package must be present in the *same* venv the test runner uses. The
+# verify `live` CI job installs this group (on top of the python-sdk's native
+# `_core`) so those cells RUN their allow path instead of skipping — skipping in
+# CI would make the framework smokes useless (AAASM-3531). A plain local `uv sync`
+# stays framework-free and the cells skip cleanly via their per-framework
+# `require_framework` / `importorskip` guards (graceful degradation).
+#
+# Versions are pinned to the lines the AAASM-3525 smokes were authored against
+# where known (crewai, openai-agents, mcp); the rest carry a sensible floor.
+frameworks = [
+    "langchain>=0.3",
+    "langgraph>=0.2",
+    "pydantic-ai>=0.0.14",
+    "crewai~=1.14",
+    "google-adk>=0.1",
+    # Floor only: crewai~=1.14 constrains mcp to <1.27, so the AAASM-3525 `~=1.27`
+    # intent cannot co-resolve with crewai. Take crewai's compatible line.
+    "mcp>=1.26",
+    "openai-agents~=0.17",
+]
+
 [project.scripts]
 aasm-verify = "aasm_verify.cli:main"
 
