@@ -37,6 +37,9 @@ frameworks = [
     "pydantic-ai>=0.0.14",
     "crewai~=1.14",
     "google-adk>=0.1",
+    # LlamaIndex governance smoke (AAASM-3536): the adapter patches the concrete
+    # FunctionTool.call / acall hooks. Floor only — older 0.10+ lines work too.
+    "llama-index-core>=0.10",
     # Floor only: crewai~=1.14 constrains mcp to <1.27, so the AAASM-3525 `~=1.27`
     # intent cannot co-resolve with crewai. Take crewai's compatible line.
     "mcp>=1.26",
