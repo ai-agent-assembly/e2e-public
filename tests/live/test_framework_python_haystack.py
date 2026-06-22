@@ -73,7 +73,7 @@ _TOOL_SCHEMA = {
 }
 
 
-def _build_governed_tool():  # noqa: ANN202 — returns a (haystack.tools.Tool, calls) pair
+def _build_governed_tool():  # noqa: ANN202
     """Return a real Haystack ``Tool`` whose execution we can observe.
 
     The tool's function appends to a list it closes over, so a test can assert it
