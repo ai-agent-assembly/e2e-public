@@ -114,8 +114,17 @@ def require_framework(import_name: str, package_hint: str) -> None:
     present in this environment) must be a *visible* skip with a concrete reason,
     never a silent gap (AC). *package_hint* names the pip distribution so the skip
     message tells a reader exactly what to install to cover the cell.
+
+    For a dotted *import_name* (e.g. ``google.adk``) ``find_spec`` *raises*
+    ``ModuleNotFoundError`` when an ancestor package (here ``google``) is itself
+    absent, rather than returning ``None`` — so that, too, is a clean justified
+    skip, not a test error.
     """
-    if importlib.util.find_spec(import_name) is None:
+    try:
+        spec = importlib.util.find_spec(import_name)
+    except ModuleNotFoundError:
+        spec = None
+    if spec is None:
         pytest.skip(
             f"{import_name} not importable — install {package_hint} to run this "
             f"framework's live governance smoke test (AAASM-3525)"
