@@ -101,7 +101,7 @@ jobs:
           # Advisory: doctor exits non-zero only when a required capability is
           # FAIL. Keep going so the smoke areas (which skip cleanly when their
           # artifact is absent) still run and the JSON is always captured.
-          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Smoke verification (runtime + sdk + conformance)
         env:
@@ -111,7 +111,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
         run: |
           for area in runtime sdk conformance; do
-            uv run aasm-verify public \
+            uv run --frozen aasm-verify public \
               --mode latest \
               --area "$area" \
               --agent-assembly-ref "$AA_REF" \
@@ -184,7 +184,7 @@ jobs:
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Full verification (${{ inputs.area }})
         env:
@@ -195,7 +195,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
           EXAMPLES_REF:   ${{ inputs.examples_ref }}
         run: |
-          uv run aasm-verify public \
+          uv run --frozen aasm-verify public \
             --mode latest \
             --area "${AREA:-all}" \
             --agent-assembly-ref "$AA_REF" \
@@ -211,7 +211,7 @@ jobs:
           AA_REF: ${{ inputs.agent_assembly_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          uv run aasm-verify report \
+          uv run --frozen aasm-verify report \
             --pytest-json "$PYTEST_JSON" \
             --summary /tmp/aasm-reports/summary.json \
             --out /tmp/aasm-reports/report.md \
@@ -349,7 +349,7 @@ jobs:
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Live-core tests (-m live)
         # With the SDKs + frameworks installed above, the AAASM-3525 framework
@@ -419,7 +419,7 @@ jobs:
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Install published SDKs from registries
         env:
@@ -433,7 +433,7 @@ jobs:
         env:
           AASM_RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          uv run pytest -m release -v --tb=short \
+          uv run --frozen pytest -m release -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-release.json
 
       - name: Upload release reports
@@ -489,19 +489,19 @@ jobs:
         # 'browser' capability warns and the dashboard screenshot tests skip
         # cleanly, so a failure here must not fail the whole profile.
         run: |
-          uv run python -m playwright install --with-deps chromium || \
+          uv run --frozen python -m playwright install --with-deps chromium || \
             echo "Playwright Chromium install failed; dashboard screenshots will skip."
 
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Dashboard examples verification
         env:
           EXAMPLES_REF: ${{ inputs.examples_ref }}
         run: |
-          uv run aasm-verify public \
+          uv run --frozen aasm-verify public \
             --mode latest \
             --area examples \
             --examples-ref "$EXAMPLES_REF" \
