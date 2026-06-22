@@ -19,6 +19,7 @@ browser = [
 frameworks = [
     { name = "crewai" },
     { name = "google-adk" },
+    { name = "haystack-ai" },
     { name = "langchain" },
     { name = "langgraph" },
     { name = "llama-index-core" },
@@ -39,6 +40,7 @@ dev = [
 requires-dist = [
     { name = "crewai", marker = "extra == 'frameworks'", specifier = "~=1.14" },
     { name = "google-adk", marker = "extra == 'frameworks'", specifier = ">=0.1" },
+    { name = "haystack-ai", marker = "extra == 'frameworks'", specifier = "~=2.30" },
     { name = "langchain", marker = "extra == 'frameworks'", specifier = ">=0.3" },
     { name = "langgraph", marker = "extra == 'frameworks'", specifier = ">=0.2" },
     { name = "llama-index-core", marker = "extra == 'frameworks'", specifier = ">=0.10" },
@@ -1780,6 +1782,48 @@ wheels = [
 ]
 
 [[package]]
+name = "haystack-ai"
+version = "2.30.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docstring-parser" },
+    { name = "filetype" },
+    { name = "haystack-experimental" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "jsonschema" },
+    { name = "lazy-imports" },
+    { name = "markupsafe" },
+    { name = "more-itertools" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "openai" },
+    { name = "posthog" },
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "pyyaml" },
+    { name = "tenacity" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/63/aa3f774552f98c6667b66fd0456f2388e14df3ec830a7e795045c728519d/haystack_ai-2.30.2.tar.gz", hash = "sha256:fb9da3113c8e4b8dfb7a3a33af5261a6ffe6648bd2932c9d1df3c1d49175dbf1", size = 498738, upload-time = "2026-06-18T08:36:47.125Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/eb/8b28d1d7799a6cfa233665f088e3f38bb30a180b6dcd7fe99b831349ef8a/haystack_ai-2.30.2-py3-none-any.whl", hash = "sha256:acb34b984fea390307db16ebe2d7619516f5441ceaa9c30ad28a69148a8bbb7f", size = 720210, upload-time = "2026-06-18T08:36:45.52Z" },
+]
+
+[[package]]
+name = "haystack-experimental"
+version = "0.19.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "haystack-ai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/a3/02eb86716f4856072feb852555f2d23855bb20c993264dcf4e83dfe87a8a/haystack_experimental-0.19.0.tar.gz", hash = "sha256:194f9074f9184a20d2f4efa7b5082dd33118bc886f87937d13e33616cd549067", size = 45328, upload-time = "2026-02-05T08:31:33.862Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/c4/6719e1b03b72ab31729b556a47fe3df1ab7fa233b1d01182f0c5ddadfda6/haystack_experimental-0.19.0-py3-none-any.whl", hash = "sha256:ebe1691a4b8d06f934bad792ff95fb4b6858a2ae08f08519e9cf35b7b439b4bd", size = 63150, upload-time = "2026-02-05T08:31:34.683Z" },
+]
+
+[[package]]
 name = "hf-xet"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2476,6 +2520,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9a/d9/a6681aa9847bbbc5ec21abe20a5e233b94e5edcfe39624db607ac7e8ccb4/langsmith-0.8.18.tar.gz", hash = "sha256:32dde9c0e67e053e0fb738921fc8ced768af7b8fa83d7a0e3fd63597cf8776dd", size = 4526988, upload-time = "2026-06-19T13:12:17.123Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/70/0e0cc80a3b064c8d6c8d697c3125ed86e39d5a7393ec6dc8b07cb1cf13c4/langsmith-0.8.18-py3-none-any.whl", hash = "sha256:3940183349993faef48e6c7d08e4822ee9cefd906b362d0e3c2d650314d2f282", size = 508108, upload-time = "2026-06-19T13:12:15.348Z" },
+]
+
+[[package]]
+name = "lazy-imports"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/67/04432aae0c1e2729bff14e1841f4a3fb63a9e354318e66622251487760c3/lazy_imports-1.2.0.tar.gz", hash = "sha256:3c546b3c1e7c4bf62a07f897f6179d9feda6118e71ef6ecc47a339cab3d2e2d9", size = 24470, upload-time = "2025-12-28T13:51:51.218Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/62/60ed24fa8707f10c1c5aef94791252b820be3dd6bdfc6e2fcdb08bc8912f/lazy_imports-1.2.0-py3-none-any.whl", hash = "sha256:97134d6552e2ba16f1a278e316f05313ab73b360e848e40d593d08a5c2406fdf", size = 18681, upload-time = "2025-12-28T13:51:49.802Z" },
 ]
 
 [[package]]
