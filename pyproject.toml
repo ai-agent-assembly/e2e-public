@@ -41,6 +41,7 @@ frameworks = [
     # intent cannot co-resolve with crewai. Take crewai's compatible line.
     "mcp>=1.26",
     "openai-agents~=0.17",
+    "haystack-ai~=2.30",
     # Microsoft Agent Framework (AAASM-3538). Pinned to the first stable 1.x line
     # the smoke was authored against. NOTE: `agent-framework` pulls pre-release
     # sub-distributions (e.g. `agent-framework-azure-ai-search`), so an installer
