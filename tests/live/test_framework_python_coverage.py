@@ -22,6 +22,15 @@ import pytest
 
 pytestmark = [pytest.mark.live, pytest.mark.e2e, pytest.mark.sdk]
 
+#: Both cells below import the Python SDK (``agent_assembly`` adapters) directly,
+#: so without it installed there is nothing to assert — skip cleanly with a
+#: justified reason rather than erroring, exactly as the per-framework smokes do.
+pytest.importorskip(
+    "agent_assembly",
+    reason="agent_assembly (the Python SDK) is not installed — install it from "
+    "../python-sdk or PyPI to run the framework coverage manifest (AAASM-3525)",
+)
+
 #: (framework id, SDK adapter import path) for every supported Python framework.
 #: Each MUST have a real allow-path live module ``test_framework_python_<id>.py``.
 _SUPPORTED = [
@@ -67,11 +76,7 @@ def test_no_unmapped_framework_adapters() -> None:
     import agent_assembly.adapters as adapters_pkg
 
     pkg_dir = Path(adapters_pkg.__file__).parent
-    found = {
-        p.name
-        for p in pkg_dir.iterdir()
-        if p.is_dir() and (p / "adapter.py").exists()
-    }
+    found = {p.name for p in pkg_dir.iterdir() if p.is_dir() and (p / "adapter.py").exists()}
     mapped = {fw for fw, _ in _SUPPORTED}
     unmapped = found - mapped
     assert not unmapped, (
