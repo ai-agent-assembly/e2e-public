@@ -1,12 +1,21 @@
 """Behavioral tests for the Go SDK when no governance gateway is reachable.
 
 These tests assert the Go SDK's *designed* client-side behavior with no
-``aa-gateway`` running. The decisive switch lives in ``assembly/tool_wrapper.go``:
-when the governance ``Check`` returns an error (which is exactly what an
-unreachable gateway produces), the wrapper either lets the governed action
-proceed (the **fail-open default**) or rejects it (the one explicit
-``WithFailClosed(true)`` opt-in, ``assembly/options.go`` /
-``assembly/defaults.go``).
+``aa-gateway`` running. The decisive switch lives in ``assembly/tool_wrapper.go``
+(``shouldDenyOnUnavailable``): when the governance ``Check`` returns an error
+(which is exactly what an unreachable gateway produces), the wrapper either
+rejects the governed action or lets it proceed, depending on the resolved
+``failClosed`` posture and the enforcement mode.
+
+Since AAASM-3108/3109 the Go SDK's ``failClosed`` field **defaults to true**
+(``assembly/defaults.go``): a governance check transport error or timeout *denies*
+the tool call under an enforcing posture, so an unreachable gateway cannot silently
+let an unchecked action run. ``shouldDenyOnUnavailable`` denies only when
+``failClosed`` is set **and** the mode enforces — two independent ways an action is
+allowed on a check error: the explicit ``WithFailClosed(false)`` opt-in
+(``assembly/options.go``, allows under any mode), or the observe / disabled
+postures (allow even with the fail-closed default, so the proxy / eBPF layers stay
+authoritative). These cells assert each of those branches.
 
 Rather than stand up a real gateway and then kill it, each cell drives the
 public ``assembly.WrapTools`` / ``GovernanceClient`` surface with a client whose
@@ -26,11 +35,12 @@ Acquisition paths, as in the public Go smoke tests:
   on both paths.
 
 Note on enforcement mode: in the Go SDK ``WithEnforcementMode`` (enforce /
-observe / disabled) is a *registration-time wire field* sent to the gateway
-(``assembly/init_bridge.go``); it does not gate the local ``tool_wrapper`` check
-loop. The only client-side behavioral switch with no gateway is
-``failClosed``. The observe / disabled cells therefore share the fail-open
-default path and are asserted to proceed.
+observe / disabled) is *also* consulted by the local ``tool_wrapper`` check loop
+on the unavailable path (``shouldDenyOnUnavailable``): the observe and disabled
+postures always allow on a check error so the proxy / eBPF layers stay
+authoritative, while ``enforce`` (and the empty "gateway default" mode, which
+resolves to live enforce) denies under the fail-closed default. The observe /
+disabled cells therefore proceed; the enforce cell denies.
 """
 
 from __future__ import annotations
@@ -53,8 +63,9 @@ MODULE_PATH = "github.com/ai-agent-assembly/go-sdk"
 _GO_MAIN = textwrap.dedent("""\
     // Command consumer exercises the Go SDK's no-gateway behavior across
     // enforcement configurations. The governance client always reports the
-    // gateway as unreachable, so the runtime's fail-open default vs.
-    // WithFailClosed opt-in is what determines each outcome.
+    // gateway as unreachable, so the runtime's fail-closed default (AAASM-3108)
+    // vs. the WithFailClosed(false) / observe / disabled allow-on-error paths is
+    // what determines each outcome.
     package main
 
     import (
@@ -113,15 +124,22 @@ _GO_MAIN = textwrap.dedent("""\
     }}
 
     func main() {{
-        // enforce + no gateway + default -> fail-open, action proceeds.
+        // enforce + no gateway + default (failClosed=true, AAASM-3108) ->
+        // action rejected.
         run("enforce_default", assembly.WithEnforcementMode(assembly.EnforcementModeEnforce))
-        // enforce + no gateway + WithFailClosed(true) -> action rejected.
+        // enforce + no gateway + explicit WithFailClosed(true) -> action
+        // rejected (same as the default; the explicit opt-in is asserted too).
         run("enforce_failclosed",
             assembly.WithEnforcementMode(assembly.EnforcementModeEnforce),
             assembly.WithFailClosed(true))
-        // observe + no gateway -> action proceeds.
+        // enforce + no gateway + WithFailClosed(false) -> action proceeds: the
+        // explicit fail-open opt-in allows on a check error regardless of mode.
+        run("enforce_failopen",
+            assembly.WithEnforcementMode(assembly.EnforcementModeEnforce),
+            assembly.WithFailClosed(false))
+        // observe + no gateway -> action proceeds (allow-on-error posture).
         run("observe", assembly.WithEnforcementMode(assembly.EnforcementModeObserve))
-        // disabled + no gateway -> action proceeds.
+        // disabled + no gateway -> action proceeds (allow-on-error posture).
         run("disabled", assembly.WithEnforcementMode(assembly.EnforcementModeDisabled))
     }}
 """)
@@ -266,12 +284,14 @@ def _run_consumer(acquisition: str) -> dict[str, tuple[str, str]]:
 
 @pytest.mark.sdk
 @pytest.mark.parametrize("acquisition", ["source", "proxy"])
-def test_enforce_no_gateway_default_fails_open(acquisition: str) -> None:
-    """enforce + no gateway + default -> governed action proceeds, no error.
+def test_enforce_no_gateway_default_fails_closed(acquisition: str) -> None:
+    """enforce + no gateway + default -> governed action errors (fail-closed).
 
-    This is the fail-open default: with the gateway unreachable the governance
-    ``Check`` errors, and because ``failClosed`` defaults to ``false``
-    (``assembly/defaults.go``) the wrapper falls through and runs the tool.
+    This is the secure fail-closed default (AAASM-3108/3109): with the gateway
+    unreachable the governance ``Check`` errors, and because ``failClosed``
+    defaults to ``true`` (``assembly/defaults.go``) under an enforcing posture
+    ``shouldDenyOnUnavailable`` denies, so the wrapper returns an error instead
+    of running the tool unchecked.
     """
     skip_if_binary_missing("go")
     outcomes = _run_consumer(acquisition)
@@ -281,13 +301,15 @@ def test_enforce_no_gateway_default_fails_open(acquisition: str) -> None:
         f"cell; got {outcomes!r}"
     )
     status, detail = outcomes["enforce_default"]
-    assert status == "OK", (
-        f"[{COMPONENT}/{acquisition}] fail-open default should let the governed "
-        f"action proceed with no gateway, but it was rejected: {detail!r}"
+    assert status == "ERROR", (
+        f"[{COMPONENT}/{acquisition}] the fail-closed default should reject the "
+        f"governed action with no gateway under enforce, but it proceeded: "
+        f"{detail!r}"
     )
-    assert detail == "ran:payload", (
-        f"[{COMPONENT}/{acquisition}] expected the governed tool to actually "
-        f"execute (output 'ran:payload'), got: {detail!r}"
+    assert detail != "ran:payload", (
+        f"[{COMPONENT}/{acquisition}] the governed tool must NOT execute under the "
+        f"fail-closed default with no gateway, but it produced tool output: "
+        f"{detail!r}"
     )
 
 
@@ -296,9 +318,10 @@ def test_enforce_no_gateway_default_fails_open(acquisition: str) -> None:
 def test_enforce_no_gateway_fail_closed_denies(acquisition: str) -> None:
     """enforce + no gateway + WithFailClosed(true) -> governed action errors.
 
-    The one explicit fail-closed opt-in (``assembly/options.go``): with the
-    gateway unreachable the wrapper returns an error instead of running the
-    tool.
+    The explicit fail-closed posture (``assembly/options.go``), which matches the
+    AAASM-3108 default: with the gateway unreachable the wrapper returns an error
+    instead of running the tool. Asserted alongside the default so a future flip
+    of the default does not silently weaken the explicit opt-in.
     """
     skip_if_binary_missing("go")
     outcomes = _run_consumer(acquisition)
@@ -321,13 +344,43 @@ def test_enforce_no_gateway_fail_closed_denies(acquisition: str) -> None:
 
 @pytest.mark.sdk
 @pytest.mark.parametrize("acquisition", ["source", "proxy"])
+def test_enforce_no_gateway_fail_open_optin_proceeds(acquisition: str) -> None:
+    """enforce + no gateway + WithFailClosed(false) -> governed action proceeds.
+
+    The explicit fail-open opt-in (``assembly/options.go``): with ``failClosed``
+    set to false ``shouldDenyOnUnavailable`` returns early and allows on a check
+    error regardless of the enforcement mode, so the wrapper falls through and
+    runs the tool. This is the caller's deliberate opt-out of the secure
+    AAASM-3108 default — the inverse of ``test_enforce_no_gateway_default_fails_closed``.
+    """
+    skip_if_binary_missing("go")
+    outcomes = _run_consumer(acquisition)
+
+    assert "enforce_failopen" in outcomes, (
+        f"[{COMPONENT}/{acquisition}] consumer did not emit the enforce_failopen "
+        f"cell; got {outcomes!r}"
+    )
+    status, detail = outcomes["enforce_failopen"]
+    assert status == "OK", (
+        f"[{COMPONENT}/{acquisition}] WithFailClosed(false) should let the "
+        f"governed action proceed with no gateway, but it was rejected: {detail!r}"
+    )
+    assert detail == "ran:payload", (
+        f"[{COMPONENT}/{acquisition}] expected the governed tool to actually "
+        f"execute under the fail-open opt-in (output 'ran:payload'), got: {detail!r}"
+    )
+
+
+@pytest.mark.sdk
+@pytest.mark.parametrize("acquisition", ["source", "proxy"])
 @pytest.mark.parametrize("mode", ["observe", "disabled"])
 def test_non_enforce_no_gateway_proceeds(acquisition: str, mode: str) -> None:
     """observe / disabled + no gateway -> governed action proceeds.
 
-    These postures are registration-time wire fields in the Go SDK and do not
-    gate the local tool-wrapper loop, so they follow the same fail-open default
-    as enforce without ``WithFailClosed``.
+    ``shouldDenyOnUnavailable`` always allows on a check error under the observe
+    and disabled postures (so the proxy / eBPF layers stay authoritative) even
+    though ``failClosed`` defaults to true — only ``enforce`` denies on error.
+    These cells therefore proceed.
     """
     skip_if_binary_missing("go")
     outcomes = _run_consumer(acquisition)
