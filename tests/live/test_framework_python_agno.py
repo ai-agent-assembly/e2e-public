@@ -60,7 +60,7 @@ FRAMEWORK_PACKAGE = "agno"
 BLOCKED_MARKER = "[BLOCKED by governance policy]"
 
 
-def _build_governed_function():  # noqa: ANN202 — returns (Function, FunctionCall factory, calls)
+def _build_governed_function():  # noqa: ANN202
     """Return a real Agno ``Function`` whose execution we can observe.
 
     The tool appends to a list it closes over, so a test can assert it actually
