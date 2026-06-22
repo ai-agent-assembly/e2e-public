@@ -241,6 +241,13 @@ jobs:
     env:
       AASM_CORE_REF: ${{ inputs.agent_assembly_ref }}
       DOCTOR_JSON: /tmp/aasm-reports/doctor.json
+      # Point the live framework drivers at the SDK checkouts cloned below so the
+      # Node / Go AAASM-3525 framework smokes locate a *built* SDK (instead of
+      # skipping for "SDK checkout not found"). The Python SDK is installed into
+      # the uv venv directly (in-process `import agent_assembly`), so it needs no
+      # dir override — only Node/Go drivers resolve a sibling SDK directory.
+      AASM_NODE_SDK_DIR: /tmp/aa-sdks/node-sdk
+      AASM_GO_SDK_DIR: /tmp/aa-sdks/go-sdk
     steps:
       - name: Checkout integration-tests repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -253,6 +260,21 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: "24"
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
+        with:
+          go-version: "stable"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6.0.9
+        with:
+          version: latest
+
       - name: Install protobuf compiler
         run: |
           sudo apt-get update
@@ -264,17 +286,73 @@ jobs:
       - name: Install Python dependencies
         run: uv sync
 
+      # ---- Make the SDKs available to the live framework smokes (AAASM-3531) ----
+      # The AAASM-3525 framework live tests do an in-process `import agent_assembly`
+      # plus `import <framework>` (Python) or drive a per-language SDK driver
+      # (Node/Go). Without the SDK + frameworks present they skip — which makes the
+      # framework smokes useless in CI. Install them here so the cells RUN.
+
+      - name: Install the Python SDK (native _core) into the test venv
+        # `maturin develop` builds the SDK's compiled `agent_assembly._core`
+        # extension straight into the uv-managed `.venv`, exactly as the python-sdk
+        # repo's own native-core-build.yml does — so the test runner's in-process
+        # `import agent_assembly` / `agent_assembly._core` resolves to a real
+        # native build (not a pure-Python or absent install).
+        env:
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref }}
+        run: |
+          bash scripts/install-from-branch.sh \
+            --repo python-sdk --ref "$PYTHON_SDK_REF" --dest /tmp/aa-sdks/python-sdk
+          uv pip install maturin
+          VIRTUAL_ENV="$PWD/.venv" uv run --no-sync maturin develop \
+            --manifest-path /tmp/aa-sdks/python-sdk/native/aa-ffi-python/Cargo.toml
+          uv run --no-sync python -c "import agent_assembly; from agent_assembly._core import RuntimeClient, GovernanceEvent; print('agent_assembly + _core importable')"
+
+      - name: Install the Python AI-agent frameworks
+        # The `frameworks` extra (pyproject.toml) installs the AAASM-3525 Python
+        # frameworks (langchain, langgraph, pydantic-ai, crewai, google-adk, mcp,
+        # openai-agents) into the same venv so each `test_framework_python_*` cell
+        # runs its allow path instead of skipping on a missing framework import.
+        run: uv pip install -e '.[frameworks]'
+
+      - name: Build the Node SDK for the live framework drivers
+        # The Node framework drivers resolve a *built* node-sdk: `pnpm build`
+        # produces dist/esm/native/client.js and `pnpm native:build` the
+        # native/aa-ffi-node/index.cjs binding the real SDK→aa-ffi→aa-runtime path
+        # needs. AASM_NODE_SDK_DIR (set above) points the locator here.
+        env:
+          NODE_SDK_REF: ${{ inputs.node_sdk_ref }}
+        run: |
+          bash scripts/install-from-branch.sh \
+            --repo node-sdk --ref "$NODE_SDK_REF" --dest "$AASM_NODE_SDK_DIR"
+          pnpm --dir "$AASM_NODE_SDK_DIR" install
+          pnpm --dir "$AASM_NODE_SDK_DIR" build
+          pnpm --dir "$AASM_NODE_SDK_DIR" native:build
+
+      - name: Build the Go SDK cgo FFI library for the live framework driver
+        # The Go framework driver links the go-sdk under the `aa_ffi_go` cgo tag
+        # against libaa_ffi_go; without that compiled library the SDK falls back to
+        # a simulated UDS that never reaches a real core, so the driver skips.
+        # Build it (Makefile `native` target) so AASM_GO_SDK_DIR resolves a real lib.
+        env:
+          GO_SDK_REF: ${{ inputs.go_sdk_ref }}
+        run: |
+          bash scripts/install-from-branch.sh \
+            --repo go-sdk --ref "$GO_SDK_REF" --dest "$AASM_GO_SDK_DIR"
+          make -C "$AASM_GO_SDK_DIR" native
+
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
           uv run aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Live-core tests (-m live)
-        # The live suite is gated by `-m live` and skips cleanly when cargo /
-        # protoc are unavailable; a missing toolchain yields skips, not a hard
-        # failure. --json-report captures the outcome for the artifact.
+        # With the SDKs + frameworks installed above, the AAASM-3525 framework
+        # smokes RUN (allow paths assert, deny paths strict-xfail) rather than
+        # skip. The remaining live suite still skips cleanly if a capability is
+        # genuinely absent. --json-report captures the outcome for the artifact.
         run: |
-          uv run pytest -m live -v --tb=short \
+          uv run --no-sync pytest -m live -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-live.json
 
       - name: Upload live reports
