@@ -41,6 +41,7 @@ frameworks = [
     # intent cannot co-resolve with crewai. Take crewai's compatible line.
     "mcp>=1.26",
     "openai-agents~=0.17",
+    "haystack-ai~=2.30",
     "smolagents>=1.0,<2.0",
 ]
 
