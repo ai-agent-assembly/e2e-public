@@ -58,7 +58,7 @@ FRAMEWORK_PACKAGE = "llama-index-core"
 BLOCKED_MARKER = "[BLOCKED by governance policy]"
 
 
-def _build_governed_tool(interceptor):  # noqa: ANN001, ANN202 — returns (FunctionTool, calls, patch)
+def _build_governed_tool(interceptor):  # noqa: ANN001, ANN202
     """Return a real LlamaIndex ``FunctionTool`` governed by *interceptor*.
 
     Applies the real ``LlamaIndexPatch`` so the tool's ``call`` consults the
