@@ -14,7 +14,6 @@
 // scope here (AAASM-3000/3021 → strict xfail in the Python test, AAASM-3172).
 
 import { pathToFileURL } from "node:url";
-import { tool } from "ai";
 import { z } from "zod";
 import {
   ALLOWED_ACTION,
