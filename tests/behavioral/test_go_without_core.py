@@ -19,11 +19,11 @@ Acquisition paths, as in the public Go smoke tests:
 
 * ``proxy``  — the canonical published module from the Go module proxy
   (``github.com/ai-agent-assembly/go-sdk``, lowercase).
-* ``source`` — the local checkout next to this repo. NOTE: that checkout is a
-  STALE FORK whose ``go.mod`` declares the *capitalized* module path
-  ``github.com/AI-agent-assembly/go-sdk``; ``replace`` directives must match the
-  SDK's own declared path, so the consumer honours whatever the checkout
-  declares. The behavior asserted here is identical on both paths.
+* ``source`` — the local checkout next to this repo. Its ``go.mod`` declares the
+  canonical lowercase module path ``github.com/ai-agent-assembly/go-sdk``;
+  ``replace`` directives must match the SDK's own declared path, so the consumer
+  honours whatever the checkout declares. The behavior asserted here is identical
+  on both paths.
 
 Note on enforcement mode: in the Go SDK ``WithEnforcementMode`` (enforce /
 observe / disabled) is a *registration-time wire field* sent to the gateway

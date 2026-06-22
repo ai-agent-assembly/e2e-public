@@ -10,7 +10,7 @@ module github.com/ai-agent-assembly/integration-tests/live/go-allow-driver
 
 go 1.26.0
 
-require github.com/AI-agent-assembly/go-sdk v0.0.0
+require github.com/ai-agent-assembly/go-sdk v0.0.0
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -26,4 +26,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/AI-agent-assembly/go-sdk => ../../../../../go-sdk
+replace github.com/ai-agent-assembly/go-sdk => ../../../../../go-sdk
