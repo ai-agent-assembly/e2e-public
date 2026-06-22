@@ -93,7 +93,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Preflight (aasm-verify doctor)
         run: |
@@ -179,7 +179,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Preflight (aasm-verify doctor)
         run: |
@@ -284,7 +284,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       # ---- Make the SDKs available to the live framework smokes (AAASM-3531) ----
       # The AAASM-3525 framework live tests do an in-process `import agent_assembly`
@@ -414,7 +414,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Preflight (aasm-verify doctor)
         run: |
@@ -482,7 +482,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Install Playwright Chromium
         # Best-effort: when the browser cannot be provisioned the doctor
