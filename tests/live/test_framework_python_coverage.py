@@ -3,7 +3,8 @@
 Every framework adapter the Python SDK ships under ``agent_assembly.adapters`` now
 has its own real allow-path + deny-``xfail`` live module:
 
-    langchain · langgraph · pydantic_ai · crewai · google_adk · haystack · llamaindex · mcp · openai_agents · smolagents · agno
+    langchain · langgraph · pydantic_ai · crewai · google_adk · haystack · llamaindex · mcp · openai_agents
+    · smolagents · agno · microsoft_agent_framework
 
 This module is the **no-silent-gaps guard**: it asserts that each supported SDK
 framework adapter imports *and* has a matching ``test_framework_python_<framework>.py``
@@ -45,6 +46,7 @@ _SUPPORTED = [
     ("openai_agents", "agent_assembly.adapters.openai_agents.adapter"),
     ("smolagents", "agent_assembly.adapters.smolagents.adapter"),
     ("agno", "agent_assembly.adapters.agno.adapter"),
+    ("microsoft_agent_framework", "agent_assembly.adapters.microsoft_agent_framework.adapter"),
 ]
 
 _HERE = Path(__file__).parent

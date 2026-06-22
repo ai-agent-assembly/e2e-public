@@ -49,6 +49,12 @@ frameworks = [
     # AAASM-3537: the Agno (formerly Phidata) adapter governs
     # agno.tools.function.FunctionCall.execute. Authored against the 2.6.x line.
     "agno~=2.6",
+    # Microsoft Agent Framework (AAASM-3538). Pinned to the first stable 1.x line
+    # the smoke was authored against. NOTE: `agent-framework` pulls pre-release
+    # sub-distributions (e.g. `agent-framework-azure-ai-search`), so an installer
+    # that does not allow pre-releases (uv) needs `--prerelease=allow` — the CI
+    # install step (verify-profiles.yml) passes it for this extra.
+    "agent-framework>=1.9,<2",
 ]
 
 [project.scripts]
