@@ -51,7 +51,7 @@ FRAMEWORK_IMPORT = "agent_framework"
 FRAMEWORK_PACKAGE = "agent-framework"
 
 
-def _build_governed_tool():  # noqa: ANN202 — returns (FunctionTool, calls)
+def _build_governed_tool():  # noqa: ANN202
     """Return a real Agent Framework ``FunctionTool`` whose execution we can observe.
 
     The tool appends to a list it closes over, so a test can assert it actually
