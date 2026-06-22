@@ -39,6 +39,8 @@ tool body did not run and the blocked message was returned.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from tests.live.framework_live import (
@@ -55,6 +57,56 @@ pytestmark = [pytest.mark.live, pytest.mark.e2e, pytest.mark.sdk]
 #: CrewAI's importable package name (the SDK adapter's ``get_framework_name``).
 FRAMEWORK_IMPORT = "crewai"
 FRAMEWORK_PACKAGE = "crewai"
+
+#: Skip reason for the CrewAI cells when CrewAI's own transitive stack cannot
+#: import on the active Python. CrewAI ``~=1.14`` pulls ``chromadb 1.1.1`` which
+#: still defines its ``Settings`` on the legacy ``pydantic.v1`` shim; on
+#: **Python 3.14** that shim raises
+#: ``pydantic.v1.errors.ConfigError: unable to infer type for attribute
+#: "chroma_server_nofile"`` the moment ``crewai`` (→ ``crewai.rag`` →
+#: ``chromadb``) is imported or a ``BaseTool``/``Agent``/``Crew`` is built. The
+#: failure is upstream's deps not supporting 3.14 — not our governance wiring
+#: — so the cell skips with this concrete, justified reason and coverage resumes
+#: automatically once CrewAI/chromadb ship a 3.14-compatible release. ``find_spec``
+#: cannot detect this (the spec exists; only *importing* it fails), so the cell
+#: must force the real import to surface the incompatibility.
+CREWAI_PY314_SKIP_REASON = (
+    "crewai + chromadb 1.1.1 (pydantic.v1) do not support "
+    f"Python {sys.version_info.major}.{sys.version_info.minor}: importing crewai "
+    "raises pydantic.v1.errors.ConfigError "
+    '("unable to infer type for attribute chroma_server_nofile"). Install a '
+    "crewai/chromadb release that supports this Python to run this cell "
+    "(AAASM-3533)."
+)
+
+
+def require_crewai_runtime() -> None:
+    """Skip the calling cell when CrewAI's runtime deps fail to import here.
+
+    ``require_framework`` only proves the ``crewai`` *spec* exists; it does not
+    import it. On Python 3.14 the import itself (and any ``BaseTool``/``Agent``/
+    ``Crew`` construction that pulls in ``crewai.rag`` → ``chromadb`` →
+    ``pydantic.v1``) raises ``pydantic.v1.errors.ConfigError`` — CrewAI's own
+    transitive stack not supporting 3.14, not a defect in our governance path.
+    Force the real imports the cells use and turn that upstream incompatibility
+    into a clean, justified skip (:data:`CREWAI_PY314_SKIP_REASON`) so the suite
+    never hard-fails on it and coverage resumes once upstream supports 3.14.
+
+    The ``ConfigError`` is *not* an ``ImportError``, so it is matched by name
+    (avoiding a hard import of ``pydantic.v1`` internals just to reference the
+    type): any error raised while importing CrewAI's stack named ``ConfigError``
+    is the chromadb/pydantic-v1 incompatibility this guards.
+    """
+    try:
+        import crewai  # noqa: F401
+        import crewai.tools  # noqa: F401
+    except ImportError:
+        pytest.skip(CREWAI_PY314_SKIP_REASON)
+    except Exception as exc:  # noqa: BLE001 — narrowed to the chromadb/pydantic-v1 ConfigError
+        if type(exc).__name__ == "ConfigError":
+            pytest.skip(CREWAI_PY314_SKIP_REASON)
+        raise
+
 
 #: The adapter's deny short-circuit marker (``_format_blocked_message``). CrewAI's
 #: tool-run patch *returns* this string on a deny rather than raising, so the
@@ -125,6 +177,7 @@ def test_crewai_governance_path_is_wired() -> None:
     with no live runtime, so this stays green in a bare ``-m e2e`` run.
     """
     require_framework(FRAMEWORK_IMPORT, FRAMEWORK_PACKAGE)
+    require_crewai_runtime()
     from agent_assembly.adapters.crewai.patch import CrewAIPatch
 
     class _DenyInterceptor:
@@ -161,6 +214,7 @@ def test_crewai_allow_path_runs_tool_through_live_runtime(
     """
     require_native_core()
     require_framework(FRAMEWORK_IMPORT, FRAMEWORK_PACKAGE)
+    require_crewai_runtime()
     from agent_assembly.adapters.crewai.patch import CrewAIPatch
 
     interceptor = live_runtime_interceptor(live_runtime)

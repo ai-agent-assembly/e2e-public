@@ -11,13 +11,13 @@ It skips cleanly when the build toolchain is unavailable (no ``aa-runtime``) or
 when the SDK's compiled ``_core`` extension is not installed (pure-Python
 install / SDK absent).
 
-*Known failure (AAASM-3000):* a real ``RuntimeClient`` against a real runtime
-currently deadlocks — ``aa-sdk-client``'s IPC loop blocks on a heartbeat/event
-``Ack`` that the runtime never sends (``aa-runtime`` ignores heartbeats and only
-responds to violations/policy-queries), so the background thread never drains
-the command channel and ``close()`` hangs. This test marks that ``xfail`` with a
-``close()`` watchdog so it exposes the deadlock without hanging CI; it will
-``XPASS`` the day the contract is fixed — the cue to drop the marker.
+The ``close()`` step is still guarded by a watchdog thread
+(:func:`_close_returns_within`) rather than called inline: the prior
+``aa-sdk-client`` IPC deadlock (AAASM-3000 — the background thread blocked on a
+heartbeat/event ``Ack`` the runtime never sent, so ``close()`` hung) is resolved
+and the session now closes cleanly, but the watchdog keeps a regression of that
+contract from hanging the suite — it asserts ``close()`` returns rather than
+blocking forever.
 """
 
 from __future__ import annotations
@@ -69,15 +69,6 @@ def _close_returns_within(client, timeout: float) -> bool:  # noqa: ANN001 — n
     return done.wait(timeout)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "SDK⇄aa-runtime IPC deadlock (AAASM-3000): aa-sdk-client blocks on a "
-        "heartbeat/event Ack that aa-runtime never sends, so close() hangs and "
-        "no events are delivered. XPASS is the signal the contract is fixed."
-    ),
-    strict=False,
-    raises=AssertionError,
-)
 def test_sdk_native_ffi_session_against_runtime(live_runtime: LiveRuntime) -> None:
     """The real native ``RuntimeClient`` runs a clean session against the live runtime.
 
