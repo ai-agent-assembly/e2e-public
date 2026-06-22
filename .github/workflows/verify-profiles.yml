@@ -311,9 +311,14 @@ jobs:
       - name: Install the Python AI-agent frameworks
         # The `frameworks` extra (pyproject.toml) installs the AAASM-3525 Python
         # frameworks (langchain, langgraph, pydantic-ai, crewai, google-adk, mcp,
-        # openai-agents) into the same venv so each `test_framework_python_*` cell
-        # runs its allow path instead of skipping on a missing framework import.
-        run: uv pip install -e '.[frameworks]'
+        # openai-agents, microsoft-agent-framework) into the same venv so each
+        # `test_framework_python_*` cell runs its allow path instead of skipping on
+        # a missing framework import.
+        #
+        # `--prerelease=allow` is required because `agent-framework` (AAASM-3538)
+        # pulls pre-release sub-distributions; uv refuses pre-releases by default,
+        # so the whole extra fails to resolve without it.
+        run: uv pip install --prerelease=allow -e '.[frameworks]'
 
       - name: Build the Node SDK for the live framework drivers
         # The Node framework drivers resolve a *built* node-sdk: `pnpm build`
