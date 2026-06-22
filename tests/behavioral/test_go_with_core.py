@@ -1,10 +1,10 @@
 """Behavioral tests for the Go SDK's *positive* enforcement-decision contract.
 
 This is the positive mirror of ``tests/behavioral/test_go_without_core.py``.
-Where the without-core suite asserts the **fail-open** branch (governance
-``Check`` *errors*, the wrapper falls through and runs the tool), this suite
-asserts the **decisive** branch (governance ``Check`` *succeeds* and returns a
-``Decision``):
+Where the without-core suite asserts the **unavailable** branch (governance
+``Check`` *errors*, and the wrapper denies or proceeds per the fail-closed
+default and enforcement posture), this suite asserts the **decisive** branch
+(governance ``Check`` *succeeds* and returns a ``Decision``):
 
 * a ``Decision{Denied:true}`` must block the wrapped tool **before** the inner
   tool body runs, surfacing a ``PolicyViolationError``;
@@ -29,7 +29,7 @@ the public ``assembly.WrapTools`` / ``GovernanceClient`` surface with an
 
 This proves the wrapper's enforcement-decision contract through the SDK's
 public API — no transport, no gateway, fully deterministic — exactly the way
-``test_go_without_core.py`` proves the fail-open contract.
+``test_go_without_core.py`` proves the unavailable-gateway contract.
 
 Note on enforcement mode: in the Go SDK there is **no client-side observe
 gate**. ``WithEnforcementMode`` (enforce / observe / disabled) is a
@@ -295,8 +295,7 @@ def test_deny_decision_blocks_before_inner_tool_runs(acquisition: str) -> None:
     outcomes = _run_consumer(acquisition)
 
     assert "deny" in outcomes, (
-        f"[{COMPONENT}/{acquisition}] consumer did not emit the deny cell; "
-        f"got {outcomes!r}"
+        f"[{COMPONENT}/{acquisition}] consumer did not emit the deny cell; got {outcomes!r}"
     )
     status, detail = outcomes["deny"]
     assert status == "ERROR", (
@@ -326,8 +325,7 @@ def test_allow_decision_lets_inner_tool_run(acquisition: str) -> None:
     outcomes = _run_consumer(acquisition)
 
     assert "allow" in outcomes, (
-        f"[{COMPONENT}/{acquisition}] consumer did not emit the allow cell; "
-        f"got {outcomes!r}"
+        f"[{COMPONENT}/{acquisition}] consumer did not emit the allow cell; got {outcomes!r}"
     )
     status, detail = outcomes["allow"]
     assert status == "OK", (
