@@ -43,6 +43,9 @@ frameworks = [
     "openai-agents~=0.17",
     "haystack-ai~=2.30",
     "smolagents>=1.0,<2.0",
+    # AAASM-3537: the Agno (formerly Phidata) adapter governs
+    # agno.tools.function.FunctionCall.execute. Authored against the 2.6.x line.
+    "agno~=2.6",
     # Microsoft Agent Framework (AAASM-3538). Pinned to the first stable 1.x line
     # the smoke was authored against. NOTE: `agent-framework` pulls pre-release
     # sub-distributions (e.g. `agent-framework-azure-ai-search`), so an installer
