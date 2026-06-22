@@ -1,0 +1,11 @@
+{
+  "name": "aa-node-framework-smoke-zod4",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Real-agent smoke driver for OpenAI Agents (Node) — AAASM-3525. Isolated from the zod-3 frameworks because @openai/agents pins zod 4; keeping it in its own node_modules avoids a zod major conflict. Installed + driven by tests/live/node_frameworks.py; never published.",
+  "dependencies": {
+    "@openai/agents": "^0.8.0",
+    "zod": "^4.0.0"
+  }
+}
