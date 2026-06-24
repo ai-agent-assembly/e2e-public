@@ -3,8 +3,15 @@
 This asserts the python-sdk's **designed** security posture when there is
 **no governance gateway running** — the fail-open contract. We deliberately
 start no gateway (that is the whole point) and prove that bringing the SDK up
-never blocks the agent: a governed session initializes and proceeds, in every
-enforcement mode.
+never blocks the agent: a governed session initializes and proceeds.
+
+This contract has a precondition: **no native ``_core`` extension is present**.
+With no native authority to consult there is nothing to fail closed *to*, so
+``init_assembly`` fails open in every enforcement mode. When ``_core`` IS
+installed (the strict / ``live``-CI posture) the SDK gains a native authority
+and ``enforce`` fails *closed* by design — so the ``enforce`` fail-open
+assertion skips in that environment rather than reporting a false failure
+(AAASM-3697).
 
 Why ``init_assembly`` is the assertion boundary
 -----------------------------------------------
@@ -46,12 +53,44 @@ def _sdk_available() -> bool:
     return importlib.util.find_spec("agent_assembly") is not None
 
 
+def _native_core_available() -> bool:
+    """Return True when the native ``agent_assembly._core`` extension is present.
+
+    The "without core" precondition of this whole module is that the native
+    runtime is **absent**: with no native authority to consult, ``init_assembly``
+    fails *open* in every enforcement mode. When ``_core`` IS installed (the
+    strict / ``live``-CI posture) the SDK gains a native authority and
+    ``enforce`` mode fails *closed* by design (``runtime_interceptor`` —
+    "native present but runtime unreachable → deny under enforce"), so
+    ``init_assembly(enforce)`` raises against a dead gateway. The fail-open
+    assertions below are therefore only valid when this returns ``False``.
+    """
+    return importlib.util.find_spec("agent_assembly._core") is not None
+
+
 def _require_sdk() -> None:
     """Skip the calling test when the Python SDK is not installed."""
     if not _sdk_available():
         pytest.skip(
             f"[{COMPONENT}] Python SDK (agent_assembly) is not installed — "
             "install it from ../python-sdk or PyPI 'agent-assembly' to run this test"
+        )
+
+
+def _require_no_native_core() -> None:
+    """Skip the calling test when the native ``_core`` extension is installed.
+
+    The fail-open assertion for ``enforce`` mode only holds when there is no
+    native authority. With ``_core`` present, ``enforce`` correctly fails closed,
+    so running the fail-open assertion there would be a false failure — the
+    harness must be honest about its "without core" precondition rather than
+    asserting fail-open in an environment where fail-closed is correct.
+    """
+    if _native_core_available():
+        pytest.skip(
+            f"[{COMPONENT}] native agent_assembly._core is installed — the "
+            "fail-open-under-enforce assertion requires the native core to be "
+            "absent (with native present, enforce mode fails closed by design)"
         )
 
 
@@ -109,8 +148,15 @@ def test_enforce_mode_proceeds_without_gateway(no_gateway_env: str) -> None:
     The strongest posture must still come up when governance is unreachable:
     ``init_assembly(enforcement_mode="enforce")`` against a dead endpoint
     returns a usable context **without raising**, so the agent is not blocked.
+
+    Precondition: this fail-open assertion only holds with **no native core**.
+    When ``agent_assembly._core`` is installed the SDK has a native authority and
+    ``enforce`` fails *closed* by design (init raises against a dead gateway), so
+    we skip rather than assert a fail-open that is intentionally not the contract
+    in that environment (AAASM-3697).
     """
     _require_sdk()
+    _require_no_native_core()
 
     context = _init_without_gateway(no_gateway_env, "enforce")
     try:
