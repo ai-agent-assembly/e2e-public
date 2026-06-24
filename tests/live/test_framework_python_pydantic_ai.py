@@ -35,7 +35,9 @@ FRAMEWORK_IMPORT = "pydantic_ai"
 FRAMEWORK_PACKAGE = "pydantic-ai (or pydantic-ai-slim)"
 
 
-def _build_test_agent(interceptor):  # noqa: ANN001, ANN202 — returns (Agent, calls, patch)
+# Returns an (Agent, calls, patch) tuple; *interceptor* and the composite return
+# type are left unannotated (ANN001/ANN202) because Pydantic AI is imported lazily.
+def _build_test_agent(interceptor):  # noqa: ANN001, ANN202
     """Return a real Pydantic AI ``Agent`` (offline ``TestModel``) with a governed tool.
 
     Applies the real ``PydanticAIPatch`` against *interceptor* so the agent's
