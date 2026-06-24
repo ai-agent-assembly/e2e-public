@@ -282,6 +282,34 @@ class SchemaError:
     problem: str
 
 
+def _validate_unsupported_case(case: InstallCase) -> list[str]:
+    """Schema problems specific to an *unsupported* case (reason + empty argv)."""
+    problems: list[str] = []
+    if not case.unsupported_reason.strip():
+        problems.append("unsupported case must carry a non-empty unsupported_reason")
+    if case.install_argv or case.verify_argv:
+        problems.append("unsupported case must have empty install_argv and verify_argv")
+    return problems
+
+
+def _validate_supported_case(case: InstallCase) -> list[str]:
+    """Schema problems specific to a *supported* case (argv + expected_ref invariants)."""
+    problems: list[str] = []
+    if not case.install_argv:
+        problems.append("supported case must have a non-empty install_argv")
+    if not case.verify_argv:
+        problems.append("supported case must have a non-empty verify_argv")
+    if case.expected_ref_kind not in ("ref", "version"):
+        problems.append(
+            f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}"
+        )
+    if not case.expected_ref.strip():
+        problems.append("supported case must document a non-empty expected_ref")
+    if case.mode in _REGISTRY_MODES and not case.required_input_env:
+        problems.append("registry-mode case must require a release-version input env var")
+    return problems
+
+
 def validate_case(case: InstallCase) -> list[SchemaError]:
     """Return every schema violation for a single :class:`InstallCase`.
 
@@ -291,34 +319,18 @@ def validate_case(case: InstallCase) -> list[SchemaError]:
     ``required_input_env`` supplying the version. A well-formed *unsupported*
     case instead carries an ``unsupported_reason`` and empty argv.
     """
-    errors: list[SchemaError] = []
-
-    def add(problem: str) -> None:
-        errors.append(SchemaError(case_id=case.id, problem=problem))
-
+    problems: list[str] = []
     if case.target not in TARGETS:
-        add(f"unknown target {case.target!r}")
+        problems.append(f"unknown target {case.target!r}")
     if case.mode not in MODES:
-        add(f"unknown mode {case.mode!r}")
+        problems.append(f"unknown mode {case.mode!r}")
 
     if case.unsupported:
-        if not case.unsupported_reason.strip():
-            add("unsupported case must carry a non-empty unsupported_reason")
-        if case.install_argv or case.verify_argv:
-            add("unsupported case must have empty install_argv and verify_argv")
+        problems.extend(_validate_unsupported_case(case))
     else:
-        if not case.install_argv:
-            add("supported case must have a non-empty install_argv")
-        if not case.verify_argv:
-            add("supported case must have a non-empty verify_argv")
-        if case.expected_ref_kind not in ("ref", "version"):
-            add(f"expected_ref_kind must be 'ref' or 'version', got {case.expected_ref_kind!r}")
-        if not case.expected_ref.strip():
-            add("supported case must document a non-empty expected_ref")
-        if case.mode in _REGISTRY_MODES and not case.required_input_env:
-            add("registry-mode case must require a release-version input env var")
+        problems.extend(_validate_supported_case(case))
 
-    return errors
+    return [SchemaError(case_id=case.id, problem=problem) for problem in problems]
 
 
 def validate_matrix(matrix: tuple[InstallCase, ...] = INSTALL_MATRIX) -> list[SchemaError]:

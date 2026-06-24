@@ -95,8 +95,8 @@ export async function buildLiveGatewayClient(sdkNativeClientModule, socketPath) 
         const raw = await nativeClient.queryPolicy({
           agent_id: "",
           action_type: request.action ?? "tool_call",
-          ...(request.toolName !== undefined ? { tool_name: request.toolName } : {}),
-          ...(request.args !== undefined ? { args: request.args } : {}),
+          ...(request.toolName === undefined ? {} : { tool_name: request.toolName }),
+          ...(request.args === undefined ? {} : { args: request.args }),
         });
         verdict = {
           denied: raw.denied ?? false,

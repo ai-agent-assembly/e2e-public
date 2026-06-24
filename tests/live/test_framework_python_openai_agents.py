@@ -57,7 +57,9 @@ FRAMEWORK_IMPORT = "agents"
 FRAMEWORK_PACKAGE = "openai-agents"
 
 
-def _build_governed_function_tool(governance_calls: list[str]):  # noqa: ANN202 — returns (FunctionTool, calls)
+# Returns a (FunctionTool, calls) tuple; the composite return type is left
+# unannotated (ANN202) because the framework's FunctionTool is imported lazily.
+def _build_governed_function_tool(governance_calls: list[str]):  # noqa: ANN202
     """Return a real ``@function_tool`` whose execution we can observe.
 
     Must be called *after* the patch is applied: the adapter wraps
