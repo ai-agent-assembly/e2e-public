@@ -18,9 +18,10 @@ the ``init_assembly(...)`` boundary, not at the per-action RPC:
   raising** even though nothing is listening — the agent proceeds. That is
   fail-open: governance being absent does not stop the workload.
 
-* The explicit per-action RPC (``GatewayClient.check_policy_compliance``) is a
-  *transport* call: against a dead endpoint it raises ``GatewayError``. It does
-  **not** itself implement fail-open, so we do not pretend it does — see
+* An explicit per-action RPC on the ``GatewayClient`` (e.g.
+  ``dispatch_tool``) is a *transport* call: against a dead endpoint it raises
+  ``GatewayError``. It does **not** itself implement fail-open, so we do not
+  pretend it does — see
   :func:`test_explicit_policy_rpc_is_transport_not_failopen`, which documents
   the boundary rather than faking an allow.
 
@@ -182,8 +183,11 @@ def test_explicit_policy_rpc_is_transport_not_failopen(no_gateway_env: str) -> N
     """Document the boundary: the per-action RPC is transport, not fail-open.
 
     Fail-open lives at the ``init_assembly`` boundary (the three tests above),
-    **not** in the explicit ``check_policy_compliance`` RPC. Against a dead
-    gateway that call raises ``GatewayError`` — a transport failure, not a
+    **not** in the explicit per-action RPC. The current ``GatewayClient`` surface
+    exposes per-action transport methods (``report_edge`` / ``dispatch_tool``);
+    there is no client-side ``check``/policy method — those decisions are made
+    server-side over the native gRPC path. We probe ``dispatch_tool``: against a
+    dead gateway it raises ``GatewayError`` — a transport failure, not a
     governance allow. We assert that honestly rather than pretending the RPC
     returns an allow, so this file never fabricates a fail-open it cannot show.
     """
@@ -197,6 +201,6 @@ def test_explicit_policy_rpc_is_transport_not_failopen(no_gateway_env: str) -> N
     client = GatewayClient(gateway_url=no_gateway_env, agent_id="failopen-rpc-probe")
     try:
         with pytest.raises(GatewayError):
-            asyncio.run(client.check_policy_compliance("tool.call"))
+            asyncio.run(client.dispatch_tool("tool.call", {}))
     finally:
         client.close()
