@@ -162,12 +162,12 @@ def _scenario(case_id: str, pb):  # noqa: ANN001, ANN202
         # Same policy allows a read (file_write deny does not cover file_read).
         "resource-scoped-deny-falls-through": (
             _CAP_DENY.format(cap="file_write"),
-            *_file(pb, "read", "/tmp/data"),
+            *_file(pb, "read", "/workspace/data.txt"),
         ),
         # Deny-by-default: a capability allow-set that excludes the action denies it.
         "no-matching-rule-fails-closed": (
             _CAP_ALLOW.format(cap="file_read"),
-            *_file(pb, "write", "/tmp/data"),
+            *_file(pb, "write", "/workspace/data.txt"),
         ),
         # Fail-closed deny → a locked tool is denied (an empty policy file is not a
         # valid gateway document; a single explicit deny faithfully yields the
