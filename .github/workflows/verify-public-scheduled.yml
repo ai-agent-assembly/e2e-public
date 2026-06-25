@@ -39,13 +39,13 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run verification (${{ matrix.area }})
         env:
           AREA: ${{ matrix.area }}
         run: |
-          uv run aasm-verify public --mode latest --area "$AREA"
+          uv run --frozen aasm-verify public --mode latest --area "$AREA"
 
       - name: Summarize run on failure
         if: failure()

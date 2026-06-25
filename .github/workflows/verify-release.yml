@@ -118,8 +118,8 @@ jobs:
         env:
           AASM_RELEASE_VERSION: ${{ steps.versions.outputs.aasm_release_version }}
         run: |
-          uv sync
-          uv run pytest -m release -v --tb=short
+          uv sync --frozen
+          uv run --frozen pytest -m release -v --tb=short
 
       - name: Summary
         env:

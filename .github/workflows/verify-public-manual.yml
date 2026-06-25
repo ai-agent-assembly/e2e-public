@@ -103,7 +103,7 @@ jobs:
         run: pip install uv --quiet
 
       - name: Install Python dependencies
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run verification (${{ matrix.area }})
         env:
@@ -115,7 +115,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref || 'master' }}
           EXAMPLES_REF:   ${{ inputs.examples_ref || 'master' }}
         run: |
-          uv run aasm-verify public \
+          uv run --frozen aasm-verify public \
             --mode             "$MODE" \
             --area             "$AREA" \
             --agent-assembly-ref "$AA_REF" \
