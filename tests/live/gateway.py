@@ -30,6 +30,10 @@ READY_TIMEOUT_ENV = "AASM_GATEWAY_READY_TIMEOUT"
 #: Default readiness timeout in seconds when the env var is unset/invalid.
 DEFAULT_READY_TIMEOUT = 90.0
 
+#: Trailing log lines surfaced in a readiness-timeout error so the failure
+#: is diagnosable instead of a context-free "never became ready".
+_LOG_TAIL_LINES = 50
+
 
 def _resolve_ready_timeout() -> float:
     """Return the readiness timeout from the env var, falling back safely.
@@ -74,6 +78,10 @@ class LiveGateway:
         self._port = free_port()
         self._proc: subprocess.Popen[bytes] | None = None
         self._home: tempfile.TemporaryDirectory[str] | None = None
+        #: Captured stdout+stderr of the spawned gateway; lives inside the
+        #: isolated HOME (so it is auto-removed on success) but its tail is
+        #: copied into the readiness-timeout error before that cleanup runs.
+        self._log_path: Path | None = None
 
     @property
     def port(self) -> int:
@@ -97,6 +105,12 @@ class LiveGateway:
         audit_dir = home_path / "audit"
         audit_dir.mkdir(parents=True, exist_ok=True)
 
+        # Capture stdout+stderr to a file (not DEVNULL) so a readiness
+        # timeout can surface the gateway's own diagnostics. It lives in the
+        # isolated HOME, so stop()'s cleanup removes it on the success path.
+        self._log_path = home_path / "gateway.log"
+        log_handle = self._log_path.open("wb")
+
         self._proc = subprocess.Popen(
             [
                 str(self._binary),
@@ -108,9 +122,11 @@ class LiveGateway:
                 str(audit_dir),
             ],
             env={"HOME": str(home_path), "PATH": _inherited_path()},
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
         )
+        # Popen dups the fd; close our copy so only the child holds it open.
+        log_handle.close()
         return self
 
     def await_ready(self, timeout: float | None = None) -> None:
@@ -119,9 +135,10 @@ class LiveGateway:
         Polls ``connect`` to ``127.0.0.1:<port>`` until it succeeds or
         *timeout* seconds elapse. When *timeout* is ``None`` it is resolved
         from :data:`READY_TIMEOUT_ENV` (default :data:`DEFAULT_READY_TIMEOUT`)
-        so the wait is configurable for slow/cold-start machines. Raises
-        ``RuntimeError`` (with endpoint + elapsed time) if the process exits
-        early or the listener never comes up.
+        so the wait is configurable for slow/cold-start machines. On early
+        process exit or timeout it raises ``RuntimeError`` carrying the
+        endpoint, elapsed time, and the tail of the gateway's captured log so
+        the failure is diagnosable.
         """
         if timeout is None:
             timeout = _resolve_ready_timeout()
@@ -132,7 +149,8 @@ class LiveGateway:
                 elapsed = time.monotonic() - start
                 raise RuntimeError(
                     f"aa-gateway exited early (code {self._proc.returncode}) "
-                    f"before listening on {self.endpoint} after {elapsed:.1f}s"
+                    f"before listening on {self.endpoint} "
+                    f"after {elapsed:.1f}s{self._log_tail_suffix()}"
                 )
             try:
                 with socket.create_connection(("127.0.0.1", self._port), timeout=0.2):
@@ -143,6 +161,29 @@ class LiveGateway:
         raise RuntimeError(
             f"aa-gateway did not start accepting connections on "
             f"{self.endpoint} within {timeout:.0f}s (waited {elapsed:.1f}s)"
+            f"{self._log_tail_suffix()}"
+        )
+
+    def _log_tail_suffix(self) -> str:
+        """Return the last :data:`_LOG_TAIL_LINES` of the captured log.
+
+        Formatted as a trailing block for inclusion in a readiness-failure
+        message. Best-effort: if the log is missing/unreadable it returns a
+        short note rather than masking the original error.
+        """
+        if self._log_path is None:
+            return "\n--- no gateway log captured ---"
+        try:
+            text = self._log_path.read_text(errors="replace")
+        except OSError as exc:
+            return f"\n--- gateway log unreadable: {exc} ---"
+        lines = text.splitlines()
+        if not lines:
+            return f"\n--- gateway log empty ({self._log_path}) ---"
+        tail = "\n".join(lines[-_LOG_TAIL_LINES:])
+        return (
+            f"\n--- last {min(len(lines), _LOG_TAIL_LINES)} log line(s) "
+            f"from {self._log_path} ---\n{tail}"
         )
 
     def stop(self) -> None:
@@ -160,8 +201,10 @@ class LiveGateway:
                 self._proc.wait()
             self._proc = None
         if self._home is not None:
+            # Removes the isolated HOME including the captured gateway.log.
             self._home.cleanup()
             self._home = None
+        self._log_path = None
 
     def __enter__(self) -> LiveGateway:
         return self
