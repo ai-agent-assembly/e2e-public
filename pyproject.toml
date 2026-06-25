@@ -19,6 +19,14 @@ dependencies = []
 # `playwright install chromium` to fetch the browser binary.
 browser = ["playwright>=1.50"]
 
+# Opt-in extra for the live verdict-table conformance variant (AAASM-3742):
+# installs grpcio + grpcio-tools so `tests/conformance/test_verdict_table_live.py`
+# can codegen the PolicyService stubs from the core `proto/` tree and drive
+# `CheckAction` against a real spawned `aa-gateway`. Not a default dependency —
+# a plain `uv sync` stays gRPC-free and the live test skip-guards on its absence
+# (mirroring the `cargo`/`_core` skip-guards in the rest of the live suite).
+grpc = ["grpcio>=1.60", "grpcio-tools>=1.60"]
+
 # Opt-in extra for the AAASM-3525 Python framework live smokes
 # (`tests/live/test_framework_python_*.py`). These do an in-process
 # `import agent_assembly` *and* import the AI-agent framework under test, so the
