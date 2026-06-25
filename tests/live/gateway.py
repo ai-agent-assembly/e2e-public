@@ -11,6 +11,7 @@ This mirrors the Rust reference fixture in the monorepo
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import tempfile
@@ -19,6 +20,32 @@ from pathlib import Path
 
 #: Default minimal policy shipped alongside this module.
 MINIMAL_POLICY = Path(__file__).parent / "fixtures" / "policies" / "minimal.yaml"
+
+#: Env var that overrides the gateway TCP-readiness timeout (seconds).
+#: A larger default than the historical hard-coded 30s absorbs slow cold
+#: starts on busy machines (a gateway still warming after a fresh cargo
+#: build); operators tune it without touching code.
+READY_TIMEOUT_ENV = "AASM_GATEWAY_READY_TIMEOUT"
+
+#: Default readiness timeout in seconds when the env var is unset/invalid.
+DEFAULT_READY_TIMEOUT = 90.0
+
+
+def _resolve_ready_timeout() -> float:
+    """Return the readiness timeout from the env var, falling back safely.
+
+    Reads :data:`READY_TIMEOUT_ENV`; a missing, unparseable, or non-positive
+    value yields :data:`DEFAULT_READY_TIMEOUT` rather than raising, so a typo
+    in CI never turns a flaky-timeout fix into a hard usage error.
+    """
+    raw = os.environ.get(READY_TIMEOUT_ENV)
+    if raw is None:
+        return DEFAULT_READY_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_READY_TIMEOUT
+    return value if value > 0 else DEFAULT_READY_TIMEOUT
 
 
 def free_port() -> int:
@@ -86,28 +113,36 @@ class LiveGateway:
         )
         return self
 
-    def await_ready(self, timeout: float = 30.0) -> None:
+    def await_ready(self, timeout: float | None = None) -> None:
         """Block until the gateway accepts a TCP connection on its port.
 
         Polls ``connect`` to ``127.0.0.1:<port>`` until it succeeds or
-        *timeout* seconds elapse. Raises ``RuntimeError`` if the process
-        exits early or the listener never comes up.
+        *timeout* seconds elapse. When *timeout* is ``None`` it is resolved
+        from :data:`READY_TIMEOUT_ENV` (default :data:`DEFAULT_READY_TIMEOUT`)
+        so the wait is configurable for slow/cold-start machines. Raises
+        ``RuntimeError`` (with endpoint + elapsed time) if the process exits
+        early or the listener never comes up.
         """
-        deadline = time.monotonic() + timeout
+        if timeout is None:
+            timeout = _resolve_ready_timeout()
+        start = time.monotonic()
+        deadline = start + timeout
         while time.monotonic() < deadline:
             if self._proc is not None and self._proc.poll() is not None:
+                elapsed = time.monotonic() - start
                 raise RuntimeError(
                     f"aa-gateway exited early (code {self._proc.returncode}) "
-                    f"before listening on {self.endpoint}"
+                    f"before listening on {self.endpoint} after {elapsed:.1f}s"
                 )
             try:
                 with socket.create_connection(("127.0.0.1", self._port), timeout=0.2):
                     return
             except OSError:
                 time.sleep(0.1)
+        elapsed = time.monotonic() - start
         raise RuntimeError(
             f"aa-gateway did not start accepting connections on "
-            f"{self.endpoint} within {timeout:.0f}s"
+            f"{self.endpoint} within {timeout:.0f}s (waited {elapsed:.1f}s)"
         )
 
     def stop(self) -> None:
@@ -137,6 +172,4 @@ class LiveGateway:
 
 def _inherited_path() -> str:
     """Return the current ``PATH`` so the spawned gateway can find libs."""
-    import os
-
     return os.environ.get("PATH", "")
