@@ -62,7 +62,7 @@ def _generate_stubs(proto_dir_str: str) -> str:
     each other by bare filename) resolve. Raises ``RuntimeError`` if codegen
     fails.
     """
-    from grpc_tools import protoc  # noqa: PLC0415 — optional dep, imported lazily
+    from grpc_tools import protoc  # noqa: PLC0415  # optional dep, imported lazily
 
     src = Path(proto_dir_str)
     out = Path(tempfile.mkdtemp(prefix="aa-proto-py-"))
