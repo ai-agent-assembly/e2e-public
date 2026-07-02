@@ -24,11 +24,11 @@ import pytest
 
 from tests.public.conftest import skip_if_binary_missing
 
-TAP_NAME = "agent-assembly/agent-assembly"
+TAP_NAME = "ai-agent-assembly/tap"
 BREW_FORMULA = "aasm"
-CURL_INSTALLER_URL = (
-    "https://raw.githubusercontent.com/ai-agent-assembly/agent-assembly/master/install.sh"
-)
+# Canonical served installer (AAASM-3948 / ADR-014). The tap repo was renamed to
+# homebrew-tap so Homebrew resolves it as ai-agent-assembly/tap.
+CURL_INSTALLER_URL = "https://agent-assembly.com/install.sh"
 
 _HOMEBREW_GATE = os.environ.get("AASM_HOMEBREW_GATE", "0") == "1"
 _CURL_GATE = os.environ.get("AASM_CURL_INSTALLER_GATE", "0") == "1"
@@ -84,8 +84,23 @@ def test_homebrew_install_aasm() -> None:
         f"(exit {version_result.returncode})\n"
         f"stderr: {version_result.stderr.strip()}"
     )
-    assert version_result.stdout.strip(), (
-        f"[{COMPONENT_BREW}] aasm --version produced empty output"
+    assert version_result.stdout.strip(), f"[{COMPONENT_BREW}] aasm --version produced empty output"
+
+
+@pytest.mark.release
+@pytest.mark.skipif(not _HOMEBREW_GATE, reason=_HOMEBREW_SKIP_REASON)
+def test_homebrew_tap_then_short_install() -> None:
+    """`brew tap ai-agent-assembly/tap && brew install aasm` works (AAASM-3950)."""
+    skip_if_binary_missing("brew")
+    tap = subprocess.run(["brew", "tap", TAP_NAME], capture_output=True, text=True)
+    assert tap.returncode == 0, (
+        f"[{COMPONENT_BREW}] brew tap {TAP_NAME!r} failed (exit {tap.returncode})\n"
+        f"stderr: {tap.stderr.strip()}"
+    )
+    inst = subprocess.run(["brew", "install", BREW_FORMULA], capture_output=True, text=True)
+    assert inst.returncode == 0, (
+        f"[{COMPONENT_BREW}] brew install {BREW_FORMULA!r} (short name, after tap) failed "
+        f"(exit {inst.returncode})\nstderr: {inst.stderr.strip()}"
     )
 
 
