@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,6 +17,10 @@ jobs:
     name: "Verify [${{ matrix.area }}]"
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write  # report-failure.sh opens a GitHub issue per failing area
+
     # Shared by the run + summarize steps so the failure summary reads the report.
     env:
       PYTEST_JSON: /tmp/pytest-report-${{ matrix.area }}.json
