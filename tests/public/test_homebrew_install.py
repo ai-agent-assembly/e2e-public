@@ -3,7 +3,7 @@
 Both test groups are explicitly skipped until the upstream prerequisites are
 met:
 
-- Homebrew tap tests: require ``homebrew-agent-assembly`` tap to publish a
+- Homebrew tap tests: require ``homebrew-tap`` tap to publish a
   formula with a built bottle.  Gate controlled by env var
   ``AASM_HOMEBREW_GATE=1``.
 - curl installer tests: require a public static endpoint serving the install
@@ -40,13 +40,13 @@ _CURL_SKIP_REASON = (
     "curl installer endpoint not yet available — set AASM_CURL_INSTALLER_GATE=1 to enable"
 )
 
-COMPONENT_BREW = "homebrew-agent-assembly"
+COMPONENT_BREW = "homebrew-tap"
 
 
 @pytest.mark.release
 @pytest.mark.skipif(not _HOMEBREW_GATE, reason=_HOMEBREW_SKIP_REASON)
 def test_homebrew_tap_is_valid() -> None:
-    """brew tap agent-assembly/agent-assembly succeeds."""
+    """brew tap ai-agent-assembly/tap succeeds."""
     skip_if_binary_missing("brew")
     result = subprocess.run(
         ["brew", "tap", TAP_NAME],
