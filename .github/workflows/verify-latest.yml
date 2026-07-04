@@ -80,9 +80,11 @@ jobs:
         env:
           PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'master' }}
           NODE_SDK_REF: ${{ inputs.node_sdk_ref || 'master' }}
+          GO_SDK_REF: ${{ inputs.go_sdk_ref || 'master' }}
         run: |
           bash tests/sdk/smoke-test-python-sdk.sh
           bash tests/sdk/smoke-test-node-sdk.sh
+          bash tests/sdk/smoke-test-go-sdk.sh
 
       - name: Run examples smoke test
         env:
