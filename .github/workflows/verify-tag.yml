@@ -106,6 +106,12 @@ jobs:
           NODE_SDK_REF: ${{ inputs.node_sdk_tag }}
         run: bash tests/sdk/smoke-test-node-sdk.sh
 
+      - name: Verify go-sdk at tag
+        if: ${{ inputs.go_sdk_tag != '' }}
+        env:
+          GO_SDK_REF: ${{ inputs.go_sdk_tag }}
+        run: bash tests/sdk/smoke-test-go-sdk.sh
+
       - name: Verify examples at tag
         if: ${{ inputs.examples_tag != '' }}
         env:
