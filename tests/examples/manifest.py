@@ -48,9 +48,11 @@ QUICK: str = "quick"
 FRAMEWORK_HEAVY: str = "framework_heavy"
 CLASSIFICATIONS: tuple[str, ...] = (QUICK, FRAMEWORK_HEAVY)
 
-# Documented per-language "run the example's tests" commands, shared by every
-# example of that language (the examples follow one convention per language).
+# Documented per-language install and run commands, shared by every example of
+# that language (the examples follow one convention per language).
+_UV_SYNC_DEV_CMD: tuple[str, ...] = ("uv", "sync", "--extra", "dev")
 _PYTEST_RUN_CMD: tuple[str, ...] = ("uv", "run", "pytest", "tests/", "-q")
+_PNPM_FROZEN_INSTALL_CMD: tuple[str, ...] = ("pnpm", "install", "--frozen-lockfile")
 _GO_TEST_RUN_CMD: tuple[str, ...] = ("go", "test", "./...")
 
 
@@ -123,7 +125,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="custom-tool-policy",
         language="python",
         rel_path="python/custom-tool-policy",
-        install_cmd=("uv", "sync", "--extra", "dev"),
+        install_cmd=_UV_SYNC_DEV_CMD,
         run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         classification=QUICK,
@@ -132,7 +134,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="llamaindex-tool-policy",
         language="python",
         rel_path="python/llamaindex-tool-policy",
-        install_cmd=("uv", "sync", "--extra", "dev"),
+        install_cmd=_UV_SYNC_DEV_CMD,
         run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         classification=QUICK,
@@ -141,7 +143,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="langchain-research-agent",
         language="python",
         rel_path="python/langchain-research-agent",
-        install_cmd=("uv", "sync", "--extra", "dev"),
+        install_cmd=_UV_SYNC_DEV_CMD,
         run_cmd=_PYTEST_RUN_CMD,
         required_tools=("uv",),
         required_services=("gateway",),
@@ -161,7 +163,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="custom-tool-policy",
         language="node",
         rel_path="node/custom-tool-policy",
-        install_cmd=("pnpm", "install", "--frozen-lockfile"),
+        install_cmd=_PNPM_FROZEN_INSTALL_CMD,
         run_cmd=("pnpm", "run", "typecheck"),
         required_tools=("pnpm", "node"),
         classification=QUICK,
@@ -170,7 +172,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="openai-node-tool-policy",
         language="node",
         rel_path="node/openai-node-tool-policy",
-        install_cmd=("pnpm", "install", "--frozen-lockfile"),
+        install_cmd=_PNPM_FROZEN_INSTALL_CMD,
         run_cmd=("pnpm", "run", "typecheck"),
         required_tools=("pnpm", "node"),
         classification=QUICK,
@@ -179,7 +181,7 @@ EXAMPLES: tuple[Example, ...] = (
         name="mastra",
         language="node",
         rel_path="node/mastra",
-        install_cmd=("pnpm", "install", "--frozen-lockfile"),
+        install_cmd=_PNPM_FROZEN_INSTALL_CMD,
         run_cmd=("pnpm", "run", "build"),
         required_tools=("pnpm", "node"),
         classification=FRAMEWORK_HEAVY,
