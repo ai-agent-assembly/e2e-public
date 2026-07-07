@@ -42,7 +42,10 @@ grpc = ["grpcio>=1.60", "grpcio-tools>=1.60"]
 frameworks = [
     "langchain>=0.3",
     "langgraph>=0.2",
-    "pydantic-ai>=0.0.14",
+    # Pinned to >=1.102.0 to fix GHSA-cg7w-rg45-pc59 (SSRF bypass via DNS rebinding)
+    # and GHSA-cqp8-fcvh-x7r3 (SSRF bypass via URL encoding). Prior floor (0.0.14)
+    # was vulnerable; the smokes are unaffected by the API changes in the 1.x line.
+    "pydantic-ai>=1.102.0",
     "crewai~=1.14",
     "google-adk>=0.1",
     # LlamaIndex governance smoke (AAASM-3536): the adapter patches the concrete
