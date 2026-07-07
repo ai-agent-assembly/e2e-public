@@ -69,6 +69,7 @@ bash scripts/verify-public-stack.sh
 
 # Verify a specific tag across all repos
 bash scripts/verify-public-stack.sh \
+  --mode tag \
   --agent-assembly v0.1.0 \
   --python-sdk v0.1.0 \
   --node-sdk v0.1.0 \
