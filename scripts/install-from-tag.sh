@@ -50,11 +50,11 @@ validate_args() {
 log() { echo "[install-from-tag] $*"; }
 
 verify_tag_exists() {
-  local clone_url="$1"
-  local tag="$2"
-  log "Verifying tag $tag exists on remote..."
-  git ls-remote --tags "$clone_url" "refs/tags/${tag}" | grep -q "$tag" \
-    || { echo "Error: tag '$tag' not found on $clone_url" >&2; exit 1; }
+  local repo_url="$1"
+  local git_tag="$2"
+  log "Verifying tag $git_tag exists on remote..."
+  git ls-remote --tags "$repo_url" "refs/tags/${git_tag}" | grep -q "$git_tag" \
+    || { echo "Error: tag '$git_tag' not found on $repo_url" >&2; exit 1; }
 }
 
 main() {

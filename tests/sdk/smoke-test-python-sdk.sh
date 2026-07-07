@@ -16,8 +16,8 @@ log()  { echo "[smoke-test-python-sdk] $*"; }
 fail() { echo "[smoke-test-python-sdk] FAIL: $*" >&2; exit 1; }
 
 require_cmd() {
-  local cmd="$1"
-  command -v "$cmd" &>/dev/null || { log "SKIP: $cmd not available"; exit 0; }
+  local required_cmd="$1"
+  command -v "$required_cmd" &>/dev/null || { log "SKIP: $required_cmd not available"; exit 0; }
 }
 
 require_cmd python3

@@ -68,34 +68,34 @@ parse_args() {
 log() { echo "[install-from-release] $*"; }
 
 install_python_sdk() {
-  local version="$1"
-  local venv_dir="${TMPDIR_ROOT}/python-sdk-${version}"
-  log "Installing agent-assembly==${version} from PyPI..."
+  local sdk_version="$1"
+  local venv_dir="${TMPDIR_ROOT}/python-sdk-${sdk_version}"
+  log "Installing agent-assembly==${sdk_version} from PyPI..."
   python3 -m venv "$venv_dir"
-  "${venv_dir}/bin/pip" install --quiet "agent-assembly==${version}"
+  "${venv_dir}/bin/pip" install --quiet "agent-assembly==${sdk_version}"
   log "Python SDK installed: $("${venv_dir}/bin/pip" show agent-assembly | grep Version)"
 }
 
 install_node_sdk() {
-  local version="$1"
-  local work_dir="${TMPDIR_ROOT}/node-sdk-${version}"
-  log "Installing @agent-assembly/sdk@${version} from npm..."
+  local sdk_version="$1"
+  local work_dir="${TMPDIR_ROOT}/node-sdk-${sdk_version}"
+  log "Installing @agent-assembly/sdk@${sdk_version} from npm..."
   mkdir -p "$work_dir"
   cd "$work_dir"
-  npm install --silent "@agent-assembly/sdk@${version}"
+  npm install --silent "@agent-assembly/sdk@${sdk_version}"
   log "Node SDK installed: $(node -e "console.log(require('./node_modules/@agent-assembly/sdk/package.json').version)")"
   cd -
 }
 
 install_go_sdk() {
-  local version="$1"
-  local work_dir="${TMPDIR_ROOT}/go-sdk-${version}"
-  log "Installing github.com/ai-agent-assembly/go-sdk@${version}..."
+  local sdk_version="$1"
+  local work_dir="${TMPDIR_ROOT}/go-sdk-${sdk_version}"
+  log "Installing github.com/ai-agent-assembly/go-sdk@${sdk_version}..."
   mkdir -p "$work_dir"
   cd "$work_dir"
   go mod init aa-release-test
-  go get "github.com/ai-agent-assembly/go-sdk@${version}"
-  log "Go SDK installed: $version"
+  go get "github.com/ai-agent-assembly/go-sdk@${sdk_version}"
+  log "Go SDK installed: $sdk_version"
   cd -
 }
 
