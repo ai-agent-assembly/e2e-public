@@ -246,8 +246,9 @@ def test_explicit_policy_rpc_is_transport_not_failopen(no_gateway_env: str) -> N
 
     client = GatewayClient(gateway_url=no_gateway_env, agent_id="failopen-rpc-probe")
     try:
-        # NOSONAR — asyncio.run is a thin wrapper; dispatch_tool throws
+        # Extract the coroutine to ensure only the throwing call is in raises block
+        coro = client.dispatch_tool("tool.call", {})  # NOSONAR — setup before raises
         with pytest.raises(GatewayError):
-            asyncio.run(client.dispatch_tool("tool.call", {}))
+            asyncio.run(coro)
     finally:
         client.close()
