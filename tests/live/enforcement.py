@@ -61,6 +61,32 @@ def _assign_rule_field(
     return in_match
 
 
+def _process_policy_line(
+    stripped: str,
+    indent: int,
+    rules: list[dict[str, object]],
+    current: dict[str, object] | None,
+    in_match: bool,
+) -> tuple[dict[str, object] | None, bool]:
+    """Process a single policy line; return updated (current, in_match) state."""
+    if stripped.startswith("- "):
+        # A new rule item: "- id: <value>".
+        current = {}
+        rules.append(current)
+        in_match = False
+        stripped = stripped[2:]
+
+    if current is None:
+        return current, in_match
+
+    if stripped == "match:":
+        current["match"] = {}
+        return current, True
+
+    in_match = _assign_rule_field(current, stripped, indent, in_match)
+    return current, in_match
+
+
 def load_policy_rules(policy_path: Path = ENFORCEMENT_POLICY) -> list[dict[str, object]]:
     """Parse the enforcement policy's ``spec.rules`` with a stdlib-only reader.
 
@@ -88,25 +114,20 @@ def load_policy_rules(policy_path: Path = ENFORCEMENT_POLICY) -> list[dict[str, 
         if not seen_rules_key:
             continue
 
-        if stripped.startswith("- "):
-            # A new rule item: "- id: <value>".
-            current = {}
-            rules.append(current)
-            in_match = False
-            stripped = stripped[2:]
-        if current is None:
-            continue
-
-        if stripped == "match:":
-            in_match = True
-            current["match"] = {}
-            continue
-
-        in_match = _assign_rule_field(current, stripped, indent, in_match)
+        current, in_match = _process_policy_line(stripped, indent, rules, current, in_match)
 
     if not rules:
         raise ValueError(f"{policy_path} has no spec.rules — not a usable enforcement policy")
     return rules
+
+
+def _action_matches_pattern(action: str, pattern: str) -> bool:
+    """Return True if *action* matches the given glob *pattern*."""
+    if pattern == "*" or pattern == action:
+        return True
+    if pattern.endswith("*") and action.startswith(pattern[:-1]):
+        return True
+    return False
 
 
 def policy_denies(rules: list[dict[str, object]], action: str) -> bool:
@@ -121,9 +142,7 @@ def policy_denies(rules: list[dict[str, object]], action: str) -> bool:
     for rule in ordered:
         match = rule.get("match", {})
         pattern = str(match.get("action", "")) if isinstance(match, dict) else ""
-        if pattern == "*" or pattern == action or (
-            pattern.endswith("*") and action.startswith(pattern[:-1])
-        ):
+        if _action_matches_pattern(action, pattern):
             return str(rule.get("effect")) == "deny"
     return True
 
