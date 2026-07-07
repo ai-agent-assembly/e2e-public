@@ -333,6 +333,19 @@ def validate_case(case: InstallCase) -> list[SchemaError]:
     return [SchemaError(case_id=case.id, problem=problem) for problem in problems]
 
 
+def _check_matrix_invariants(seen: set[str]) -> list[SchemaError]:
+    """Check matrix-level invariants: AC1's source-branch path must be present."""
+    errors: list[SchemaError] = []
+    if "aasm-source-branch" not in seen:
+        errors.append(
+            SchemaError(
+                case_id="aasm-source-branch",
+                problem="AC1 requires a source-branch install case for agent-assembly",
+            )
+        )
+    return errors
+
+
 def validate_matrix(matrix: tuple[InstallCase, ...] = INSTALL_MATRIX) -> list[SchemaError]:
     """Return every schema violation across the whole matrix.
 
@@ -342,19 +355,12 @@ def validate_matrix(matrix: tuple[InstallCase, ...] = INSTALL_MATRIX) -> list[Sc
     errors: list[SchemaError] = []
     seen: set[str] = set()
     for case in matrix:
-        for err in validate_case(case):
-            errors.append(err)
+        errors.extend(validate_case(case))
         if case.id in seen:
             errors.append(SchemaError(case_id=case.id, problem="duplicate case id"))
         seen.add(case.id)
 
-    if "aasm-source-branch" not in seen:
-        errors.append(
-            SchemaError(
-                case_id="aasm-source-branch",
-                problem="AC1 requires a source-branch install case for agent-assembly",
-            )
-        )
+    errors.extend(_check_matrix_invariants(seen))
     return errors
 
 

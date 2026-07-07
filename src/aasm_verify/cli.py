@@ -255,17 +255,8 @@ def _report_strict_violations(args: argparse.Namespace, summary: reports.Summary
     return 1
 
 
-def cmd_report(args: argparse.Namespace) -> int:
-    """Run the 'report' subcommand: build summary.json and render report.md."""
-    try:
-        summary = _load_report_summary(args)
-    except (PathTraversalError, FileNotFoundError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except (ValueError, KeyError) as exc:
-        print(f"error: invalid summary data: {exc}", file=sys.stderr)
-        return 1
-
+def _write_report_outputs(args: argparse.Namespace, summary: reports.Summary) -> int | None:
+    """Write report.md, optional Jira report, and optional bundle. Return exit code on error."""
     try:
         reports.write_report_md(args.out, summary)
         print(f"summary: {args.summary}")
@@ -278,15 +269,30 @@ def cmd_report(args: argparse.Namespace) -> int:
         return 1
 
     if args.bundle is not None:
-        # ``--bundle`` is an operator-supplied output dir; a relative ``../``
-        # value is rejected by the bundle's safe_path root guard (S8707), and
-        # surfaces here as the same clean one-line error as the other paths.
         try:
             out = _write_bundle(args, summary)
         except PathTraversalError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         print(f"bundle:  {out}")
+
+    return None
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Run the 'report' subcommand: build summary.json and render report.md."""
+    try:
+        summary = _load_report_summary(args)
+    except (PathTraversalError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except (ValueError, KeyError) as exc:
+        print(f"error: invalid summary data: {exc}", file=sys.stderr)
+        return 1
+
+    output_error = _write_report_outputs(args, summary)
+    if output_error is not None:
+        return output_error
 
     return _report_strict_violations(args, summary)
 
