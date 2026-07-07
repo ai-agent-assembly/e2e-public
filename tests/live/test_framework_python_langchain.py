@@ -91,8 +91,9 @@ def test_langchain_governance_path_is_wired() -> None:
             return {"status": "deny", "reason": "blocked by test policy"}
 
     handler = AssemblyCallbackHandler(_DenyInterceptor())
+    run_id = uuid4()  # Extract to avoid multiple potentially-throwing calls in pytest.raises
     with pytest.raises(ToolExecutionBlockedError):
-        handler.on_tool_start({"name": "search"}, "hi", run_id=uuid4(), tool_name="search")
+        handler.on_tool_start({"name": "search"}, "hi", run_id=run_id, tool_name="search")
 
 
 def test_langchain_allow_path_runs_tool_through_live_runtime(
