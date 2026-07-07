@@ -62,7 +62,7 @@ def _check_pypi(version: str) -> None:
             "[python-sdk] 'packaging' not installed — required to compare PEP 440 "
             "normalized PyPI versions"
         )
-    # NOSONAR(python:S8714) — intentional: distinguish "version mismatch" from
+    # NOSONAR — intentional: distinguish "version mismatch" from
     # "unparseable version" with classification-tagged messages for downstream tooling
     try:
         assert Version(published) == Version(bare), (

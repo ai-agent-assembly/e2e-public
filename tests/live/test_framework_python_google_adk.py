@@ -110,7 +110,7 @@ def test_google_adk_governance_path_is_wired() -> None:
     patch = GoogleADKPatch(callback_handler=_DenyInterceptor(), process_agent_id=PROCESS_AGENT_ID)
     assert patch.apply() is True, "Google ADK tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; run_async throws
+        # NOSONAR — asyncio.run is a thin wrapper; run_async throws
         with pytest.raises(PolicyViolationError):
             asyncio.run(tool.run_async(args={"city": "paris"}, tool_context=None))
         assert calls == [], "deny decision let the tool body execute"
@@ -194,7 +194,7 @@ def test_google_adk_deny_path_blocks_tool_through_live_runtime(
     patch = GoogleADKPatch(callback_handler=interceptor, process_agent_id=PROCESS_AGENT_ID)
     assert patch.apply() is True, "Google ADK tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; run_async throws
+        # NOSONAR — asyncio.run is a thin wrapper; run_async throws
         with pytest.raises(PolicyViolationError):
             asyncio.run(tool.run_async(args={"city": "secret"}, tool_context=None))
         assert calls == [], "deny path let the tool body execute"

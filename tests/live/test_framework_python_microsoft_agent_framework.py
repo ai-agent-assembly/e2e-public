@@ -96,7 +96,7 @@ def test_microsoft_agent_framework_governance_path_is_wired() -> None:
     patch = MicrosoftAgentFrameworkPatch(_DenyInterceptor())
     assert patch.apply() is True, "Microsoft Agent Framework tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; tool.invoke throws
+        # NOSONAR — asyncio.run is a thin wrapper; tool.invoke throws
         with pytest.raises(PolicyViolationError):
             asyncio.run(tool.invoke(arguments={"query": "weather"}))
         assert calls == [], "deny path let the Microsoft Agent Framework tool body execute"
@@ -167,7 +167,7 @@ def test_microsoft_agent_framework_deny_path_blocks_tool_through_live_runtime(
     assert patch.apply() is True, "Microsoft Agent Framework tool hook did not install"
     tool, calls = _build_governed_tool()
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; tool.invoke throws
+        # NOSONAR — asyncio.run is a thin wrapper; tool.invoke throws
         with pytest.raises(PolicyViolationError):
             asyncio.run(tool.invoke(arguments={"query": "secret"}))
         assert calls == [], "deny path let the tool body execute"

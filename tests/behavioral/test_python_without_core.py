@@ -246,7 +246,7 @@ def test_explicit_policy_rpc_is_transport_not_failopen(no_gateway_env: str) -> N
 
     client = GatewayClient(gateway_url=no_gateway_env, agent_id="failopen-rpc-probe")
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; dispatch_tool throws
+        # NOSONAR — asyncio.run is a thin wrapper; dispatch_tool throws
         with pytest.raises(GatewayError):
             asyncio.run(client.dispatch_tool("tool.call", {}))
     finally:
