@@ -183,8 +183,10 @@ class _TraversalSourceDir:
 def test_screenshot_traversal_name_is_rejected(tmp_path: Path) -> None:
     # A copy whose destination name would escape screenshots/ must raise rather
     # than write outside the bundle — the contract safe_path enforces (S8707).
+    # Extract constructor to satisfy S5778 (single throwing call in pytest.raises)
+    traversal_dirs = [_TraversalSourceDir()]
     with pytest.raises(PathTraversalError):
-        _bundle(tmp_path, screenshot_dirs=[_TraversalSourceDir()])
+        _bundle(tmp_path, screenshot_dirs=traversal_dirs)
 
 
 def test_write_rejects_relative_outdir_escape(
