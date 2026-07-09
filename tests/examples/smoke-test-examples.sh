@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test: verify the agent-assembly-examples repo clones and its README exists.
+# Smoke test: verify the examples repo clones and its README exists.
 #
 # Environment variables:
 #   EXAMPLES_REF   Branch, tag, or SHA (default: master)
@@ -7,14 +7,14 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/ai-agent-assembly/agent-assembly-examples.git"
+REPO_URL="https://github.com/ai-agent-assembly/examples.git"
 REF="${EXAMPLES_REF:-master}"
 WORK_DIR="${AA_WORK_DIR:-/tmp/aa-smoke-examples}"
 
 log()  { echo "[smoke-test-examples] $*"; }
 fail() { echo "[smoke-test-examples] FAIL: $*" >&2; exit 1; }
 
-log "Cloning agent-assembly-examples @ $REF..."
+log "Cloning examples @ $REF..."
 rm -rf "$WORK_DIR"
 git clone --depth 1 --branch "$REF" "$REPO_URL" "$WORK_DIR" 2>/dev/null \
   || { git clone "$REPO_URL" "$WORK_DIR"; git -C "$WORK_DIR" checkout "$REF"; }

@@ -46,7 +46,7 @@ def test_report_from_pytest_json_writes_both_artifacts(tmp_path) -> None:
 
     data = json.loads(summary_path.read_text())
     assert data["report_type"] == "public-integration"
-    assert data["source_repo"] == "agent-assembly-integration-tests"
+    assert data["source_repo"] == "e2e-public"
     assert data["result"] == "pass"
     assert data["tested_refs"] == ["master", "python-sdk@master"]
 

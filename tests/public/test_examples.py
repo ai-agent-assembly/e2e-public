@@ -1,4 +1,4 @@
-"""Smoke tests for the agent-assembly-examples repo."""
+"""Smoke tests for the examples repo."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-COMPONENT = "agent-assembly-examples"
+COMPONENT = "examples"
 
 _EXAMPLES_SKIP_REASON = (
     f"[{COMPONENT}] examples repo not found next to this repo — "
@@ -19,7 +19,7 @@ def _examples_path() -> str | None:
     """Return the local examples directory if it exists next to this repo."""
     candidate = os.path.join(
         os.path.dirname(__file__),
-        "..", "..", "..", "..", "agent-assembly-examples",
+        "..", "..", "..", "..", "examples",
     )
     resolved = os.path.normpath(candidate)
     return resolved if os.path.isdir(os.path.join(resolved, "python")) else None

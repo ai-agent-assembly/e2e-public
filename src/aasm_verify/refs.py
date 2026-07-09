@@ -9,7 +9,7 @@ PUBLIC_REPOS: tuple[str, ...] = (
     "python-sdk",
     "node-sdk",
     "go-sdk",
-    "agent-assembly-examples",
+    "examples",
 )
 
 REGISTRY_REPOS: frozenset[str] = frozenset({"python-sdk", "node-sdk", "go-sdk"})
