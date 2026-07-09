@@ -2,7 +2,7 @@
   "created": 1750000000.0,
   "duration": 41.0,
   "exitcode": 1,
-  "root": "/work/agent-assembly-integration-tests",
+  "root": "/work/e2e-public",
   "summary": {
     "passed": 2,
     "failed": 1,

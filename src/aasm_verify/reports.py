@@ -28,7 +28,7 @@ from aasm_verify.pathsafe import safe_path
 
 # Fixed identity for the public-integration channel (AAASM-2236).
 REPORT_TYPE: str = "public-integration"
-SOURCE_REPO: str = "agent-assembly-integration-tests"
+SOURCE_REPO: str = "e2e-public"
 
 # Enum domains from the frontmatter schema.
 RUN_TYPES: tuple[str, ...] = ("pr", "scheduled", "release", "manual")

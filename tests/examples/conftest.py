@@ -35,7 +35,7 @@ import pytest
 
 from tests.examples.manifest import FRAMEWORK_HEAVY_ENV_VAR, Example
 
-COMPONENT = "agent-assembly-examples"
+COMPONENT = "examples"
 
 # Directory / file names that are dependency or build artifacts. They are
 # stripped when copying an example so a clean run cannot reuse cached deps.
@@ -58,13 +58,13 @@ _ARTIFACT_NAMES: frozenset[str] = frozenset(
 
 
 def examples_repo_path() -> Path | None:
-    """Return the local ``agent-assembly-examples`` checkout, or ``None``.
+    """Return the local ``examples`` checkout, or ``None``.
 
     The repo is expected as a sibling of the integration-tests repo (the layout
     the public ``tests/public`` suite already assumes). Returns ``None`` when it
     is not present, so callers can emit a justified env skip.
     """
-    candidate = Path(__file__).resolve().parents[3] / "agent-assembly-examples"
+    candidate = Path(__file__).resolve().parents[3] / "examples"
     return candidate if (candidate / "README.md").is_file() else None
 
 
