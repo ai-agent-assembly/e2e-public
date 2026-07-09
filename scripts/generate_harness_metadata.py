@@ -37,9 +37,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 METADATA_PATH = REPO_ROOT / "metadata" / "harness.yaml"
 
 SENTINEL_RE = re.compile(
-    r"^(?P<indent>[ \t]*)# BEGIN GENERATED: (?P<id>[a-z0-9\-]+)\s*\n"
+    r"^(?P<indent>[ \t]*)# BEGIN GENERATED: (?P<id>[a-z0-9\-]+)[ \t]*\n"
     r"(?P<body>.*?)"
-    r"^(?P=indent)# END GENERATED: (?P=id)\s*$",
+    r"^(?P=indent)# END GENERATED: (?P=id)[ \t]*$",
     re.MULTILINE | re.DOTALL,
 )
 
