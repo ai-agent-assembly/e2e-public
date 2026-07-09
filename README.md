@@ -102,6 +102,46 @@ bash scripts/install-from-release.sh --python-sdk 0.1.0 --node-sdk 0.1.0
 | `verify-release.yml` | GitHub release publish + `workflow_dispatch` | Verify public install paths |
 | `verify-public-manual.yml` | `workflow_dispatch` | Manual public stack check with mode/area/ref selection |
 | `verify-public-scheduled.yml` | Schedule (1st/15th monthly) + `workflow_dispatch` | Scheduled public health check; creates failure issues |
+| `harness-metadata-check.yml` | PR + `push` to `master` (paths-filtered) | Guard shared metadata (`metadata/harness.yaml`) against drift; validate shell syntax |
+
+## Shared metadata
+
+The install and verification shell scripts under `scripts/` share a small
+set of drift-prone constants (GitHub org, package identifiers per registry,
+the `aasm-verify public` CLI entrypoint). These are pinned in a single
+source of truth at `metadata/harness.yaml` and rendered into each script by
+`scripts/generate_harness_metadata.py`.
+
+Sentinel blocks in each affected script mark generated regions:
+
+```sh
+# BEGIN GENERATED: <id>
+KEY="value"
+# END GENERATED: <id>
+```
+
+**Do not edit generated blocks by hand.** Edit `metadata/harness.yaml`
+and re-run the generator:
+
+```bash
+python scripts/generate_harness_metadata.py
+```
+
+The `harness-metadata-check.yml` workflow re-runs the generator on every
+PR touching the SoT or a target script and fails on drift
+(`git diff --exit-code`), then runs `bash -n` on each affected script.
+
+Current sentinel blocks:
+
+| Block id | Owning scripts | Purpose |
+|---|---|---|
+| `install-defaults-github-org` | `install-from-branch.sh`, `install-from-tag.sh` | Pin the GitHub org that hosts every clone URL |
+| `install-defaults-package-ids` | `install-from-release.sh` | Pin the PyPI dist / npm scope / Go module path |
+| `harness-verify-command` | `resolve-refs.sh`, `verify-public-stack.sh` | Pin the `aasm-verify public` CLI entrypoint |
+
+Adding a new sentinel block requires two changes: extend `metadata/harness.yaml`
+with the underlying fields, then register a `render_*` function in
+`scripts/generate_harness_metadata.py`'s `RENDERERS` dict.
 
 ## Scheduled verification
 
@@ -167,3 +207,5 @@ When a scheduled or manual run fails, `report-failure.sh` automatically creates 
 - [AAASM-2221](https://lightning-dust-mite.atlassian.net/browse/AAASM-2221) — Bootstrap public cross-repo integration test repository (Story)
 - [AAASM-2225](https://lightning-dust-mite.atlassian.net/browse/AAASM-2225) — Public integration verification for Agent Assembly OSS and release paths (Epic)
 - [AAASM-2229](https://lightning-dust-mite.atlassian.net/browse/AAASM-2229) — Add scheduled workflows and failure issue reporting (Story)
+- [AAASM-4335](https://lightning-dust-mite.atlassian.net/browse/AAASM-4335) — Extend shared-metadata drift prevention to test/example repos (Epic)
+- [AAASM-4337](https://lightning-dust-mite.atlassian.net/browse/AAASM-4337) — Generate install-script metadata to prevent harness drift (Story)

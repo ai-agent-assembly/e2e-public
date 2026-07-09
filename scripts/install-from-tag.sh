@@ -20,7 +20,9 @@ set -euo pipefail
 
 REPO=""
 TAG=""
+# BEGIN GENERATED: install-defaults-github-org
 ORG="ai-agent-assembly"
+# END GENERATED: install-defaults-github-org
 DEST=""
 
 usage() {
