@@ -33,7 +33,7 @@ def test_report_from_pytest_json_writes_both_artifacts(tmp_path) -> None:
             "--date",
             "2026-06-18",
             "--run-url",
-            "https://github.com/ai-agent-assembly/agent-assembly-integration-tests/actions/runs/1",
+            "https://github.com/ai-agent-assembly/e2e-public/actions/runs/1",
             "--tested-refs",
             "master, python-sdk@master",
             "--retain",

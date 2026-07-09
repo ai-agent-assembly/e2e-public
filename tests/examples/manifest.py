@@ -1,7 +1,7 @@
 """Clean-environment examples manifest (AAASM-3153).
 
 The `agent-assembly-examples
-<https://github.com/ai-agent-assembly/agent-assembly-examples>`_ repo is the
+<https://github.com/ai-agent-assembly/examples>`_ repo is the
 public surface this suite validates: each example must install and run from a
 **clean** environment (a fresh ``uv sync`` / ``pnpm install --frozen-lockfile``
 / ``go test``), not from whatever happens to be cached on the developer's box.

@@ -22,7 +22,7 @@ def _summary(**overrides: object) -> Summary:
         "run_type": "scheduled",
         "result": "pass",
         "date": "2026-06-18",
-        "workflow_run_url": "https://github.com/ai-agent-assembly/agent-assembly-integration-tests/actions/runs/1",
+        "workflow_run_url": "https://github.com/ai-agent-assembly/e2e-public/actions/runs/1",
         "tested_refs": ["master"],
         "retain": "short-term",
         "suites": [Suite("test_python_sdk", "pass", 12)],
