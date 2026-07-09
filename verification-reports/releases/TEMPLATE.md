@@ -2,7 +2,7 @@
 
 # Release QA Report: `<repo>` `<version>`
 
-**Repo:** `<owner>/<repo>` (e.g. `ai-agent-assembly/agent-assembly-integration-tests`)
+**Repo:** `<owner>/<repo>` (e.g. `ai-agent-assembly/e2e-public`)
 **Release version:** `<version>` (e.g. `v0.0.1-beta.4`)
 **Exact git SHA:** `<full-or-short-sha>` (the commit the release tag points at)
 **Date:** `<YYYY-MM-DD>`

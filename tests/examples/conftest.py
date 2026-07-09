@@ -206,7 +206,7 @@ def require_clean_run_env(example: Example) -> Path:
     if src is None:
         pytest.skip(
             f"[{COMPONENT}] examples repo (or {example.rel_path}) not found — "
-            "clone https://github.com/ai-agent-assembly/agent-assembly-examples "
+            "clone https://github.com/ai-agent-assembly/examples "
             "alongside this repo to enable clean-env example runs"
         )
 

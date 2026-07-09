@@ -91,7 +91,7 @@ bash scripts/install-from-release.sh --python-sdk 0.1.0 --node-sdk 0.1.0
 | `python-sdk` | https://github.com/ai-agent-assembly/python-sdk |
 | `node-sdk` | https://github.com/ai-agent-assembly/node-sdk |
 | `go-sdk` | https://github.com/ai-agent-assembly/go-sdk |
-| `agent-assembly-examples` | https://github.com/ai-agent-assembly/agent-assembly-examples |
+| `agent-assembly-examples` | https://github.com/ai-agent-assembly/examples |
 
 ## CI
 

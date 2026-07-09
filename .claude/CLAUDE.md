@@ -75,7 +75,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
   only — there is **no `pull_request` / `push` trigger**, so opening a PR runs
   nothing. **Validate locally** (`ruff` + the relevant `pytest` area, and `-m live`
   when you touch the live harness); do not wait on CI to catch a regression.
-- **Canonical remote is `origin`** (→ `ai-agent-assembly/agent-assembly-integration-tests`);
+- **Canonical remote is `origin`** (→ `ai-agent-assembly/e2e-public`);
   confirm with `git remote -v` / `git branch -r` before scoping — a local checkout
   can be behind. Default branch is **`master`**.
 - **Scheduled runs open GitHub Issues on failure** (`report-failure.sh`): one issue
@@ -88,7 +88,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 ## Project policy
 
 - **JIRA:** project AAASM; set **Component** (`customfield_10041`) to this repo
-  (`AI-agent-assembly/agent-assembly-integration-tests`); Team (`customfield_10001`)
+  (`ai-agent-assembly/e2e-public`); Team (`customfield_10001`)
   = Pioneer. Epic → Story → Subtask (one Subtask ≈ one commit) + a `Verify …`
   subtask per Story.
 - **Commits:** `<emoji> (<scope>): <imperative summary>` (gitmoji.dev), one logical
