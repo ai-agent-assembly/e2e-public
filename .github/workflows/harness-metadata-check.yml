@@ -1,0 +1,66 @@
+name: Harness metadata drift check
+
+# AAASM-4337 — Wave-3 shared-metadata rollout.
+#
+# Guards `metadata/harness.yaml` and the sentinel-bounded blocks in the
+# install/verify shell scripts against silent drift:
+#
+#   1. Re-run `scripts/generate_harness_metadata.py` and fail if any target
+#      script would change (`git diff --exit-code`).
+#   2. Run `bash -n` on every affected script so the generator cannot land
+#      output that breaks shell parsing.
+#
+# The generator uses Python stdlib only (harness `pyproject.toml` has
+# `dependencies = []`), so no `uv sync` is required in this job — a plain
+# `actions/setup-python` step is enough.
+
+on:
+  pull_request:
+    paths:
+      - "metadata/harness.yaml"
+      - "scripts/generate_harness_metadata.py"
+      - "scripts/install-from-*.sh"
+      - "scripts/resolve-refs.sh"
+      - "scripts/verify-public-stack.sh"
+      - ".github/workflows/harness-metadata-check.yml"
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata/harness.yaml"
+      - "scripts/generate_harness_metadata.py"
+      - "scripts/install-from-*.sh"
+      - "scripts/resolve-refs.sh"
+      - "scripts/verify-public-stack.sh"
+      - ".github/workflows/harness-metadata-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Verify metadata generator idempotency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate metadata blocks
+        run: python scripts/generate_harness_metadata.py
+
+      - name: Fail on drift
+        run: git diff --exit-code
+
+      - name: Validate shell syntax
+        run: |
+          bash -n scripts/install-from-branch.sh
+          bash -n scripts/install-from-release.sh
+          bash -n scripts/install-from-source.sh
+          bash -n scripts/install-from-tag.sh
+          bash -n scripts/resolve-refs.sh
+          bash -n scripts/verify-public-stack.sh
