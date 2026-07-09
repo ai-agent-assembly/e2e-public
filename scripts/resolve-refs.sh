@@ -13,6 +13,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Public-stack verification CLI entrypoint. Generated from
+# metadata/harness.yaml via scripts/generate_harness_metadata.py — do
+# not edit by hand.
+# BEGIN GENERATED: harness-verify-command
+VERIFY_BIN="aasm-verify"
+VERIFY_SUBCOMMAND="public"
+# END GENERATED: harness-verify-command
+
 cd "${REPO_ROOT}"
 
-exec uv run aasm-verify public --dry-run "$@"
+exec uv run "${VERIFY_BIN}" "${VERIFY_SUBCOMMAND}" --dry-run "$@"
