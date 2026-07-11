@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-from aasm_verify import doctor, reports, runners
+from aasm_verify import doctor, reports, runners, skip_audit
 from aasm_verify.pathsafe import PathTraversalError, safe_path
 from aasm_verify.refs import ResolvedRefs, resolve_refs
 
@@ -157,6 +157,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit the machine-readable report as JSON (for a CI summary).",
+    )
+
+    markers_cmd = sub.add_parser(
+        "markers",
+        help="Audit skip/xfail/rc_pending markers in the test tree (AAASM-4479).",
+    )
+    markers_cmd.add_argument(
+        "--tests-dir",
+        default="tests",
+        metavar="PATH",
+        help="Directory to walk for test files (default: tests).",
+    )
+    markers_cmd.add_argument(
+        "--root",
+        default=".",
+        metavar="PATH",
+        help="Base directory for reported relative paths (default: .).",
+    )
+    markers_cmd.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the marker audit as JSON instead of a text report.",
+    )
+    markers_cmd.add_argument(
+        "--check-jira",
+        action="store_true",
+        help="Cross-check ticket refs against Jira status to flag stale markers. "
+        "Requires AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN}; runs offline otherwise.",
+    )
+    markers_cmd.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 when unreferenced or stale markers exist "
+        "(default: reporting only, always exit 0).",
     )
     return parser
 
@@ -333,6 +367,33 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return doctor.exit_code(report)
 
 
+def cmd_markers(args: argparse.Namespace) -> int:
+    """Run the 'markers' subcommand: statically audit skip/xfail/rc_pending markers.
+
+    Offline by default (deterministic, no network). ``--check-jira`` opts into the
+    stale-ticket cross-check when the AASM_VERIFY_JIRA_* env vars are present. The
+    tool is a reporting forcing function, not a CI gate — it exits 0 unless
+    ``--strict`` is passed and there are unreferenced or stale markers.
+    """
+    resolver = None
+    if args.check_jira:
+        resolver = skip_audit.jira_resolver_from_env()
+        if resolver is None:
+            print(
+                "warning: --check-jira set but AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN} "
+                "are not all present; running offline.",
+                file=sys.stderr,
+            )
+    audit = skip_audit.audit_markers(args.tests_dir, root=args.root, resolver=resolver)
+    if args.json:
+        print(json.dumps(audit.as_dict(), indent=2))
+    else:
+        print(skip_audit.render_marker_audit(audit))
+    if args.strict and (audit.unreferenced or audit.stale_markers):
+        return 1
+    return 0
+
+
 def _today_utc() -> str:
     """Return today's UTC date as ISO-8601 ``YYYY-MM-DD``."""
     from datetime import UTC, datetime
@@ -349,6 +410,8 @@ def main() -> None:
         sys.exit(cmd_report(args))
     if args.command == "doctor":
         sys.exit(cmd_doctor(args))
+    if args.command == "markers":
+        sys.exit(cmd_markers(args))
 
 
 if __name__ == "__main__":
