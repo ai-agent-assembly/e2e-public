@@ -74,17 +74,6 @@ aasm-verify = "aasm_verify.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/aasm_verify"]
 
-[tool.uv]
-# The `frameworks` extra pins `agent-framework>=1.9` (AAASM-3538), which only
-# co-resolves with `crewai~=1.14` when crewai's pre-release line (e.g. 1.14.8a5)
-# is permitted. Default `if-necessary-or-explicit` mode refuses that pre-release,
-# so the universal lock becomes unsatisfiable and both `uv lock --check` and a
-# plain `uv sync` fail (AAASM-3741). Allowing pre-releases here matches the
-# `--prerelease=allow` the CI install steps already pass for this extra, so the
-# locked resolution and the runtime install agree. Base/dev deps (pytest, ruff)
-# publish stable releases, so this only takes effect where a package needs it.
-prerelease = "allow"
-
 [dependency-groups]
 dev = [
     "pytest>=8.0",
