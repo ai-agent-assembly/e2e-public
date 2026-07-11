@@ -65,30 +65,30 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agent-framework", marker = "extra == 'frameworks'", specifier = ">=1.9,<2" },
-    { name = "agno", marker = "extra == 'frameworks'", specifier = "~=2.6" },
-    { name = "crewai", marker = "extra == 'frameworks'", specifier = "~=1.14" },
-    { name = "google-adk", marker = "extra == 'frameworks'", specifier = ">=0.1" },
-    { name = "grpcio", marker = "extra == 'grpc'", specifier = ">=1.60" },
+    { name = "agent-framework", marker = "extra == 'frameworks'", specifier = ">=1.11.0,<2" },
+    { name = "agno", marker = "extra == 'frameworks'", specifier = "~=2.7" },
+    { name = "crewai", marker = "extra == 'frameworks'", specifier = "~=1.15" },
+    { name = "google-adk", marker = "extra == 'frameworks'", specifier = ">=2.4.0" },
+    { name = "grpcio", marker = "extra == 'grpc'", specifier = ">=1.82.1" },
     { name = "grpcio-tools", marker = "extra == 'grpc'", specifier = ">=1.60" },
-    { name = "haystack-ai", marker = "extra == 'frameworks'", specifier = "~=2.30" },
-    { name = "langchain", marker = "extra == 'frameworks'", specifier = ">=0.3" },
-    { name = "langgraph", marker = "extra == 'frameworks'", specifier = ">=0.2" },
-    { name = "llama-index-core", marker = "extra == 'frameworks'", specifier = ">=0.10" },
+    { name = "haystack-ai", marker = "extra == 'frameworks'", specifier = "~=2.31" },
+    { name = "langchain", marker = "extra == 'frameworks'", specifier = ">=1.3.13" },
+    { name = "langgraph", marker = "extra == 'frameworks'", specifier = ">=1.2.9" },
+    { name = "llama-index-core", marker = "extra == 'frameworks'", specifier = ">=0.14.23" },
     { name = "mcp", marker = "extra == 'frameworks'", specifier = ">=1.26" },
-    { name = "openai-agents", marker = "extra == 'frameworks'", specifier = "~=0.17" },
-    { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.50" },
-    { name = "pydantic-ai", marker = "extra == 'frameworks'", specifier = ">=1.102.0" },
-    { name = "smolagents", marker = "extra == 'frameworks'", specifier = ">=1.0,<2.0" },
+    { name = "openai-agents", marker = "extra == 'frameworks'", specifier = "~=0.18" },
+    { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.61.0" },
+    { name = "pydantic-ai", marker = "extra == 'frameworks'", specifier = ">=2.9.0" },
+    { name = "smolagents", marker = "extra == 'frameworks'", specifier = ">=1.26.0,<2.0" },
 ]
 provides-extras = ["browser", "grpc", "frameworks"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-json-report", specifier = ">=1.5" },
-    { name = "pytest-xdist", specifier = ">=3.0" },
-    { name = "ruff", specifier = ">=0.4" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.15.21" },
 ]
 
 [[package]]
