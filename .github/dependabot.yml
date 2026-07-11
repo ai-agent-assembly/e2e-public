@@ -1,6 +1,10 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # This project is uv-managed (uv.lock + [dependency-groups] in
+  # pyproject.toml). The "pip" ecosystem does not update uv.lock — use the
+  # dedicated "uv" ecosystem (GA since 2025-03) so Dependabot understands
+  # pyproject.toml + uv.lock natively (AAASM-4437).
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "daily"

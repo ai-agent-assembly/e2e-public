@@ -17,7 +17,7 @@ dependencies = []
 # Chromium. Not a default dependency — a plain `uv sync` stays browser-free and
 # the smoke skip-guards on its absence (AAASM-3146). After installing, run
 # `playwright install chromium` to fetch the browser binary.
-browser = ["playwright>=1.50"]
+browser = ["playwright>=1.61.0"]
 
 # Opt-in extra for the live verdict-table conformance variant (AAASM-3742):
 # installs grpcio + grpcio-tools so `tests/conformance/test_verdict_table_live.py`
@@ -25,7 +25,16 @@ browser = ["playwright>=1.50"]
 # `CheckAction` against a real spawned `aa-gateway`. Not a default dependency —
 # a plain `uv sync` stays gRPC-free and the live test skip-guards on its absence
 # (mirroring the `cargo`/`_core` skip-guards in the rest of the live suite).
-grpc = ["grpcio>=1.60", "grpcio-tools>=1.60"]
+# NOTE (AAASM-4437 re-audit): grpcio-tools resolves to the 1.81.x line rather
+# than the newer 1.82.x line even though the floor here is permissive. This is
+# a genuine cross-extra ceiling, not a stale lock: grpcio-tools>=1.82 requires
+# protobuf>=7.35.1, but the `frameworks` extra's agent-framework sub-packages
+# (agent-framework-a2a -> a2a-sdk, agent-framework-mem0 -> mem0ai) both pin
+# protobuf<7.0 even at their own latest releases. Because this project uses a
+# single universal uv.lock covering all extras together, that ceiling applies
+# even when only installing `grpc` on its own. Re-check when a2a-sdk/mem0ai
+# lift their protobuf cap.
+grpc = ["grpcio>=1.82.1", "grpcio-tools>=1.60"]
 
 # Opt-in extra for the AAASM-3525 Python framework live smokes
 # (`tests/live/test_framework_python_*.py`). These do an in-process
@@ -40,32 +49,34 @@ grpc = ["grpcio>=1.60", "grpcio-tools>=1.60"]
 # Versions are pinned to the lines the AAASM-3525 smokes were authored against
 # where known (crewai, openai-agents, mcp); the rest carry a sensible floor.
 frameworks = [
-    "langchain>=0.3",
-    "langgraph>=0.2",
+    "langchain>=1.3.13",
+    "langgraph>=1.2.9",
     # Pinned to >=1.102.0 to fix GHSA-cg7w-rg45-pc59 (SSRF bypass via DNS rebinding)
     # and GHSA-cqp8-fcvh-x7r3 (SSRF bypass via URL encoding). Prior floor (0.0.14)
-    # was vulnerable; the smokes are unaffected by the API changes in the 1.x line.
-    "pydantic-ai>=1.102.0",
-    "crewai~=1.14",
-    "google-adk>=0.1",
+    # was vulnerable; floor now raised to the resolved 2.x line — the smokes are
+    # unaffected by the API changes across the 1.x -> 2.x transition.
+    "pydantic-ai>=2.9.0",
+    "crewai~=1.15",
+    "google-adk>=2.4.0",
     # LlamaIndex governance smoke (AAASM-3536): the adapter patches the concrete
-    # FunctionTool.call / acall hooks. Floor only — older 0.10+ lines work too.
-    "llama-index-core>=0.10",
+    # FunctionTool.call / acall hooks. Floor reflects the resolved 0.14.x line —
+    # older 0.10+ lines are believed to still work but are untested here.
+    "llama-index-core>=0.14.23",
     # Floor only: crewai~=1.14 constrains mcp to <1.27, so the AAASM-3525 `~=1.27`
     # intent cannot co-resolve with crewai. Take crewai's compatible line.
     "mcp>=1.26",
-    "openai-agents~=0.17",
-    "haystack-ai~=2.30",
-    "smolagents>=1.0,<2.0",
+    "openai-agents~=0.18",
+    "haystack-ai~=2.31",
+    "smolagents>=1.26.0,<2.0",
     # AAASM-3537: the Agno (formerly Phidata) adapter governs
     # agno.tools.function.FunctionCall.execute. Authored against the 2.6.x line.
-    "agno~=2.6",
+    "agno~=2.7",
     # Microsoft Agent Framework (AAASM-3538). Pinned to the first stable 1.x line
     # the smoke was authored against. NOTE: `agent-framework` pulls pre-release
     # sub-distributions (e.g. `agent-framework-azure-ai-search`), so an installer
     # that does not allow pre-releases (uv) needs `--prerelease=allow` — the CI
     # install step (verify-profiles.yml) passes it for this extra.
-    "agent-framework>=1.9,<2",
+    "agent-framework>=1.11.0,<2",
 ]
 
 [project.scripts]
@@ -74,23 +85,12 @@ aasm-verify = "aasm_verify.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/aasm_verify"]
 
-[tool.uv]
-# The `frameworks` extra pins `agent-framework>=1.9` (AAASM-3538), which only
-# co-resolves with `crewai~=1.14` when crewai's pre-release line (e.g. 1.14.8a5)
-# is permitted. Default `if-necessary-or-explicit` mode refuses that pre-release,
-# so the universal lock becomes unsatisfiable and both `uv lock --check` and a
-# plain `uv sync` fail (AAASM-3741). Allowing pre-releases here matches the
-# `--prerelease=allow` the CI install steps already pass for this extra, so the
-# locked resolution and the runtime install agree. Base/dev deps (pytest, ruff)
-# publish stable releases, so this only takes effect where a package needs it.
-prerelease = "allow"
-
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.1.1",
     "pytest-json-report>=1.5",
-    "pytest-xdist>=3.0",
-    "ruff>=0.4",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.21",
 ]
 
 [tool.pytest.ini_options]
