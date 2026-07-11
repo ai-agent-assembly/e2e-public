@@ -106,6 +106,7 @@ markers = [
     "live: Live-core tests that build and run aa-runtime / aa-gateway from source",
     "e2e: Live SDK→runtime policy enforcement end-to-end tests",
     "compat: Cross-version runtime×SDK compatibility matrix tests",
+    "rc_pending: Correct assertion blocked on an rc-pending upstream fix — visible-but-non-blocking quarantine (AAASM-4479); requires a blocking ticket key in the reason",
 ]
 
 [tool.ruff]
