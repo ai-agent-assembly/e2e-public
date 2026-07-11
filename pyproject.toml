@@ -25,6 +25,15 @@ browser = ["playwright>=1.50"]
 # `CheckAction` against a real spawned `aa-gateway`. Not a default dependency —
 # a plain `uv sync` stays gRPC-free and the live test skip-guards on its absence
 # (mirroring the `cargo`/`_core` skip-guards in the rest of the live suite).
+# NOTE (AAASM-4437 re-audit): grpcio-tools resolves to the 1.81.x line rather
+# than the newer 1.82.x line even though the floor here is permissive. This is
+# a genuine cross-extra ceiling, not a stale lock: grpcio-tools>=1.82 requires
+# protobuf>=7.35.1, but the `frameworks` extra's agent-framework sub-packages
+# (agent-framework-a2a -> a2a-sdk, agent-framework-mem0 -> mem0ai) both pin
+# protobuf<7.0 even at their own latest releases. Because this project uses a
+# single universal uv.lock covering all extras together, that ceiling applies
+# even when only installing `grpc` on its own. Re-check when a2a-sdk/mem0ai
+# lift their protobuf cap.
 grpc = ["grpcio>=1.60", "grpcio-tools>=1.60"]
 
 # Opt-in extra for the AAASM-3525 Python framework live smokes
