@@ -189,6 +189,8 @@ jobs:
   # flag flip. continue-on-error keeps it non-gating regardless.
   # ---------------------------------------------------------------------------
   homebrew:
+    permissions:
+      contents: read
     name: "homebrew (quarantined — AAASM-4448/4449)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
