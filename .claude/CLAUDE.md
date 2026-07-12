@@ -71,10 +71,14 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 
 ## Repo-specific gotchas
 
-- **No PR-gating CI.** Every workflow triggers on `schedule` + `workflow_dispatch`
-  only — there is **no `pull_request` / `push` trigger**, so opening a PR runs
-  nothing. **Validate locally** (`ruff` + the relevant `pytest` area, and `-m live`
-  when you touch the live harness); do not wait on CI to catch a regression.
+- **Minimal PR-gating CI (AAASM-4476).** The only `pull_request` trigger is
+  `verify-release-scheduled.yml`'s `harness-self-tests` job — the offline
+  `aasm-verify` harness unit tests (`tests/test_*.py`). Every *product*
+  verification workflow (the `verify-*` stack) is still `schedule` +
+  `workflow_dispatch` only, so opening a PR does **not** build or install any
+  product artifact. **Validate locally** (`ruff` + the relevant `pytest` area,
+  and `-m live` when you touch the live harness); do not wait on CI to catch a
+  product regression.
 - **Canonical remote is `origin`** (→ `ai-agent-assembly/e2e-public`);
   confirm with `git remote -v` / `git branch -r` before scoping — a local checkout
   can be behind. Default branch is **`master`**.
