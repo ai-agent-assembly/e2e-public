@@ -102,9 +102,8 @@ def _build_node_sdk(checkout: Path) -> None:
         )
         if result.returncode != 0:
             pytest.skip(
-                f"[{COMPONENT}] 'pnpm build' failed (exit {result.returncode}) — "
-                "classification: known_prerequisite\n"
-                f"stderr: {result.stderr.strip()[-2000:]}"
+                f"[{COMPONENT}] 'pnpm build' failed (exit {result.returncode})\n"
+                f"stderr: {result.stderr.strip()[-2000:]} (classification: known_prerequisite)"
             )
         return
 
