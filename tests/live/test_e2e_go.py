@@ -84,7 +84,7 @@ def test_go_allow_path_event_session(live_runtime: LiveRuntime) -> None:
     try:
         driver = locate_go_driver()
     except DriverUnavailable as exc:
-        pytest.skip(str(exc))
+        pytest.skip(f"{exc} (classification: known_prerequisite)")
 
     result = run_go_allow_driver(driver, live_runtime.socket_path, ALLOWED_ACTION)
     # An ``ok`` result means the governed wrapper saw ALLOW and let the underlying
