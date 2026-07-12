@@ -100,6 +100,58 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 - **Keep summaries public-safe.** This is a *public* repo: no private repo names
   (`agent-assembly-cloud`, `-enterprise`), secrets, or internal SaaS assumptions.
 
+## Verification policy — a diagnosed defect must stay red until it is *fixed*
+
+This harness exists to *find* cross-repo defects. The moment it finds one, the
+path of least resistance is to `xfail`/`skip` the failing assertion to get the
+suite green again — and that is exactly the mistake this policy exists to stop.
+
+**The rule.** When a verification report (`verification-reports/` or equivalent)
+diagnoses a concrete defect, one of these two things must be true — enforced by
+convention, not individual diligence:
+
+1. **A tracking ticket is opened, and it stays open until the *defect* is
+   fixed.** It is **never** closed by adjusting the harness to stop reporting the
+   defect. Only a real fix in the product repo closes it.
+2. **If the assertion is converted to an interim marker**, that marker must
+   (a) reference the open tracking ticket by key in its `reason=`/adjacent
+   comment, and (b) use `xfail(strict=True)` where the assertion is expected to
+   raise, so that the day the defect is fixed the marker **xpasses loudly** and
+   forces its own removal. A bare `skip`/`xfail(strict=False)` with no ticket is
+   a policy violation.
+
+**The quarantine mechanism (`rc_pending`).** For an assertion that is *correct*
+but blocked on an rc-pending upstream fix, use the `rc_pending` marker
+(`@pytest.mark.rc_pending(reason="AAASM-NNN: …")`, or the
+`aasm_verify.rc_pending.rc_pending(ticket, reason)` helper). `tests/conftest.py`
+turns it into a non-strict xfail so it is **visible-but-non-blocking**, and the
+audit lists it in a dedicated "rc-quarantine registry". This is the single
+source of truth the sibling CI-realness tickets (AAASM-4476/4477/4478) attach
+their rc-deferred assertions to.
+
+**The forcing function (`aasm-verify markers`).** Run
+`uv run aasm-verify markers` to statically enumerate every `skip`/`skipif`/
+`xfail`/`rc_pending` marker under `tests/`, extract the adjacent `AAASM-NNN`
+ref, and flag (a) markers with **no ticket ref** (policy violation) and
+(b) markers whose ticket is already **Done/Closed** (stale — the fix landed, the
+marker should have been removed). It is **offline by default** (deterministic,
+no Jira creds); pass `--check-jira` with `AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN}` set
+to enable the stale-ticket cross-check. It is a *reporting* forcing function, not
+a blocking CI gate — treat its output as the standing list of what the suite is
+currently masking.
+
+**Case study — why this rule exists.** In June 2026,
+`verification-reports/AAASM-2985-sdk-transport-investigation.md` correctly
+diagnosed that the SDK's gRPC registration transport had no matching endpoint in
+the documented local-gateway deployment (naming `aa-api` as "a library-only
+crate with no binary"). AAASM-2985 was then marked **Done** and its follow-on
+AAASM-2989/3000 re-pointed the harness at a different transport path behind an
+`xfail`/`skip` — closing the *finding* without fixing the *defect*. Six months
+later the org re-discovered the identical production-impacting gap from scratch,
+at higher cost, as **AAASM-4447/4449**. A real bug was found once, masked by a
+marker, and lost. The marker audit above is the check that makes that
+disappearance impossible to do silently again.
+
 ## Documentation conventions — document the WHY, not the WHAT
 
 Comments and docstrings exist to capture intent that the code cannot: rationale,
