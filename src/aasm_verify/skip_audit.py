@@ -78,6 +78,19 @@ _ENV_REQ_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ... or self-tags one of the repo's documented skip classifications. The
+# taxonomy (see ``tests/public/test_release_artifacts.py`` and the "Verification
+# policy" section of ``.claude/CLAUDE.md``) names *why* a skip is not a defect:
+# ``known_prerequisite`` (a build artifact/release/checkout that isn't present in
+# this environment) and ``external_flake`` (a transient network/registry error)
+# are both justified environment-conditional skips. ``release_blocker`` is
+# deliberately absent — it names a real defect, which must carry a tracking
+# ticket rather than be waved through by its classification alone.
+_CLASSIFICATION_RE = re.compile(
+    r"classification:\s*(?:known_prerequisite|external_flake)",
+    re.IGNORECASE,
+)
+
 # pytest prefixes captured skip messages with "Skipped: ".
 _SKIPPED_PREFIX = "Skipped: "
 
@@ -154,7 +167,9 @@ def is_justified(reason: str) -> bool:
     """
     if not reason or not reason.strip():
         return False
-    return bool(_JIRA_RE.search(reason) or _ENV_REQ_RE.search(reason))
+    return bool(
+        _JIRA_RE.search(reason) or _ENV_REQ_RE.search(reason) or _CLASSIFICATION_RE.search(reason)
+    )
 
 
 @dataclass(frozen=True)
@@ -283,29 +298,59 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
-def _literal_str(node: ast.AST | None) -> str:
+def _literal_str(node: ast.AST | None, constants: dict[str, str] | None = None) -> str:
     """Best-effort reconstruction of a string literal (plain, f-string, or +).
 
     f-string interpolations contribute their literal parts only — enough to
     recover an env-requirement phrase or an ``AAASM-NNN`` ref without evaluating
-    anything.
+    anything. When *constants* is given, a bare ``Name`` reason (e.g.
+    ``reason=DENY_XFAIL_REASON``) resolves to its module-level string constant so
+    a reason factored into a shared constant is still statically classifiable.
     """
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
+    if isinstance(node, ast.Name) and constants is not None:
+        return constants.get(node.id, "")
     if isinstance(node, ast.JoinedStr):
-        return "".join(_literal_str(v) for v in node.values)
+        return "".join(_literal_str(v, constants) for v in node.values)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _literal_str(node.left) + _literal_str(node.right)
+        return _literal_str(node.left, constants) + _literal_str(node.right, constants)
     return ""
 
 
-def _call_reason(call: ast.Call, positional: bool) -> str:
+def _module_constants(tree: ast.Module) -> dict[str, str]:
+    """Map module-level ``NAME = "<str>"`` assignments to their literal value.
+
+    Only top-level string assignments (plain, adjacent/``+`` concatenation, or an
+    f-string's literal parts) are captured — enough to resolve a ``reason=`` that
+    was factored into a shared constant. Values are reconstructed literal-only, so
+    a constant defined via another constant is not resolved transitively (none of
+    the skip-reason constants need that).
+    """
+    constants: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        text = _literal_str(value)
+        if not text:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                constants[target.id] = text
+    return constants
+
+
+def _call_reason(call: ast.Call, positional: bool, constants: dict[str, str] | None = None) -> str:
     """Extract the ``reason=`` kwarg (or first positional, when *positional*)."""
     for kw in call.keywords:
         if kw.arg == "reason":
-            return _literal_str(kw.value)
+            return _literal_str(kw.value, constants)
     if positional and call.args:
-        return _literal_str(call.args[0])
+        return _literal_str(call.args[0], constants)
     return ""
 
 
@@ -329,7 +374,9 @@ def _ticket_near(lines: list[str], start: int, end: int) -> str | None:
     return None
 
 
-def _marker_from_decorator(dec: ast.expr, path: str, lines: list[str]) -> Marker | None:
+def _marker_from_decorator(
+    dec: ast.expr, path: str, lines: list[str], constants: dict[str, str] | None = None
+) -> Marker | None:
     """Build a :class:`Marker` from a ``@pytest.mark.<kind>`` decorator, if it is one."""
     call = dec if isinstance(dec, ast.Call) else None
     func = dec.func if isinstance(dec, ast.Call) else dec
@@ -343,7 +390,7 @@ def _marker_from_decorator(dec: ast.expr, path: str, lines: list[str]) -> Marker
     if kind not in _DECORATOR_KINDS:
         return None
     positional = kind in ("skip", "rc_pending")
-    reason = _call_reason(call, positional) if call is not None else ""
+    reason = _call_reason(call, positional, constants) if call is not None else ""
     strict = _call_strict(call) if call is not None and kind == "xfail" else None
     end = getattr(dec, "end_lineno", dec.lineno) or dec.lineno
     ticket = extract_ticket(reason) or _ticket_near(lines, dec.lineno, end)
@@ -352,13 +399,15 @@ def _marker_from_decorator(dec: ast.expr, path: str, lines: list[str]) -> Marker
     )
 
 
-def _marker_from_call(call: ast.Call, path: str, lines: list[str]) -> Marker | None:
+def _marker_from_call(
+    call: ast.Call, path: str, lines: list[str], constants: dict[str, str] | None = None
+) -> Marker | None:
     """Build a :class:`Marker` from an inline ``pytest.skip(...)``/``pytest.xfail(...)``."""
     dotted = _dotted_name(call.func)
     if dotted not in ("pytest.skip", "pytest.xfail"):
         return None
     kind = "skip_call" if dotted.endswith("skip") else "xfail_call"
-    reason = _call_reason(call, positional=True)
+    reason = _call_reason(call, positional=True, constants=constants)
     end = getattr(call, "end_lineno", call.lineno) or call.lineno
     ticket = extract_ticket(reason) or _ticket_near(lines, call.lineno, end)
     return Marker(path=path, lineno=call.lineno, kind=kind, reason=reason, ticket=ticket)
@@ -373,15 +422,16 @@ def collect_markers_from_source(source: str, path: str) -> list[Marker]:
     """
     tree = ast.parse(source)
     lines = source.splitlines()
+    constants = _module_constants(tree)
     out: list[Marker] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             for dec in node.decorator_list:
-                marker = _marker_from_decorator(dec, path, lines)
+                marker = _marker_from_decorator(dec, path, lines, constants)
                 if marker is not None:
                     out.append(marker)
         elif isinstance(node, ast.Call):
-            marker = _marker_from_call(node, path, lines)
+            marker = _marker_from_call(node, path, lines, constants)
             if marker is not None:
                 out.append(marker)
     out.sort(key=lambda m: (m.path, m.lineno))

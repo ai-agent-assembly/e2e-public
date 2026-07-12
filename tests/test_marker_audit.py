@@ -118,6 +118,54 @@ def test_rc_quarantine_registry_lists_only_rc_pending() -> None:
     assert [m.kind for m in audit.rc_quarantine] == ["rc_pending"]
 
 
+def test_reason_resolved_from_module_level_constant() -> None:
+    # A reason factored into a module-level string constant (the DENY_XFAIL_REASON
+    # / _HOMEBREW_SKIP_REASON pattern) must still be statically classifiable: the
+    # audit resolves the Name to the constant's literal so its ticket / env phrase
+    # is recovered rather than read as an empty reason.
+    src = (
+        "import pytest\n"
+        'DENY = "deny path unprovable today — AAASM-3172 flips it once fixed"\n'
+        'GATE = "Homebrew tap not published — set AASM_HOMEBREW_GATE=1 to enable"\n'
+        "@pytest.mark.xfail(strict=True, reason=DENY)\n"
+        "def test_deny():\n    assert False\n"
+        "@pytest.mark.skipif(True, reason=GATE)\n"
+        "def test_gate():\n    assert True\n"
+    )
+    markers = skip_audit.collect_markers_from_source(src, "tests/t.py")
+    deny = next(m for m in markers if m.kind == "xfail")
+    assert deny.ticket == "AAASM-3172"
+    gate = next(m for m in markers if m.kind == "skipif")
+    assert gate.ticket is None
+    assert gate.justified  # env requirement ("set AASM_HOMEBREW_GATE=1") in the constant
+
+
+def test_reason_constant_via_fstring_literals() -> None:
+    # An f-string constant contributes its literal parts (interpolations dropped),
+    # enough to recover the env phrase — the CREWAI_PY314 / _EXAMPLES pattern.
+    src = (
+        "import pytest\n"
+        'REASON = f"examples repo not found — clone it alongside {here} to run"\n'
+        "def test_x():\n    pytest.skip(REASON)\n"
+    )
+    marker = skip_audit.collect_markers_from_source(src, "tests/t.py")[0]
+    assert marker.justified  # "not found" / "clone" survive the f-string
+
+
+def test_classification_tag_justifies_marker() -> None:
+    src = (
+        "import pytest\n"
+        "def test_a():\n    pytest.skip('dist not built (classification: known_prerequisite)')\n"
+        "def test_b():\n    pytest.skip('flaky net (classification: external_flake)')\n"
+        "def test_c():\n    pytest.skip('wrong version (classification: release_blocker)')\n"
+    )
+    markers = skip_audit.collect_markers_from_source(src, "tests/t.py")
+    audit = skip_audit.MarkerAudit(markers=markers)
+    unref = {m.reason for m in audit.unreferenced}
+    # known_prerequisite / external_flake are justified; release_blocker is not.
+    assert unref == {"wrong version (classification: release_blocker)"}
+
+
 def test_string_literal_skip_calls_are_not_collected(tmp_path: Path) -> None:
     # pytest.skip(...) appearing *inside a string* (e.g. pytester.makepyfile)
     # is a Constant, not a Call — the AST tool must not mistake it for a marker.
