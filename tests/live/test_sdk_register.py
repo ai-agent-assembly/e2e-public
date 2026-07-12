@@ -14,9 +14,10 @@ The registration step is wired honestly against the transport gap recorded in
 ``verification-reports/AAASM-2985-sdk-transport-investigation.md``: the SDK's
 ``GatewayClient`` speaks HTTP/REST, but the running gateway serves gRPC or an
 HTTP surface that does not mount the SDK's REST routes (those live in ``aa-api``,
-a library-only crate with no binary). So that test is marked ``xfail``
-(``strict=False``): it never produces a false green, and would surface as
-``XPASS`` the day a REST front door exists.
+a library-only crate with no binary). So that test is marked
+``xfail(strict=True)`` against blocking ticket AAASM-4447: it never produces a
+false green, and the day a REST front door exists it ``XPASS``es and strict mode
+fails the run — forcing the marker's removal rather than letting the fix vanish.
 """
 
 from __future__ import annotations
@@ -65,21 +66,25 @@ def test_sdk_can_reach_live_gateway(live_gateway: LiveGateway) -> None:
 
 @pytest.mark.xfail(
     reason=(
-        "Transport gap (AAASM-2985): the SDK speaks HTTP/REST but the running "
-        "aa-gateway serves gRPC / an HTTP surface without the SDK's REST routes; "
-        "those routes live in aa-api which has no binary. See "
+        "Transport gap (AAASM-4447, first diagnosed as AAASM-2985): the SDK "
+        "speaks HTTP/REST but the running aa-gateway serves gRPC / an HTTP "
+        "surface without the SDK's REST routes; those routes live in aa-api "
+        "which has no binary. See "
         "verification-reports/AAASM-2985-sdk-transport-investigation.md."
     ),
-    strict=False,
+    strict=True,
     raises=Exception,
 )
 def test_sdk_registers_agent_against_live_gateway(live_gateway: LiveGateway) -> None:
     """Drive the real SDK ``register_agent()`` against the live gateway.
 
     Expected to fail until an HTTP/REST front door for the SDK exists
-    (see the investigation note). ``xfail(strict=False)`` keeps this an
-    honest signal: never a fabricated pass, and an ``XPASS`` flag the day
-    the gap closes — the cue to drop the marker and assert hard.
+    (AAASM-4447; see the investigation note). ``strict=True`` is the forcing
+    function the AAASM-4477 audit adds: the assertion still fails today so it
+    xfails green, but the day AAASM-4447 lands the call succeeds, the test
+    ``XPASS``es, and strict mode turns that unexpected pass into a **failure** —
+    forcing this marker's removal instead of letting a silent fix go unnoticed
+    (the exact disappearance AAASM-2985/2989/3000 suffered).
     """
     _require_sdk()
 
