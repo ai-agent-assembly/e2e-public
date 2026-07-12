@@ -140,6 +140,16 @@ jobs:
   # AAASM-4446 (Python cp313 wheel) / AAASM-4467 (npm platform package) until the
   # next rc ships, so `continue-on-error: true` keeps it visible but not gating.
   # ---------------------------------------------------------------------------
+  # rc-DEFERRED (AAASM-4446): a Python 3.13 matrix cell belongs here — 3.13 is
+  # the one interpreter where the missing-cp313-wheel defect manifests in
+  # production, and no workflow currently attempts it. It is intentionally NOT
+  # added yet: a live 3.13 cell would go red for AAASM-4446, and the user has
+  # pended that fix to the next rc (a matrix cell cannot carry a pytest marker,
+  # so it can't be quarantined the way the test-level assertion is). The
+  # forcing function is instead the rc_pending assertion
+  # `test_python_sdk_native_binding_required` (tests/public/test_python_sdk.py):
+  # the day it xpasses (cp313 wheels ship), add the `python-version: "3.13"`
+  # matrix cell here.
   release:
     permissions:
       contents: read

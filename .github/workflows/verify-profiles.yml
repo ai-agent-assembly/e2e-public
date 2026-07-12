@@ -239,6 +239,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
+      # Strict release-readiness gate (AAASM-4477): the scheduled release lane
+      # (verify-release-scheduled.yml, AAASM-4476) folds `live` in as a
+      # release-readiness profile, so it honours the same strict-skip contract as
+      # `release`/`full` — a "should never skip here" area surfaces as a failure,
+      # not a silent pass. Shared contract name with AAASM-3160 CI profiles.
+      AASM_VERIFY_STRICT: "1"
       AASM_CORE_REF: ${{ inputs.agent_assembly_ref }}
       DOCTOR_JSON: /tmp/aasm-reports/doctor.json
       # Point the live framework drivers at the SDK checkouts cloned below so the
