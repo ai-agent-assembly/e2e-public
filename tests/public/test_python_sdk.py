@@ -86,6 +86,48 @@ def test_python_sdk_native_binding_loads() -> None:
 
 
 @pytest.mark.sdk
+# Literal @pytest.mark.rc_pending (not the rc_pending() helper) so the static
+# `aasm-verify markers` audit — which recognises the `pytest.mark.rc_pending`
+# dotted form — lists this on the rc-quarantine registry (AAASM-4479).
+@pytest.mark.rc_pending(
+    reason=(
+        "AAASM-4446: no cp313 wheel is published yet, so the native _core is "
+        "absent on a release install; this assertion must FAIL (not skip) once "
+        "wheels ship"
+    )
+)
+def test_python_sdk_native_binding_required() -> None:
+    """The native ``_core`` extension MUST be present — a skip is NOT acceptable.
+
+    The strict, release-readiness counterpart to
+    ``test_python_sdk_native_binding_loads`` (which skips cleanly for the
+    development pure-Python path). AAASM-4477's whole point is that a
+    "detect condition X, then *skip* when X is present" test lets a real defect
+    pass green forever — so this one *asserts* the binding is present instead of
+    skipping when it is absent. It is deferred behind ``rc_pending`` because the
+    condition it catches is AAASM-4446 (no cp313 wheel): until wheels ship it
+    fails on a native-less install and the quarantine hook keeps it a
+    visible-but-non-blocking xfail (listed in the rc-quarantine registry); the
+    day wheels ship it xpasses loudly as the cue to drop the marker.
+
+    An SDK that is not installed at all is a legitimate environment skip; only a
+    *present-but-pure-Python* install is the AAASM-4446 defect this asserts on.
+    """
+    skip_if_package_missing("agent_assembly")
+
+    assert importlib.util.find_spec(NATIVE_MODULE) is not None, (
+        f"[{COMPONENT}] native extension {NATIVE_MODULE!r} is absent — release "
+        "install is pure-Python only (AAASM-4446: no cp313 wheel published)"
+    )
+    core = importlib.import_module(NATIVE_MODULE)
+    origin = getattr(core, "__file__", None)
+    assert origin is not None and origin.endswith((".so", ".pyd", ".dylib")), (
+        f"[{COMPONENT}] {NATIVE_MODULE} did not load from a compiled extension; "
+        f"__file__={origin!r} (AAASM-4446)"
+    )
+
+
+@pytest.mark.sdk
 def test_python_sdk_functional_install() -> None:
     """Core public API is actually usable, not just attribute-present.
 
