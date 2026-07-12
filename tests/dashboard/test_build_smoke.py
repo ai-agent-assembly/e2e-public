@@ -94,7 +94,7 @@ def test_pnpm_build_succeeds_and_emits_assets() -> None:
     """
     reason = _support.dashboard_skip_reason()
     if reason is not None:
-        pytest.skip(reason)
+        pytest.skip(f"{reason} (classification: known_prerequisite)")
 
     dashboard_dir = _support.resolve_dashboard_dir()
 

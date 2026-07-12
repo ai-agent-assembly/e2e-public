@@ -115,7 +115,10 @@ def _node_enforcement_modes() -> frozenset[str]:
     if shutil.which("node") is None:
         pytest.skip("[node-sdk] node toolchain not available")
     if not os.path.isdir(os.path.join(sdk_dir, "dist")):
-        pytest.skip("[node-sdk] dist/ not built — run `pnpm build` in node-sdk")
+        pytest.skip(
+            "[node-sdk] dist/ not built — run `pnpm build` in node-sdk "
+            "(classification: known_prerequisite)"
+        )
 
     # Resolve the package by name so the `exports` map governs the import,
     # exactly as a downstream consumer would `import { ENFORCEMENT_MODES }`.
@@ -133,7 +136,8 @@ def _node_enforcement_modes() -> frozenset[str]:
     )
     if result.returncode != 0:
         pytest.skip(
-            "[node-sdk] could not import @agent-assembly/sdk "
+            "[node-sdk] could not import @agent-assembly/sdk — "
+            "classification: known_prerequisite "
             f"(node_modules not linked?)\nstderr: {result.stderr.strip()}"
         )
 
@@ -217,7 +221,7 @@ def test_enforcement_modes_match_across_sdks() -> None:
             continue
 
     if not discovered:
-        pytest.skip("no SDK checkout was available to compare")
+        pytest.skip("no SDK checkout was available to compare (classification: known_prerequisite)")
 
     # Every present SDK must equal the canonical set...
     for name, modes in discovered.items():
