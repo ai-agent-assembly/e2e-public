@@ -176,3 +176,43 @@ jobs:
     uses: ./.github/workflows/verify-profiles.yml
     with:
       profile: live
+
+  # ---------------------------------------------------------------------------
+  # homebrew (QUARANTINED, AAASM-4478) — runs tests/public/test_homebrew_install.py
+  # on a macos-latest runner (Homebrew preinstalled). These tests have never once
+  # executed: they gate on AASM_HOMEBREW_GATE, which no workflow ever set.
+  #
+  # The gate is intentionally LEFT OFF here: flipping AASM_HOMEBREW_GATE=1 turns
+  # this red for AAASM-4448 (the formula omits aa-gateway) — pended to the next
+  # rc. Landing the lane now (with the gate off, the file collects and skips
+  # cleanly) wires up the runner/job so the only remaining step at rc time is the
+  # flag flip. continue-on-error keeps it non-gating regardless.
+  # ---------------------------------------------------------------------------
+  homebrew:
+    permissions:
+      contents: read
+    name: "homebrew (quarantined — AAASM-4448/4449)"
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Homebrew install verification
+        # AASM_HOMEBREW_GATE intentionally UNSET — see the job comment above. At
+        # rc time, set it to "1" here to opt the tests in against the fixed
+        # AAASM-4455 formula.
+        run: uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short
