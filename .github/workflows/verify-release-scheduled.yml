@@ -32,8 +32,6 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -47,6 +45,8 @@ jobs:
   # no network or product toolchain, so they pass reliably on every PR today.
   # ---------------------------------------------------------------------------
   harness-self-tests:
+    permissions:
+      contents: read
     name: "harness self-tests (offline)"
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -78,6 +78,8 @@ jobs:
   # the per-registry versions are surfaced for observability.
   # ---------------------------------------------------------------------------
   resolve-release-versions:
+    permissions:
+      contents: read
     name: "resolve current released version"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -139,6 +141,8 @@ jobs:
   # next rc ships, so `continue-on-error: true` keeps it visible but not gating.
   # ---------------------------------------------------------------------------
   release:
+    permissions:
+      contents: read
     name: "release (quarantined — AAASM-4446/4467)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: resolve-release-versions
@@ -154,6 +158,8 @@ jobs:
   # dispatch-only). Quarantined for the same rc-pending reasons.
   # ---------------------------------------------------------------------------
   live:
+    permissions:
+      contents: read
     name: "live (quarantined)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     continue-on-error: true
