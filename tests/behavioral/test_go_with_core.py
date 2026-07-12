@@ -228,7 +228,7 @@ def _write_proxy_consumer(tmp: str) -> None:
     if result.returncode != 0:
         pytest.skip(
             f"[{COMPONENT}] go get from module proxy failed (offline or proxy "
-            f"unreachable)\nstderr: {result.stderr.strip()}"
+            f"unreachable) — classification: external_flake\nstderr: {result.stderr.strip()}"
         )
 
 

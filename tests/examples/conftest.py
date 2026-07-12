@@ -296,7 +296,8 @@ def validate_example_clean(example: Example, clean_dir: Path, env: dict[str, str
             pytest.skip(
                 f"[{COMPONENT}] {example.id} has no committed lockfile "
                 f"({', '.join(lockfiles)}) — `{' '.join(example.install_cmd)}` "
-                "cannot run; example-repo prerequisite, not a product failure"
+                "cannot run; example-repo prerequisite, not a product failure "
+                "(classification: known_prerequisite)"
             )
 
     if example.install_cmd:
@@ -318,7 +319,8 @@ def validate_example_clean(example: Example, clean_dir: Path, env: dict[str, str
     if run.returncode != example.expected_exit and _looks_like_env_failure(run.combined):
         pytest.skip(
             f"[{COMPONENT}] {example.id} run hit a network/registry error — "
-            f"skipping; not a product failure. exit {run.returncode}"
+            f"skipping; not a product failure. exit {run.returncode} "
+            "(classification: external_flake)"
         )
     assert run.returncode == example.expected_exit, (
         f"[{COMPONENT}] {example.id} clean run FAILED "

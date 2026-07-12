@@ -231,7 +231,7 @@ def test_live_verdict_resolution(case: dict, core_gateway_binary: Path, tmp_path
 
     case_id = case["id"]
     if case_id in _UNREPRESENTABLE:
-        pytest.xfail(_UNREPRESENTABLE[case_id])
+        pytest.xfail(f"{_UNREPRESENTABLE[case_id]} (classification: known_prerequisite)")
 
     # The gateway binary lives at ``<core_source>/target/<profile>/aa-gateway``;
     # recover the core source root to locate its ``proto/`` tree for codegen,

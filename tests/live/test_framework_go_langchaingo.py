@@ -103,7 +103,7 @@ def _run_allow_path(live_runtime: LiveRuntime, mode: str) -> dict:
     try:
         driver = locate_go_framework_driver()
     except DriverUnavailable as exc:
-        pytest.skip(str(exc))
+        pytest.skip(f"{exc} (classification: known_prerequisite)")
     return run_go_framework_driver(driver, live_runtime.socket_path, ALLOWED_ACTION, mode)
 
 

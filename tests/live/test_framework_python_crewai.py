@@ -255,7 +255,7 @@ def test_crewai_allow_path_emits_audit_event(live_runtime: LiveRuntime) -> None:
 
 # AAASM-3172 FLIP SITE: when a fixed SDK release ships (AAASM-3000 + AAASM-3021
 # resolved), drop this strict xfail and assert the denied tool is short-circuited.
-@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)
+@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)  # AAASM-3172
 def test_crewai_deny_path_blocks_tool_through_live_runtime(
     live_runtime: LiveRuntime,
 ) -> None:

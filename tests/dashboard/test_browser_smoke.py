@@ -67,7 +67,7 @@ def test_browser_route_loads_without_console_errors(tmp_path: Path) -> None:
     """
     reason = _support.browser_skip_reason()
     if reason is not None:
-        pytest.skip(reason)
+        pytest.skip(f"{reason} (classification: known_prerequisite)")
 
     # Imported lazily so a non-Playwright environment never imports it at
     # collection time (the skip-guard above gates reaching this point).

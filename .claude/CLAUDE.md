@@ -144,6 +144,33 @@ to enable the stale-ticket cross-check. It is a *reporting* forcing function, no
 a blocking CI gate — treat its output as the standing list of what the suite is
 currently masking.
 
+**Justifying an environment-conditional skip — the `classification:` taxonomy.**
+Not every skip masks a defect: a build artifact, checkout, or release that is
+simply absent in *this* environment is a legitimate prerequisite gate, not a
+policy violation. The audit accepts two justifications for a marker — a tracking
+ticket (`AAASM-NNN`, for a masked defect) **or** an environment requirement in
+the `reason=`. For the latter, prefer the repo's documented classification
+taxonomy so the *why* is machine-checkable and consistent across the suite:
+
+- `classification: known_prerequisite` — a build artifact / SDK checkout /
+  published release / toolchain that isn't present here (e.g. `dist/` not built,
+  a package not yet on PyPI). Justified; **not** a defect.
+- `classification: external_flake` — a transient network/registry error
+  (proxy unreachable, GitHub API hiccup). Justified; **not** a defect.
+- `classification: release_blocker` — a real defect. This tag does **not**
+  justify a skip on its own; it must carry a tracking ticket (or be a hard
+  `pytest.fail`, not a skip). The audit deliberately keeps flagging a bare
+  `release_blocker` skip.
+
+Because the audit reads reasons statically (via `ast`, never a live run), the
+classifying phrase must survive as a **string literal** at the marker site: an
+f-string's literal parts count, but an interpolated value (`str(exc)`) does not —
+so tag the literal, e.g. `pytest.skip(f"{exc} (classification: known_prerequisite)")`.
+A `reason=` factored into a **module-level string constant**
+(`reason=DENY_XFAIL_REASON`) is resolved to that constant's literal, so a shared
+reason constant carrying a ticket key or env phrase stays classifiable without
+duplicating it at every marker.
+
 **Case study — why this rule exists.** In June 2026,
 `verification-reports/AAASM-2985-sdk-transport-investigation.md` correctly
 diagnosed that the SDK's gRPC registration transport had no matching endpoint in

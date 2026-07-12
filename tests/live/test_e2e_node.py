@@ -88,7 +88,7 @@ def test_node_allow_path_event_session(live_runtime: LiveRuntime) -> None:
     try:
         driver = locate_node_driver()
     except DriverUnavailable as exc:
-        pytest.skip(str(exc))
+        pytest.skip(f"{exc} (classification: known_prerequisite)")
 
     result = run_node_allow_driver(driver, live_runtime.socket_path, ALLOWED_ACTION)
     # The driver returns the parsed JSON result of shipping the permitted event;
