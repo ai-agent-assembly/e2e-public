@@ -180,6 +180,34 @@ AASM_CORE_REF=master            uv run pytest -m live -v    # git ref to clone
 AASM_CORE_SOURCE_DIR=/path/aa   uv run pytest -m live -v    # reuse an existing checkout
 ```
 
+#### Preflight: SDK-binding vs gateway version before a live register
+
+When an SDK's **native binding** is built against a different `agent-assembly`
+revision than the gateway you register against, the post-AAASM-3866 registration
+handshake rejects the mismatched `Register` with a cryptic
+`missing registration_nonce — call RequestChallenge before Register`. That is a
+**version skew masquerading as an interop break** — the trap AAASM-4667 chased
+down. Before driving a real `register` against a live gateway (e.g. the
+`examples` `live-core-enforcement` scenario, or a hand-run node/python register
+against a from-source or deployed gateway), preflight the two versions so a skew
+fails *fast and legibly* instead:
+
+```python
+from tests.live.version_preflight import preflight_live_register
+
+# gateway_base_url is the gateway's HTTP origin (it must serve GET
+# /api/v1/health — the local/REST surface, not a gRPC-only legacy-grpc listener).
+# binding_version is what the SDK signs into the native connect: for node, the
+# @agent-assembly/sdk package version (see node-sdk resolveSdkVersion); for the
+# python SDK, the installed agent-assembly version.
+preflight_live_register(binding_version, "http://127.0.0.1:7391")
+```
+
+On a mismatch this raises `VersionSkewError` naming both versions and the fix
+(*rebuild the native binding from the pinned rev*); an unreachable/health-less
+gateway raises `GatewayVersionUnavailable` rather than a false "matched" pass. It
+is stdlib-only and offline-tested (`tests/live/test_version_preflight.py`).
+
 ### 4.5 CI workflow → area mapping
 
 | Workflow | Trigger | Areas / mode |
