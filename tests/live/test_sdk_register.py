@@ -28,7 +28,11 @@ import socket
 import pytest
 
 from tests.live.gateway import LiveGateway
-from tests.live.sdk_client import make_sdk_client, sdk_available
+from tests.live.sdk_client import gateway_http_url, make_sdk_client, sdk_available
+from tests.live.version_preflight import (
+    GatewayVersionUnavailable,
+    preflight_live_register,
+)
 
 pytestmark = pytest.mark.live
 
@@ -40,6 +44,46 @@ def _require_sdk() -> None:
             "Python SDK (agent_assembly) is not installed — "
             "install it from ../python-sdk or PyPI 'agent-assembly' to run this test"
         )
+
+
+def _sdk_binding_version() -> str:
+    """Return the installed SDK's binding version (``agent_assembly.__version__``).
+
+    This is the version the SDK signs into the native ``connect`` handshake — the
+    exact value the AAASM-4669 skew guard compares against the gateway. Call
+    :func:`_require_sdk` first so an absent SDK skips rather than ImportError-ing.
+    """
+    import agent_assembly  # noqa: PLC0415 — optional dep, imported lazily
+
+    return agent_assembly.__version__
+
+
+def test_version_skew_preflight_before_live_register(live_gateway: LiveGateway) -> None:
+    """Run the AAASM-4669 version-skew guard against the live gateway.
+
+    Exercises :func:`preflight_live_register`, which before AAASM-4700 was never
+    invoked by any automated test — so a real binding/gateway version skew (the
+    ``missing registration_nonce`` masquerade of AAASM-4667) went uncaught in CI.
+    A skew here is a hard :class:`VersionSkewError` (the guard's whole purpose,
+    left to propagate). An *indeterminate* gateway version is a justified skip,
+    not a failure: the live fixture's gateway listens for gRPC and does not mount
+    the REST ``GET /api/v1/health`` the guard reads (the same transport gap as
+    AAASM-4447 / verification-reports/AAASM-2985), so an absent version here is a
+    known prerequisite of this environment rather than a masked defect.
+    """
+    _require_sdk()
+    binding = _sdk_binding_version()
+    try:
+        gateway_version = preflight_live_register(binding, gateway_http_url(live_gateway))
+    except GatewayVersionUnavailable as exc:
+        pytest.skip(
+            f"live gateway version indeterminate ({exc}); the gRPC live-test "
+            "gateway does not mount GET /api/v1/health "
+            "(classification: known_prerequisite)"
+        )
+    # Reaching here means the guard read a real version and it matched the
+    # binding — preflight_live_register only returns on a match, else it raises.
+    assert gateway_version == binding
 
 
 def test_sdk_can_reach_live_gateway(live_gateway: LiveGateway) -> None:
