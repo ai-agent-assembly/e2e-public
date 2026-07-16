@@ -55,7 +55,7 @@ frameworks = [
     # and GHSA-cqp8-fcvh-x7r3 (SSRF bypass via URL encoding). Prior floor (0.0.14)
     # was vulnerable; floor now raised to the resolved 2.x line — the smokes are
     # unaffected by the API changes across the 1.x -> 2.x transition.
-    "pydantic-ai>=2.9.1",
+    "pydantic-ai>=2.10.0",
     "crewai~=1.15",
     "google-adk>=2.4.0",
     # LlamaIndex governance smoke (AAASM-3536): the adapter patches the concrete
