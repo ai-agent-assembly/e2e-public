@@ -366,6 +366,28 @@ jobs:
           uv run --no-sync pytest -m live -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-live.json
 
+      - name: Render report (enforce AASM_VERIFY_STRICT skip-audit)
+        # AAASM-4700: the `report` subcommand is the ONLY code that reads
+        # AASM_VERIFY_STRICT and fails the run on an un-justified strict skip.
+        # The `pytest -m live` step above never consults it, so without this step
+        # the strict env var set on this job is inert. Running `aasm-verify report`
+        # over the live JSON turns the strict-skip contract into a real gate (a
+        # "should never skip here" area now fails instead of silently passing),
+        # matching the `full` profile. `always()` so a failing live suite is still
+        # summarized; a strict violation here fails the job (no continue-on-error).
+        if: ${{ always() && hashFiles('/tmp/aasm-reports/pytest-live.json') != '' }}
+        env:
+          AA_REF: ${{ inputs.agent_assembly_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          uv run --no-sync aasm-verify report \
+            --pytest-json /tmp/aasm-reports/pytest-live.json \
+            --summary /tmp/aasm-reports/summary.json \
+            --out /tmp/aasm-reports/report.md \
+            --run-type manual \
+            --run-url "$RUN_URL" \
+            --tested-refs "agent-assembly=$AA_REF"
+
       - name: Upload live reports
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
