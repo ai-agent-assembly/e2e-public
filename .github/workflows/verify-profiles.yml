@@ -464,6 +464,25 @@ jobs:
           uv run --frozen pytest -m release -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-release.json
 
+      - name: Render report (enforce AASM_VERIFY_STRICT skip-audit)
+        # AAASM-4700: mirror the `full`/`live` gate — `aasm-verify report` is the
+        # only code that honours AASM_VERIFY_STRICT and fails on an un-justified
+        # strict skip. The `pytest -m release` step never reads it, so without this
+        # the strict env var set on this job is inert. Gating here makes a missing
+        # release artifact surfacing as a skip a real failure, not a silent pass.
+        if: ${{ always() && hashFiles('/tmp/aasm-reports/pytest-release.json') != '' }}
+        env:
+          VERSION: ${{ inputs.release_version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          uv run --frozen aasm-verify report \
+            --pytest-json /tmp/aasm-reports/pytest-release.json \
+            --summary /tmp/aasm-reports/summary.json \
+            --out /tmp/aasm-reports/report.md \
+            --run-type release \
+            --run-url "$RUN_URL" \
+            --tested-refs "version=$VERSION"
+
       - name: Upload release reports
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
