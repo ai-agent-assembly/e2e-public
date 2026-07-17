@@ -94,6 +94,9 @@ _CLASSIFICATION_RE = re.compile(
 # pytest prefixes captured skip messages with "Skipped: ".
 _SKIPPED_PREFIX = "Skipped: "
 
+# Placeholder line rendered for a marker-audit section that has no entries.
+_EMPTY_SECTION_LINE = "- none"
+
 # The outcome values pytest-json-report emits.
 OUTCOMES: tuple[str, ...] = (
     "passed",
@@ -591,7 +594,7 @@ def render_marker_audit(audit: MarkerAudit) -> str:
         "requirement in its reason. Add an open AAASM-NNN ticket key, or justify "
         "the env guard.")
     if not audit.unreferenced:
-        add("- none")
+        add(_EMPTY_SECTION_LINE)
     for m in audit.unreferenced:
         add(f"- {m.path}:{m.lineno} [{m.kind}] {m.reason or '<no reason>'}")
     add("")
@@ -600,7 +603,7 @@ def render_marker_audit(audit: MarkerAudit) -> str:
     add("Assertions that are correct but blocked on an rc-pending upstream fix — "
         "visible-but-non-blocking. Single source of truth for AAASM-4476/4477/4478.")
     if not audit.rc_quarantine:
-        add("- none")
+        add(_EMPTY_SECTION_LINE)
     for m in audit.rc_quarantine:
         ticket = m.ticket or "<NO TICKET — policy violation>"
         add(f"- {m.path}:{m.lineno} → {ticket}: {m.reason or '<no reason>'}")
@@ -610,7 +613,7 @@ def render_marker_audit(audit: MarkerAudit) -> str:
     if not audit.jira_checked:
         add("- not checked (offline)")
     elif not audit.stale_markers:
-        add("- none")
+        add(_EMPTY_SECTION_LINE)
     else:
         for m in audit.stale_markers:
             add(f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket} is Done/Closed — "
