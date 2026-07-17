@@ -70,7 +70,7 @@ frameworks = [
     # `.github/dependabot.yml` for the matching ignore entries. Re-check when
     # crewai adopts newer chromadb/json-repair/mcp.
     "crewai~=1.15",
-    "google-adk>=2.4.0",
+    "google-adk>=2.5.0",
     # LlamaIndex governance smoke (AAASM-3536): the adapter patches the concrete
     # FunctionTool.call / acall hooks. Floor reflects the resolved 0.14.x line —
     # older 0.10+ lines are believed to still work but are untested here.
