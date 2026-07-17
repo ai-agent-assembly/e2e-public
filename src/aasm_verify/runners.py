@@ -103,8 +103,10 @@ def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
 
     Best-effort and source-mode only: release mode installs published packages in
     the workflow, and an area whose toolchain is genuinely absent stays skipped
-    (unchanged) rather than hard-failing. Currently wires the ``runtime`` area
-    (the ``aasm`` CLI); the ``sdk``/``examples`` source installs are a follow-up.
+    (unchanged) rather than hard-failing. Wires the ``runtime`` area (the ``aasm``
+    CLI, exposed on ``PATH``), the ``sdk`` area (the ``python-sdk``
+    ``agent_assembly`` package, installed into this interpreter), and the
+    ``examples`` area (the examples checkout, exposed via ``AASM_EXAMPLES_DIR``).
     """
     if refs.mode == "release":
         return
@@ -112,6 +114,14 @@ def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
         bindir = installers.install_aasm_cli(refs.agent_assembly)
         if bindir:
             os.environ["PATH"] = bindir + os.pathsep + os.environ.get("PATH", "")
+    if "sdk" in areas:
+        # Installs agent_assembly into this interpreter; the per-area pytest
+        # subprocess (same sys.executable) then imports it. No env var needed.
+        installers.install_python_sdk(refs.python_sdk)
+    if "examples" in areas:
+        examples_dir = installers.install_examples(refs.examples)
+        if examples_dir:
+            os.environ["AASM_EXAMPLES_DIR"] = examples_dir
 
 
 def run_area(
