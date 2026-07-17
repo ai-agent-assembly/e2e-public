@@ -17,15 +17,19 @@ name: Verify Release (Scheduled)
 #      `aasm-verify` harness self-tests (`tests/test_*.py`), which pass today, so
 #      it is a real green gate, not a red-by-design one.
 #
-# Quarantine (the hard constraint): the registry/live jobs are expected to go
-# red for rc-pending defects (AAASM-4446 Python cp313 wheel, AAASM-4467 npm
-# platform package) until the next rc ships. `continue-on-error` is not a
-# valid key on a job that calls a reusable workflow via `uses:` (GitHub's
-# schema rejects it), so these jobs rely on their `if:` gate instead — they
-# only ever run on `schedule` / `workflow_dispatch`, never `pull_request`, so
-# an expected-red run is visible but never blocks a PR or counts as a
-# required check. The green, required signal is the harness self-test job
-# only.
+# Quarantine history (AAASM-4792): the registry/live jobs were originally
+# expected to go red for rc-pending defects (AAASM-4446 Python cp313 wheel,
+# AAASM-4467 npm platform package) until the next rc shipped. Both tickets are
+# now Done (2026-07-12/13) — unlike the homebrew job below, whose gate AAASM-4786
+# flipped on once its own blockers (AAASM-4455/4449) closed, these jobs' `if:`
+# gate has not yet been re-evaluated against a fresh rc (see the per-job
+# comments below for the current status of each deferred defect).
+# `continue-on-error` is not a valid key on a job that calls a reusable
+# workflow via `uses:` (GitHub's schema rejects it), so these jobs rely on
+# their `if:` gate instead — they only ever run on `schedule` /
+# `workflow_dispatch`, never `pull_request`, so a red run is visible but never
+# blocks a PR or counts as a required check. The green, required signal is the
+# harness self-test job only.
 
 on:
   pull_request:
@@ -140,26 +144,25 @@ jobs:
   # ---------------------------------------------------------------------------
   # release (QUARANTINED) — installs the published SDKs from PyPI/npm/Go proxy
   # at the resolved current version and runs the strict release suite
-  # (`verify-profiles.yml` `release` sets AASM_VERIFY_STRICT=1). Expected red for
-  # AAASM-4446 (Python cp313 wheel) / AAASM-4467 (npm platform package) until the
-  # next rc ships; runs only on schedule/workflow_dispatch (never pull_request),
-  # so an expected-red run is visible but never gates a PR — see the top-of-file
-  # note on why `continue-on-error` isn't set here (invalid on a `uses:` job).
+  # (`verify-profiles.yml` `release` sets AASM_VERIFY_STRICT=1). Originally
+  # expected red for AAASM-4446 (Python cp313 wheel) / AAASM-4467 (npm platform
+  # package) until the next rc shipped — both tickets are now Done (2026-07-12/
+  # 13, see the top-of-file quarantine-history note), but this job's `if:` gate
+  # has not yet been re-evaluated against a fresh rc, so it still only runs on
+  # schedule/workflow_dispatch (never pull_request) — see the top-of-file note
+  # on why `continue-on-error` isn't set here (invalid on a `uses:` job).
   # ---------------------------------------------------------------------------
-  # rc-DEFERRED (AAASM-4446): a Python 3.13 matrix cell belongs here — 3.13 is
-  # the one interpreter where the missing-cp313-wheel defect manifests in
-  # production, and no workflow currently attempts it. It is intentionally NOT
-  # added yet: a live 3.13 cell would go red for AAASM-4446, and the user has
-  # pended that fix to the next rc (a matrix cell cannot carry a pytest marker,
-  # so it can't be quarantined the way the test-level assertion is). The
-  # forcing function is instead the rc_pending assertion
-  # `test_python_sdk_native_binding_required` (tests/public/test_python_sdk.py):
-  # the day it xpasses (cp313 wheels ship), add the `python-version: "3.13"`
-  # matrix cell here.
+  # AAASM-4446 status (AAASM-4792): the ticket is Done, but the forcing-function
+  # assertion this comment defers to, `test_python_sdk_native_binding_required`
+  # (tests/public/test_python_sdk.py), still carries an open `rc_pending`
+  # marker as of this writing (`uv run aasm-verify markers`) — so cp313 wheel
+  # availability is not yet confirmed live. Add the `python-version: "3.13"`
+  # matrix cell here once that marker actually xpasses and is removed, not
+  # from the ticket status alone.
   release:
     permissions:
       contents: read
-    name: "release (quarantined — AAASM-4446/4467)"
+    name: "release (quarantined — AAASM-4446/4467 Done, gate not yet re-evaluated)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: resolve-release-versions
     uses: ./.github/workflows/verify-profiles.yml
@@ -170,9 +173,10 @@ jobs:
   # ---------------------------------------------------------------------------
   # live (QUARANTINED) — builds + runs aa-gateway/aa-runtime and drives the SDKs
   # against it (-m live). Folded into the routine schedule (previously
-  # dispatch-only). Quarantined for the same rc-pending reasons; runs only on
-  # schedule/workflow_dispatch (never pull_request) — see the top-of-file note
-  # on why `continue-on-error` isn't set here (invalid on a `uses:` job).
+  # dispatch-only). Quarantined for the same reasons as `release` above (see
+  # the top-of-file quarantine-history note); runs only on schedule/
+  # workflow_dispatch (never pull_request) — see the top-of-file note on why
+  # `continue-on-error` isn't set here (invalid on a `uses:` job).
   # ---------------------------------------------------------------------------
   live:
     permissions:
