@@ -105,28 +105,15 @@ def test_homebrew_install_aasm() -> None:
 
 
 @pytest.mark.release
-# rc-quarantine (AAASM-4449): aa-api-server is not published/installed by the
-# formula yet, so this assertion is correct but blocked on an rc-pending upstream
-# change. Ordered ABOVE the gate skipif so the audit attributes the ticket to
-# both markers. When the gate is off it skips; when on, the missing binary makes
-# it a visible-but-non-blocking xfail via the tests/conftest.py rc_pending hook.
-@pytest.mark.rc_pending(
-    reason=(
-        "AAASM-4449: the release does not publish aa-api-server yet, so the "
-        "Homebrew formula cannot install it; assert it once the binary ships"
-    )
-)
-# Gate skipif — off until AASM_HOMEBREW_GATE=1; the binary it needs is AAASM-4449.
 @pytest.mark.skipif(not _HOMEBREW_GATE, reason=_HOMEBREW_SKIP_REASON)
 def test_homebrew_installs_aa_api_server() -> None:
-    """The formula must also install ``aa-api-server`` (rc-deferred: AAASM-4449).
+    """The formula must also install ``aa-api-server`` (AAASM-4447/4449).
 
     The full binary set a fresh Homebrew install should provide includes
-    ``aa-api-server`` (the SDK's REST front door, AAASM-4447/4449). That binary
-    is not published yet, so this is quarantined behind ``rc_pending``: it stays
-    on the rc-quarantine registry and xfails non-blocking until AAASM-4449 ships
-    the binary and the AAASM-4455 formula fix installs it, at which point it
-    xpasses loudly.
+    ``aa-api-server`` (the SDK's REST front door). AAASM-4449 (the release
+    publishing the binary) and AAASM-4455 (the formula installing it) are both
+    Done, so this now asserts for real instead of quarantining behind
+    ``rc_pending``.
     """
     skip_if_binary_missing("brew")
     result = subprocess.run(
