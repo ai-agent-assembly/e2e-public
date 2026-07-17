@@ -27,12 +27,10 @@ import socket
 
 import pytest
 
+from tests.live.api_server import LiveApiServer
 from tests.live.gateway import LiveGateway
-from tests.live.sdk_client import gateway_http_url, make_sdk_client, sdk_available
-from tests.live.version_preflight import (
-    GatewayVersionUnavailable,
-    preflight_live_register,
-)
+from tests.live.sdk_client import make_sdk_client, sdk_available
+from tests.live.version_preflight import preflight_live_register
 
 pytestmark = pytest.mark.live
 
@@ -59,31 +57,32 @@ def _sdk_binding_version() -> str:
     return agent_assembly.__version__
 
 
-def test_version_skew_preflight_before_live_register(live_gateway: LiveGateway) -> None:
-    """Run the AAASM-4669 version-skew guard against the live gateway.
+def test_version_skew_preflight_before_live_register(
+    live_gateway: LiveGateway, live_api_server: LiveApiServer
+) -> None:
+    """Run the AAASM-4669 version-skew guard against a real gateway version.
 
     Exercises :func:`preflight_live_register`, which before AAASM-4700 was never
     invoked by any automated test — so a real binding/gateway version skew (the
     ``missing registration_nonce`` masquerade of AAASM-4667) went uncaught in CI.
-    A skew here is a hard :class:`VersionSkewError` (the guard's whole purpose,
-    left to propagate). An *indeterminate* gateway version is a justified skip,
-    not a failure: the live fixture's gateway listens for gRPC and does not mount
-    the REST ``GET /api/v1/health`` the guard reads (the same transport gap as
-    AAASM-4447 / verification-reports/AAASM-2985), so an absent version here is a
-    known prerequisite of this environment rather than a masked defect.
+
+    ``live_gateway`` (legacy-grpc ``aa-gateway``) mounts no REST surface at all,
+    so before AAASM-4792 this test's ``GET /api/v1/health`` probe always raised
+    ``GatewayVersionUnavailable`` and the test skipped on *every* run —
+    invisible to strict mode, and the guard had zero real exercise. Fixed by
+    reading the version from ``live_api_server`` (``aa-api-server``) instead: it
+    is built from the identical core checkout as ``live_gateway`` (see
+    ``conftest.py``'s shared ``_gateway_family_core_source`` fixture) and the
+    workspace version is unified across crates, so its self-reported version is
+    the real gateway version for this build. A skew is a hard
+    :class:`VersionSkewError` (the guard's whole purpose, left to propagate); a
+    match is the assertion below.
     """
     _require_sdk()
     binding = _sdk_binding_version()
-    try:
-        gateway_version = preflight_live_register(binding, gateway_http_url(live_gateway))
-    except GatewayVersionUnavailable as exc:
-        pytest.skip(
-            f"live gateway version indeterminate ({exc}); the gRPC live-test "
-            "gateway does not mount GET /api/v1/health "
-            "(classification: known_prerequisite)"
-        )
-    # Reaching here means the guard read a real version and it matched the
-    # binding — preflight_live_register only returns on a match, else it raises.
+    gateway_version = preflight_live_register(binding, live_api_server.health_url)
+    # preflight_live_register only returns on a match, else it raises — so
+    # reaching here means the guard read a real version and it matched.
     assert gateway_version == binding
 
 

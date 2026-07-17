@@ -48,6 +48,39 @@ def build_gateway(source_dir: Path, *, release: bool = False) -> Path:
     return binary
 
 
+def build_api_server(source_dir: Path, *, release: bool = False) -> Path:
+    """Build ``aa-api-server`` in *source_dir*; return the binary path.
+
+    Runs ``cargo build -p aa-api --bin aa-api-server`` (debug by default).
+    ``aa-api-server`` is not the binary :class:`tests.live.gateway.LiveGateway`
+    spawns — it exists here solely so the AAASM-4669 version-skew preflight has
+    a ``GET /api/v1/health`` to read from (AAASM-4792): legacy-grpc
+    ``aa-gateway`` mounts no REST surface, but the two binaries share the same
+    workspace ``CARGO_PKG_VERSION`` when built from the same *source_dir*, so
+    ``aa-api-server``'s reported version stands in for the gateway's. Raises
+    ``RuntimeError`` if required tools are missing and
+    ``subprocess.CalledProcessError`` if the build itself fails. The returned
+    path is ``<source_dir>/target/<profile>/aa-api-server``.
+    """
+    missing = missing_build_tools()
+    if missing:
+        raise RuntimeError(
+            f"cannot build aa-api-server — missing tools: {', '.join(missing)}"
+        )
+
+    source_dir = Path(source_dir)
+    cmd = ["cargo", "build", "-p", "aa-api", "--bin", "aa-api-server"]
+    if release:
+        cmd.append("--release")
+    subprocess.run(cmd, cwd=source_dir, check=True)
+
+    profile = "release" if release else "debug"
+    binary = source_dir / "target" / profile / "aa-api-server"
+    if not binary.is_file():
+        raise RuntimeError(f"aa-api-server build reported success but {binary} is absent")
+    return binary
+
+
 def build_runtime(source_dir: Path, *, release: bool = False) -> Path:
     """Build ``aa-runtime`` in *source_dir*; return the binary path.
 

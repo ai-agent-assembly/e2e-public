@@ -9,7 +9,7 @@
 #                      agent-assembly-examples (required)
 #   --ref <ref>        Branch name, git tag, or commit SHA (required)
 #   --org <org>        GitHub organization (default: ai-agent-assembly)
-#   --dest <dir>       Destination directory (default: /tmp/aa-install/<repo>)
+#   --dest <dir>       Destination directory (default: a fresh `mktemp -d` dir)
 #   -h, --help         Show this help message
 #
 # Examples:
@@ -57,11 +57,20 @@ main() {
   validate_args
 
   local clone_url="https://github.com/${ORG}/${REPO}.git"
-  local dest="${DEST:-/tmp/aa-install/${REPO}}"
+  local dest
+  if [[ -n "$DEST" ]]; then
+    dest="$DEST"
+    rm -rf "$dest"
+  else
+    # No caller-supplied --dest: every real call site passes one explicitly, so
+    # this is an unused-in-practice fallback — but a fixed /tmp path is still a
+    # predictable rm -rf target (symlink/race). mktemp -d mints a fresh,
+    # unpredictable, already-empty directory instead (AAASM-4792).
+    dest="$(mktemp -d "${TMPDIR:-/tmp}/aa-install-${REPO}.XXXXXX")"
+  fi
 
   log "Cloning $clone_url @ $REF → $dest"
 
-  rm -rf "$dest"
   git clone --depth 1 --branch "$REF" "$clone_url" "$dest" 2>/dev/null \
     || git clone "$clone_url" "$dest" && git -C "$dest" checkout "$REF"
 
