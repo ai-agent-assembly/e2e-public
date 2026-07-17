@@ -55,7 +55,7 @@ frameworks = [
     # and GHSA-cqp8-fcvh-x7r3 (SSRF bypass via URL encoding). Prior floor (0.0.14)
     # was vulnerable; floor now raised to the resolved 2.x line — the smokes are
     # unaffected by the API changes across the 1.x -> 2.x transition.
-    "pydantic-ai>=2.11.0",
+    "pydantic-ai>=2.12.0",
     # AAASM-4768 accepted risk: crewai (both the 1.15.x stable line and its
     # latest prereleases, e.g. 1.15.3a2) hard-pins chromadb~=1.1.0,
     # json-repair~=0.25.2, and mcp~=1.26.0 as its own direct dependencies —
