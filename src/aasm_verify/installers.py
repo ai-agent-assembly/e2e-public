@@ -121,6 +121,72 @@ def install_python_sdk(
     return checkout
 
 
+def install_node_sdk(
+    ref: str, *, dest: str | None = None, _runner: object | None = None
+) -> str | None:
+    """Build the ``node-sdk`` (``@agent-assembly/sdk``) from source at *ref*.
+
+    Clones the SDK, installs its dependencies, and builds the pure-JS ``dist/``
+    (ESM + CJS) so that ``import '@agent-assembly/sdk'`` resolves. Returns the
+    checkout path, which the caller exposes via ``AASM_NODE_SDK_DIR``.
+
+    Why the checkout path rather than a global install: an ESM ``import`` of a
+    bare specifier resolves only from a ``node_modules`` on the *resolver's* cwd
+    path — a throwaway temp dir does not work. Running the node smoke with its
+    cwd set *inside the package's own checkout* lets Node reach the package by
+    its self-reference (the ``name`` + ``exports`` map), so no separate consumer
+    project or ``NODE_PATH`` plumbing is needed. That is why the ``sdk`` area's
+    node test reads ``AASM_NODE_SDK_DIR`` and runs node with that cwd.
+
+    Returns ``None`` when Node or ``pnpm`` is unavailable — the same clean-skip
+    gate the other installers apply so a toolchain-light lane leaves the node
+    portion of the sdk area skipping rather than hard-failing. The compiled napi
+    ``.node`` addon is a *separate* native artifact (built via the Rust
+    toolchain, not this pure-JS build), so the native-binding test keeps skipping
+    cleanly when it is absent — the pure-JS import / public-export /
+    functional-install checks run regardless.
+    """
+    if shutil.which("node") is None or shutil.which("pnpm") is None:
+        return None
+    runner = _runner if _runner is not None else subprocess.run
+    checkout = install_from_source("node-sdk", ref, dest=dest, _runner=_runner)
+    # ``--dir`` runs pnpm against the checkout without a process chdir (keeps this
+    # process's cwd untouched). ``pnpm build`` compiles only the pure-JS dist —
+    # the napi native build is deliberately not run here (see docstring).
+    runner(  # type: ignore[operator]
+        ["pnpm", "--dir", checkout, "install"],
+        check=True,
+    )
+    runner(  # type: ignore[operator]
+        ["pnpm", "--dir", checkout, "run", "build"],
+        check=True,
+    )
+    return checkout
+
+
+def install_go_sdk(
+    ref: str, *, dest: str | None = None, _runner: object | None = None
+) -> str | None:
+    """Clone the ``go-sdk`` at *ref* and return the checkout path.
+
+    The ``sdk`` area's Go smoke acquires the SDK two ways — from a local source
+    checkout (a ``replace`` directive) and from the public module proxy. With no
+    local checkout the *source* acquisition skips; this materializes one in a
+    securely created private temp dir (via :func:`install_from_source`, which
+    uses ``tempfile.mkdtemp`` — never a world-writable path, S5443) so the caller
+    can point the Go test at it through ``AASM_GO_SDK_DIR``. (The proxy
+    acquisition needs no local install and is unaffected.)
+
+    Returns the checkout path, or ``None`` when the Go toolchain is unavailable —
+    the same clean-skip gate the other installers apply. The native
+    ``libaa_ffi_go`` is a separate artifact, so the cgo-ABI test keeps asserting
+    a wired-but-unlinked shim rather than requiring the native library here.
+    """
+    if shutil.which("go") is None:
+        return None
+    return install_from_source("go-sdk", ref, dest=dest, _runner=_runner)
+
+
 def install_examples(
     ref: str, *, dest: str | None = None, _runner: object | None = None
 ) -> str | None:
