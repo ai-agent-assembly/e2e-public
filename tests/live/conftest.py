@@ -18,19 +18,36 @@ from pathlib import Path
 
 import pytest
 
-from tests.live.build import build_gateway, build_runtime, missing_build_tools
+from tests.live.api_server import LiveApiServer
+from tests.live.build import build_api_server, build_gateway, build_runtime, missing_build_tools
 from tests.live.core_source import DEFAULT_REF, resolve_core_source
 from tests.live.gateway import LiveGateway
 from tests.live.runtime import LiveRuntime
 
 
 @pytest.fixture(scope="session")
-def core_gateway_binary() -> Path:
-    """Build ``aa-gateway`` from the core source and return the binary.
+def _gateway_family_core_source() -> Path:
+    """Resolve (clone or reuse) the core source ``aa-gateway``-family binaries build from.
 
-    Skips the session's live tests when the build toolchain is
-    incomplete. Honours ``AASM_CORE_REF`` for the git ref to clone and
-    ``AASM_CORE_SOURCE_DIR`` to reuse an existing checkout.
+    Session-scoped and shared by :func:`core_gateway_binary` and
+    :func:`core_api_server_binary` so both binaries compile from the identical
+    commit — the AAASM-4792 version-skew preflight relies on this to source a
+    genuinely comparable version from the companion ``aa-api-server`` process
+    (see ``api_server.py``) instead of ``aa-gateway``'s own (REST-less)
+    surface.
+    """
+    ref = os.environ.get("AASM_CORE_REF", DEFAULT_REF)
+    # Not a context-managed tempdir: when we clone, the built binaries live
+    # under this directory and must survive for the whole test session.
+    clone_dir = Path(tempfile.mkdtemp(prefix="aa-core-src-"))
+    return resolve_core_source(clone_dir / "agent-assembly", ref=ref)
+
+
+@pytest.fixture(scope="session")
+def core_gateway_binary(_gateway_family_core_source: Path) -> Path:
+    """Build ``aa-gateway`` from the shared core source and return the binary.
+
+    Skips the session's live tests when the build toolchain is incomplete.
     """
     missing = missing_build_tools()
     if missing:
@@ -38,15 +55,25 @@ def core_gateway_binary() -> Path:
             f"live gateway build needs: {', '.join(missing)} — "
             "install them to run the live-core tests"
         )
+    return build_gateway(_gateway_family_core_source)
 
-    ref = os.environ.get("AASM_CORE_REF", DEFAULT_REF)
-    # Not a context-managed tempdir: when we clone, the built binary lives
-    # under this directory and must survive for the whole test session.
-    # pytest's tmp_path_factory would also work, but a plain mkdtemp keeps
-    # this fixture independent of the temp-path plugin.
-    clone_dir = Path(tempfile.mkdtemp(prefix="aa-core-src-"))
-    source = resolve_core_source(clone_dir / "agent-assembly", ref=ref)
-    return build_gateway(source)
+
+@pytest.fixture(scope="session")
+def core_api_server_binary(_gateway_family_core_source: Path) -> Path:
+    """Build ``aa-api-server`` from the shared core source and return the binary.
+
+    Skips the session's live tests when the build toolchain is incomplete.
+    Built from the same checkout as :func:`core_gateway_binary` so its
+    self-reported version is a valid stand-in for the gateway's (AAASM-4792) —
+    see ``api_server.py``.
+    """
+    missing = missing_build_tools()
+    if missing:
+        pytest.skip(
+            f"live api-server build needs: {', '.join(missing)} — "
+            "install them to run the live-core tests"
+        )
+    return build_api_server(_gateway_family_core_source)
 
 
 @pytest.fixture(scope="session")
@@ -84,6 +111,23 @@ def live_gateway(core_gateway_binary: Path) -> Iterator[LiveGateway]:
         yield gateway
     finally:
         gateway.stop()
+
+
+@pytest.fixture
+def live_api_server(core_api_server_binary: Path) -> Iterator[LiveApiServer]:
+    """Yield a started, readiness-confirmed ``aa-api-server`` handle.
+
+    Spawned solely so :func:`tests.live.version_preflight.fetch_gateway_version`
+    has a real ``GET /api/v1/health`` to read (AAASM-4792) — see
+    ``api_server.py`` for why this stands in for ``aa-gateway``'s version.
+    """
+    server = LiveApiServer(core_api_server_binary)
+    server.start()
+    try:
+        server.await_ready()
+        yield server
+    finally:
+        server.stop()
 
 
 @pytest.fixture
