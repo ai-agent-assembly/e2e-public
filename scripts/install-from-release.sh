@@ -12,7 +12,7 @@
 #   --go-sdk <version>       Go module version, e.g. v0.1.0 (optional)
 #   --repo <name>            Single repo mode: python-sdk | node-sdk | go-sdk
 #   --version <version>      Version for single-repo mode (used with --repo)
-#   --tmpdir <dir>           Working directory (default: /tmp/aa-release-test)
+#   --tmpdir <dir>           Working directory (default: a fresh `mktemp -d` dir)
 #   -h, --help               Show this help message
 #
 # Examples:
@@ -32,7 +32,7 @@ NODE_SDK_VERSION=""
 GO_SDK_VERSION=""
 SINGLE_REPO=""
 SINGLE_VERSION=""
-TMPDIR_ROOT="/tmp/aa-release-test"
+TMPDIR_ROOT=""
 
 # Package identifiers per language registry. Generated from
 # metadata/harness.yaml via scripts/generate_harness_metadata.py — do
@@ -110,6 +110,13 @@ install_go_sdk() {
 
 main() {
   parse_args "$@"
+
+  if [[ -z "$TMPDIR_ROOT" ]]; then
+    # No caller-supplied --tmpdir: mint a fresh, unpredictable dir instead of a
+    # fixed /tmp path, so there is nothing for a symlink/race to target
+    # (AAASM-4792/4812).
+    TMPDIR_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/aa-release-test.XXXXXX")"
+  fi
 
   mkdir -p "$TMPDIR_ROOT"
 

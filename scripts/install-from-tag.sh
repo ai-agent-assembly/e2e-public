@@ -9,7 +9,7 @@
 #                      agent-assembly-examples (required)
 #   --tag <tag>        Git tag to checkout, e.g. v0.1.0 (required)
 #   --org <org>        GitHub organization (default: ai-agent-assembly)
-#   --dest <dir>       Destination directory (default: /tmp/aa-install/<repo>-<tag>)
+#   --dest <dir>       Destination directory (default: a fresh `mktemp -d` dir)
 #   -h, --help         Show this help message
 #
 # Examples:
@@ -65,12 +65,20 @@ main() {
 
   local clone_url="https://github.com/${ORG}/${REPO}.git"
   local tag_slug="${TAG//\//-}"
-  local dest="${DEST:-/tmp/aa-install/${REPO}-${tag_slug}}"
+  local dest
+  if [[ -n "$DEST" ]]; then
+    dest="$DEST"
+    rm -rf "$dest"
+  else
+    # No caller-supplied --dest: mint a fresh, unpredictable dir instead of a
+    # fixed /tmp path, so there is nothing for a symlink/race to target
+    # (AAASM-4792/4812).
+    dest="$(mktemp -d "${TMPDIR:-/tmp}/aa-install-${REPO}-${tag_slug}.XXXXXX")"
+  fi
 
   verify_tag_exists "$clone_url" "$TAG"
 
   log "Cloning $clone_url @ tag $TAG → $dest"
-  rm -rf "$dest"
   git clone --depth 1 --branch "$TAG" "$clone_url" "$dest"
 
   log "Cloned successfully: $dest"
