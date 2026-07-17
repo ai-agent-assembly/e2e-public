@@ -122,6 +122,10 @@ def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
         mock.patch.object(
             runners.installers, "install_aasm_cli", return_value="/fake/bin"
         ) as installer,
+        # Mock the sibling area installers too so the "sdk" in the selection does
+        # not fire a real python-sdk clone/install here.
+        mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_examples", return_value=None),
         mock.patch.dict(runners.os.environ, {"PATH": "/usr/bin"}, clear=False),
     ):
         runners.prepare_area_artifacts(refs, ["runtime", "sdk"])
@@ -129,9 +133,72 @@ def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
         assert runners.os.environ["PATH"].startswith("/fake/bin" + runners.os.pathsep)
 
     # An area selection without runtime must not trigger the runtime installer.
-    with mock.patch.object(runners.installers, "install_aasm_cli") as installer:
-        runners.prepare_area_artifacts(refs, ["sdk"])
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli") as installer,
+        mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_examples", return_value=None),
+    ):
+        runners.prepare_area_artifacts(refs, ["sdk", "examples"])
         installer.assert_not_called()
+
+
+def test_prepare_area_artifacts_installs_python_sdk_for_sdk() -> None:
+    # AAASM-4770: the sdk area used to skip unconditionally because nothing
+    # installed the python-sdk first. prepare_area_artifacts must invoke the
+    # python-sdk installer for the sdk area (and not for others). The installers
+    # are fully mocked so no real clone/install runs.
+    refs = ResolvedRefs(mode="latest", python_sdk="py-ref")
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
+        mock.patch.object(runners.installers, "install_examples", return_value=None),
+        mock.patch.object(runners.installers, "install_python_sdk") as installer,
+    ):
+        runners.prepare_area_artifacts(refs, ["sdk"])
+        installer.assert_called_once_with("py-ref")
+
+        # An area selection without sdk must not trigger the python-sdk installer.
+        installer.reset_mock()
+        runners.prepare_area_artifacts(refs, ["runtime", "examples"])
+        installer.assert_not_called()
+
+
+def test_prepare_area_artifacts_installs_examples_for_examples() -> None:
+    # AAASM-4770: the examples area used to skip unconditionally because nothing
+    # materialized the examples checkout. prepare_area_artifacts must invoke the
+    # examples installer for the examples area (and not for others) and expose
+    # the checkout via AASM_EXAMPLES_DIR so the pytest subprocess inherits it.
+    refs = ResolvedRefs(mode="latest", examples="ex-ref")
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
+        mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(
+            runners.installers, "install_examples", return_value="/fake/examples"
+        ) as installer,
+        mock.patch.dict(runners.os.environ, {}, clear=False),
+    ):
+        runners.prepare_area_artifacts(refs, ["examples"])
+        installer.assert_called_once_with("ex-ref")
+        assert runners.os.environ["AASM_EXAMPLES_DIR"] == "/fake/examples"
+
+        # An area selection without examples must not trigger the examples installer.
+        installer.reset_mock()
+        runners.prepare_area_artifacts(refs, ["runtime", "sdk"])
+        installer.assert_not_called()
+
+
+def test_prepare_area_artifacts_noop_in_release_mode() -> None:
+    # Release mode installs published packages in the workflow, so the source
+    # installers must not fire even when their areas are selected.
+    refs = ResolvedRefs(mode="release", python_sdk="0.0.1", examples="master")
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli") as aasm,
+        mock.patch.object(runners.installers, "install_python_sdk") as py,
+        mock.patch.object(runners.installers, "install_examples") as ex,
+    ):
+        runners.prepare_area_artifacts(refs, list(runners.AREAS))
+        aasm.assert_not_called()
+        py.assert_not_called()
+        ex.assert_not_called()
 
 
 def test_pytest_command_marker_originates_from_constant_allowlist() -> None:
