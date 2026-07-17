@@ -19,9 +19,13 @@ name: Verify Release (Scheduled)
 #
 # Quarantine (the hard constraint): the registry/live jobs are expected to go
 # red for rc-pending defects (AAASM-4446 Python cp313 wheel, AAASM-4467 npm
-# platform package) until the next rc ships. They are therefore
-# `continue-on-error: true` — visible, never a required check. The green,
-# required signal is the harness self-test job only.
+# platform package) until the next rc ships. `continue-on-error` is not a
+# valid key on a job that calls a reusable workflow via `uses:` (GitHub's
+# schema rejects it), so these jobs rely on their `if:` gate instead — they
+# only ever run on `schedule` / `workflow_dispatch`, never `pull_request`, so
+# an expected-red run is visible but never blocks a PR or counts as a
+# required check. The green, required signal is the harness self-test job
+# only.
 
 on:
   pull_request:
@@ -138,7 +142,9 @@ jobs:
   # at the resolved current version and runs the strict release suite
   # (`verify-profiles.yml` `release` sets AASM_VERIFY_STRICT=1). Expected red for
   # AAASM-4446 (Python cp313 wheel) / AAASM-4467 (npm platform package) until the
-  # next rc ships, so `continue-on-error: true` keeps it visible but not gating.
+  # next rc ships; runs only on schedule/workflow_dispatch (never pull_request),
+  # so an expected-red run is visible but never gates a PR — see the top-of-file
+  # note on why `continue-on-error` isn't set here (invalid on a `uses:` job).
   # ---------------------------------------------------------------------------
   # rc-DEFERRED (AAASM-4446): a Python 3.13 matrix cell belongs here — 3.13 is
   # the one interpreter where the missing-cp313-wheel defect manifests in
@@ -156,7 +162,6 @@ jobs:
     name: "release (quarantined — AAASM-4446/4467)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: resolve-release-versions
-    continue-on-error: true
     uses: ./.github/workflows/verify-profiles.yml
     with:
       profile: release
@@ -165,14 +170,15 @@ jobs:
   # ---------------------------------------------------------------------------
   # live (QUARANTINED) — builds + runs aa-gateway/aa-runtime and drives the SDKs
   # against it (-m live). Folded into the routine schedule (previously
-  # dispatch-only). Quarantined for the same rc-pending reasons.
+  # dispatch-only). Quarantined for the same rc-pending reasons; runs only on
+  # schedule/workflow_dispatch (never pull_request) — see the top-of-file note
+  # on why `continue-on-error` isn't set here (invalid on a `uses:` job).
   # ---------------------------------------------------------------------------
   live:
     permissions:
       contents: read
     name: "live (quarantined)"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    continue-on-error: true
     uses: ./.github/workflows/verify-profiles.yml
     with:
       profile: live
