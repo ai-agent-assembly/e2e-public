@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 # Repo root: src/aasm_verify/installers.py -> parents[2] == the repository root,
@@ -31,7 +32,10 @@ def install_from_source(
     ``_runner`` is a test injection seam defaulting to :func:`subprocess.run`.
     """
     runner = _runner if _runner is not None else subprocess.run
-    checkout = dest or f"/tmp/aa-install/{repo}"
+    # Default to a securely-created private temp dir (0700, owned by this
+    # process) rather than a predictable world-writable path like
+    # /tmp/aa-install/<repo>, which is a symlink/race target (S5443).
+    checkout = dest or tempfile.mkdtemp(prefix="aa-install-")
     runner(  # type: ignore[operator]
         [
             "bash",
