@@ -38,13 +38,20 @@ jobs:
       - name: Install Python dependencies
         run: uv sync --frozen
 
-      # Guarded: the stale-ticket cross-check needs AASM_VERIFY_JIRA_* creds
-      # provisioned as repo secrets. `aasm-verify markers --check-jira` itself
-      # degrades to an offline audit when they're absent, but --strict's exit
-      # code would then reflect only the (unrelated) unreferenced-marker
-      # check — so skip the step outright until the secrets exist, rather than
-      # have this workflow report a false "clean" or fail on something the
-      # missing secrets didn't cause.
+      # Unconditional offline audit — the anti-dark-lane floor (AAASM-4812).
+      # The stale-ticket cross-check below needs Jira creds, but the static
+      # unreferenced-marker audit needs nothing: it enumerates every
+      # skip/xfail/rc_pending under tests/ and fails (--strict) on any marker
+      # with no AAASM-NNN ref or a statically-detectable stale one. This always
+      # runs, so even with no secrets provisioned the job does real work rather
+      # than going green having done nothing.
+      - name: Audit skip/xfail/rc_pending markers (offline, unreferenced)
+        run: uv run --frozen aasm-verify markers --strict
+
+      # The stale-ticket cross-check adds the Jira status lookup on top of the
+      # offline audit above; it needs AASM_VERIFY_JIRA_* creds provisioned as
+      # repo secrets. It is a superset of the offline audit, so gating it on the
+      # secrets does not leave the lane dark — the offline step already ran.
       - name: Audit skip/xfail/rc_pending markers (stale-ticket cross-check)
         env:
           AASM_VERIFY_JIRA_URL: ${{ secrets.AASM_VERIFY_JIRA_URL }}
