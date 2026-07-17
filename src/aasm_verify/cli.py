@@ -235,6 +235,12 @@ def cmd_public(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    # Materialize each area's artifact before its pytest runs so the smoke
+    # assertions actually execute instead of skipping on an absent binary /
+    # package / checkout (AAASM-4736). Best-effort: a genuinely missing toolchain
+    # leaves the area skipping cleanly, exactly as before.
+    runners.prepare_area_artifacts(refs, areas)
+
     print(f"\nRunning verification for area(s): {', '.join(areas)}")
     return runners.run_areas(refs, areas, json_report=args.json_report)
 

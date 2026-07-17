@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from unittest import mock
 
 import pytest
 
@@ -108,6 +109,29 @@ def test_pytest_command_rejects_unknown_marker() -> None:
     # The payload below is inert test data — it is rejected, never executed.
     with pytest.raises(ValueError, match="unknown marker"):
         runners._pytest_command("sdk; --inject-extra-pytest-arg", None)
+
+
+def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
+    # Regression for AAASM-4736: the runtime area used to skip unconditionally
+    # because nothing installed the aasm binary first. prepare_area_artifacts
+    # must invoke the (real) installer for the runtime area and put the built
+    # binary's dir on PATH so run_area's pytest subprocess inherits it. The
+    # installer is fully mocked so no real clone/build runs.
+    refs = ResolvedRefs(mode="latest", agent_assembly="abc123")
+    with (
+        mock.patch.object(
+            runners.installers, "install_aasm_cli", return_value="/fake/bin"
+        ) as installer,
+        mock.patch.dict(runners.os.environ, {"PATH": "/usr/bin"}, clear=False),
+    ):
+        runners.prepare_area_artifacts(refs, ["runtime", "sdk"])
+        installer.assert_called_once_with("abc123")
+        assert runners.os.environ["PATH"].startswith("/fake/bin" + runners.os.pathsep)
+
+    # An area selection without runtime must not trigger the runtime installer.
+    with mock.patch.object(runners.installers, "install_aasm_cli") as installer:
+        runners.prepare_area_artifacts(refs, ["sdk"])
+        installer.assert_not_called()
 
 
 def test_pytest_command_marker_originates_from_constant_allowlist() -> None:
