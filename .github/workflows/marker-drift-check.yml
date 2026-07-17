@@ -1,0 +1,54 @@
+name: Marker Drift Check
+
+# AAASM-4785 — self-detection for stale rc_pending/skip/xfail markers.
+#
+# `aasm-verify markers --check-jira` cross-checks every skip/xfail/rc_pending
+# ticket ref against Jira status and flags markers whose ticket is already
+# Done/Closed — but until this workflow, nothing ever invoked it. A stale
+# `rc_pending` marker (AAASM-4446, closed 2026-07-12) kept
+# `test_python_sdk_native_binding_required` silently XPASSing on the daily
+# release job for days with zero automated signal. This workflow closes that
+# gap with a scheduled, read-only Jira cross-check.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"  # weekly, Monday 03:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  marker-drift:
+    name: Stale marker audit (--check-jira)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      # Guarded: the stale-ticket cross-check needs AASM_VERIFY_JIRA_* creds
+      # provisioned as repo secrets. `aasm-verify markers --check-jira` itself
+      # degrades to an offline audit when they're absent, but --strict's exit
+      # code would then reflect only the (unrelated) unreferenced-marker
+      # check — so skip the step outright until the secrets exist, rather than
+      # have this workflow report a false "clean" or fail on something the
+      # missing secrets didn't cause.
+      - name: Audit skip/xfail/rc_pending markers (stale-ticket cross-check)
+        env:
+          AASM_VERIFY_JIRA_URL: ${{ secrets.AASM_VERIFY_JIRA_URL }}
+          AASM_VERIFY_JIRA_EMAIL: ${{ secrets.AASM_VERIFY_JIRA_EMAIL }}
+          AASM_VERIFY_JIRA_TOKEN: ${{ secrets.AASM_VERIFY_JIRA_TOKEN }}
+        if: ${{ env.AASM_VERIFY_JIRA_URL != '' && env.AASM_VERIFY_JIRA_EMAIL != '' && env.AASM_VERIFY_JIRA_TOKEN != '' }}
+        run: uv run --frozen aasm-verify markers --check-jira --strict
