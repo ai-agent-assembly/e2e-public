@@ -123,8 +123,10 @@ def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
             runners.installers, "install_aasm_cli", return_value="/fake/bin"
         ) as installer,
         # Mock the sibling area installers too so the "sdk" in the selection does
-        # not fire a real python-sdk clone/install here.
+        # not fire a real python-sdk/node-sdk/go-sdk clone/install/build here.
         mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
         mock.patch.object(runners.installers, "install_examples", return_value=None),
         mock.patch.dict(runners.os.environ, {"PATH": "/usr/bin"}, clear=False),
     ):
@@ -136,6 +138,8 @@ def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
     with (
         mock.patch.object(runners.installers, "install_aasm_cli") as installer,
         mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
         mock.patch.object(runners.installers, "install_examples", return_value=None),
     ):
         runners.prepare_area_artifacts(refs, ["sdk", "examples"])
@@ -150,6 +154,8 @@ def test_prepare_area_artifacts_installs_python_sdk_for_sdk() -> None:
     refs = ResolvedRefs(mode="latest", python_sdk="py-ref")
     with (
         mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
+        mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
         mock.patch.object(runners.installers, "install_examples", return_value=None),
         mock.patch.object(runners.installers, "install_python_sdk") as installer,
     ):
@@ -157,6 +163,58 @@ def test_prepare_area_artifacts_installs_python_sdk_for_sdk() -> None:
         installer.assert_called_once_with("py-ref")
 
         # An area selection without sdk must not trigger the python-sdk installer.
+        installer.reset_mock()
+        runners.prepare_area_artifacts(refs, ["runtime", "examples"])
+        installer.assert_not_called()
+
+
+def test_prepare_area_artifacts_installs_node_sdk_for_sdk() -> None:
+    # AAASM-4774: the sdk area now also exercises the node SDK. prepare_area_artifacts
+    # must invoke the node-sdk installer for the sdk area (and not for others) and
+    # expose the built checkout via AASM_NODE_SDK_DIR so the pytest subprocess runs
+    # node with that cwd. The installers are fully mocked so no real clone/build runs.
+    refs = ResolvedRefs(mode="latest", node_sdk="node-ref")
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
+        mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_examples", return_value=None),
+        mock.patch.object(
+            runners.installers, "install_node_sdk", return_value="/fake/node-sdk"
+        ) as installer,
+        mock.patch.dict(runners.os.environ, {}, clear=False),
+    ):
+        runners.prepare_area_artifacts(refs, ["sdk"])
+        installer.assert_called_once_with("node-ref")
+        assert runners.os.environ["AASM_NODE_SDK_DIR"] == "/fake/node-sdk"
+
+        # An area selection without sdk must not trigger the node-sdk installer.
+        installer.reset_mock()
+        runners.prepare_area_artifacts(refs, ["runtime", "examples"])
+        installer.assert_not_called()
+
+
+def test_prepare_area_artifacts_installs_go_sdk_for_sdk() -> None:
+    # AAASM-4774: the sdk area now also exercises the go SDK. prepare_area_artifacts
+    # must invoke the go-sdk installer for the sdk area (and not for others) and
+    # expose the checkout via AASM_GO_SDK_DIR so the pytest subprocess's source
+    # acquisition uses it. The installers are fully mocked so no real clone runs.
+    refs = ResolvedRefs(mode="latest", go_sdk="go-ref")
+    with (
+        mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
+        mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_examples", return_value=None),
+        mock.patch.object(
+            runners.installers, "install_go_sdk", return_value="/fake/go-sdk"
+        ) as installer,
+        mock.patch.dict(runners.os.environ, {}, clear=False),
+    ):
+        runners.prepare_area_artifacts(refs, ["sdk"])
+        installer.assert_called_once_with("go-ref")
+        assert runners.os.environ["AASM_GO_SDK_DIR"] == "/fake/go-sdk"
+
+        # An area selection without sdk must not trigger the go-sdk installer.
         installer.reset_mock()
         runners.prepare_area_artifacts(refs, ["runtime", "examples"])
         installer.assert_not_called()
@@ -171,6 +229,8 @@ def test_prepare_area_artifacts_installs_examples_for_examples() -> None:
     with (
         mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
         mock.patch.object(runners.installers, "install_python_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
+        mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
         mock.patch.object(
             runners.installers, "install_examples", return_value="/fake/examples"
         ) as installer,
@@ -193,11 +253,15 @@ def test_prepare_area_artifacts_noop_in_release_mode() -> None:
     with (
         mock.patch.object(runners.installers, "install_aasm_cli") as aasm,
         mock.patch.object(runners.installers, "install_python_sdk") as py,
+        mock.patch.object(runners.installers, "install_node_sdk") as node,
+        mock.patch.object(runners.installers, "install_go_sdk") as go,
         mock.patch.object(runners.installers, "install_examples") as ex,
     ):
         runners.prepare_area_artifacts(refs, list(runners.AREAS))
         aasm.assert_not_called()
         py.assert_not_called()
+        node.assert_not_called()
+        go.assert_not_called()
         ex.assert_not_called()
 
 
