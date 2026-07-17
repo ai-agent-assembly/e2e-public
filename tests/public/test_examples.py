@@ -16,7 +16,16 @@ _EXAMPLES_SKIP_REASON = (
 
 
 def _examples_path() -> str | None:
-    """Return the local examples directory if it exists next to this repo."""
+    """Return the examples checkout directory, or None when none is available.
+
+    Prefers ``AASM_EXAMPLES_DIR`` — the path the verify harness materializes the
+    checkout at (AAASM-4770) so a run actually exercises the examples instead of
+    skipping — and falls back to a sibling ``../examples`` checkout for the
+    manual/local workflow. Either must contain a ``python/`` directory to count.
+    """
+    env_dir = os.environ.get("AASM_EXAMPLES_DIR")
+    if env_dir and os.path.isdir(os.path.join(env_dir, "python")):
+        return os.path.normpath(env_dir)
     candidate = os.path.join(
         os.path.dirname(__file__),
         "..", "..", "..", "..", "examples",
