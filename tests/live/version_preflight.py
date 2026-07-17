@@ -25,7 +25,6 @@ consistent with this harness's "a diagnosed defect stays red" policy.
 from __future__ import annotations
 
 import json
-import urllib.error
 import urllib.request
 
 #: REST path the gateway serves its self-reported version on. The JSON body is
@@ -72,13 +71,13 @@ def fetch_gateway_version(base_url: str, *, timeout: float = 5.0) -> str:
         # to encrypt); S310 is not applicable to this local health probe.
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
             payload = resp.read()
-    except (urllib.error.URLError, OSError) as exc:
+    except OSError as exc:
         raise GatewayVersionUnavailable(
             f"could not reach gateway health endpoint {url}: {exc}"
         ) from exc
     try:
         body = json.loads(payload)
-    except (json.JSONDecodeError, ValueError) as exc:
+    except ValueError as exc:
         raise GatewayVersionUnavailable(
             f"gateway health endpoint {url} returned a non-JSON body"
         ) from exc
