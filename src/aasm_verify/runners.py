@@ -21,6 +21,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 
+from aasm_verify import installers
 from aasm_verify.refs import ResolvedRefs
 
 # All selectable areas, in display order.
@@ -89,6 +90,28 @@ def _pytest_command(marker: str, json_report: str | None) -> list[str]:
     if json_report:
         cmd += ["--json-report", f"--json-report-file={json_report}"]
     return cmd
+
+
+def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
+    """Install the artifacts the selected *areas* assert against (AAASM-4736).
+
+    The public pytest areas skip when their artifact is absent, so a run that
+    never installs anything goes green without exercising the product. This
+    installs what it can up front and exposes it on ``os.environ`` so each
+    per-area pytest subprocess (spawned by :func:`run_area` from a copy of
+    ``os.environ``) inherits it.
+
+    Best-effort and source-mode only: release mode installs published packages in
+    the workflow, and an area whose toolchain is genuinely absent stays skipped
+    (unchanged) rather than hard-failing. Currently wires the ``runtime`` area
+    (the ``aasm`` CLI); the ``sdk``/``examples`` source installs are a follow-up.
+    """
+    if refs.mode == "release":
+        return
+    if "runtime" in areas:
+        bindir = installers.install_aasm_cli(refs.agent_assembly)
+        if bindir:
+            os.environ["PATH"] = bindir + os.pathsep + os.environ.get("PATH", "")
 
 
 def run_area(
