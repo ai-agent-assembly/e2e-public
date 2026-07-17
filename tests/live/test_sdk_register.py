@@ -53,7 +53,8 @@ def _sdk_binding_version() -> str:
     exact value the AAASM-4669 skew guard compares against the gateway. Call
     :func:`_require_sdk` first so an absent SDK skips rather than ImportError-ing.
     """
-    import agent_assembly  # noqa: PLC0415 — optional dep, imported lazily
+    # agent_assembly is an optional dep, imported lazily inside this helper.
+    import agent_assembly  # noqa: PLC0415
 
     return agent_assembly.__version__
 
