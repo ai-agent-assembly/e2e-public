@@ -11,8 +11,10 @@ a repo is fetched rather than duplicating clone/build logic here.
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -85,6 +87,58 @@ def install_aasm_cli(
         check=True,
     )
     return str(Path(checkout) / "target" / "debug")
+
+
+def install_python_sdk(
+    ref: str, *, dest: str | None = None, _runner: object | None = None
+) -> str | None:
+    """Install the ``python-sdk`` (``agent_assembly``) from source at *ref*.
+
+    Installs the pure-Python distribution into the *current* interpreter's
+    environment, which is what makes the ``sdk`` area actually run: the per-area
+    pytest subprocess is spawned from this same ``sys.executable`` (see
+    :func:`aasm_verify.runners.run_area`), so once the package is importable here
+    ``skip_if_package_missing('agent_assembly')`` resolves it there — no PATH/env
+    plumbing is needed, unlike the ``aasm`` binary.
+
+    Returns the checkout path, or ``None`` when ``pip`` is unavailable. That
+    best-effort gate mirrors :func:`install_aasm_cli`: a toolchain-light lane
+    skips the sdk area cleanly instead of hard-failing.
+
+    The compiled PyO3 ``_core`` extension is a *separate* artifact (built via the
+    native toolchain, not this pure-Python install), so the native-binding tests
+    keep skipping cleanly when it is absent — installing the pure-Python client
+    is enough to exercise the import / public-export / functional-install checks.
+    """
+    if importlib.util.find_spec("pip") is None:
+        return None
+    runner = _runner if _runner is not None else subprocess.run
+    checkout = install_from_source("python-sdk", ref, dest=dest, _runner=_runner)
+    runner(  # type: ignore[operator]
+        [sys.executable, "-m", "pip", "install", checkout],
+        check=True,
+    )
+    return checkout
+
+
+def install_examples(
+    ref: str, *, dest: str | None = None, _runner: object | None = None
+) -> str | None:
+    """Clone the ``examples`` repo at *ref* and return the checkout path.
+
+    The ``examples`` area asserts against a local examples checkout; with none in
+    place it skips unconditionally. This materializes one in a securely-created
+    private temp dir (via :func:`install_from_source`, which uses
+    ``tempfile.mkdtemp`` — never a world-writable path, S5443) so the caller can
+    point ``tests/public/test_examples.py`` at it through ``AASM_EXAMPLES_DIR``.
+
+    Returns the checkout path, or ``None`` when ``git`` is unavailable — the same
+    clean-skip gate the other installers apply so a toolchain-light lane leaves
+    the examples area skipping rather than hard-failing.
+    """
+    if shutil.which("git") is None:
+        return None
+    return install_from_source("examples", ref, dest=dest, _runner=_runner)
 
 
 def install_from_release(repo: str, version: str) -> None:
