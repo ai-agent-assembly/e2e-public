@@ -3,10 +3,17 @@
 The enforcement-mode constant set is a contract shared by the Python, Node, and
 Go SDKs — all three must expose the same ordered modes, and the decision enum
 must align with them. The data-parity checks below run offline against
-``tests/fixtures/conformance/enforcement-mode-parity.json``. The live cross-SDK
-comparison (actually importing each installed SDK and reading its exported
-constants) is skip-guarded with an env-requirement reason, because it needs the
-published SDKs / Node runtime present in the environment.
+``tests/fixtures/conformance/enforcement-mode-parity.json``.
+
+The offline checks only prove the fixture is *self-consistent*. To keep the
+fixture honest, the live cross-SDK tests — which import each installed SDK and
+read its exported constants — additionally assert the fixture's *recorded* modes
+match what the real SDK actually exports, so a fixture that has drifted from the
+source of truth fails loudly instead of passing on its own say-so. Those live
+tests still gate on the SDK/runtime being present, but the Python one is a hard
+failure (not a skip) under strict mode (``AASM_VERIFY_STRICT``) when the package
+is installed yet omits the parity surface — a missing cross-SDK contract stays
+red rather than eroding coverage behind a green run.
 """
 
 from __future__ import annotations
@@ -18,6 +25,7 @@ import textwrap
 
 import pytest
 
+from aasm_verify.reports import strict_mode_enabled
 from tests.public.conftest import skip_if_binary_missing, skip_if_package_missing
 
 COMPONENT = "enforcement-mode-parity"
@@ -112,6 +120,18 @@ def test_node_sdk_enforcement_modes_match_canonical() -> None:
         f"[{COMPONENT}] Node ENFORCEMENT_MODES={actual} diverges from canonical "
         f"{_CANONICAL} — cross-SDK parity broken"
     )
+    # Fixture-vs-source cross-check: the offline data-parity tests above only
+    # prove the fixture is self-consistent. Whenever the real Node SDK is
+    # present, hold the fixture's *recorded* node modes to what the installed
+    # SDK actually exports — so a fixture that has drifted from the source of
+    # truth (stale after an SDK change) fails loudly instead of passing on its
+    # own say-so.
+    fixture_node_modes = _DATA["sdk_exposed"]["node"]["modes"]
+    assert fixture_node_modes == actual, (
+        f"[{COMPONENT}] fixture records node modes {fixture_node_modes} but the "
+        f"installed Node SDK exports {actual} — the parity fixture has drifted "
+        "from the real SDK and must be regenerated"
+    )
 
 
 @pytest.mark.conformance
@@ -127,11 +147,37 @@ def test_python_sdk_enforcement_modes_match_canonical() -> None:
 
     modes = getattr(agent_assembly, "ENFORCEMENT_MODES", None)
     if modes is None:
+        # The Python SDK is installed but does not surface the parity constant,
+        # so the live cross-check cannot run. Under strict mode this is a hard
+        # failure, not a silent skip: the whole point of the harness is that a
+        # missing cross-SDK surface (tracked by AAASM-3158) stays red rather
+        # than eroding coverage behind a green run. Outside strict mode it
+        # degrades to a justified, ticket-referenced skip while the offline
+        # data-parity tests above still assert the fixture is self-consistent.
+        # The reason strings are kept as literals at each call site so the
+        # marker audit (`aasm-verify markers`) statically resolves the AAASM-3158
+        # ref rather than flagging a variable as unreferenced.
+        if strict_mode_enabled():
+            pytest.fail(
+                f"[{COMPONENT}] agent_assembly installed but does not expose "
+                "ENFORCEMENT_MODES — AAASM-3158 (SDK parity surface); strict mode "
+                "refuses to skip a missing cross-SDK contract"
+            )
         pytest.skip(
             "agent_assembly package installed but does not expose ENFORCEMENT_MODES — "
             "tracked by AAASM-3158 (SDK parity surface); offline data-parity still asserted"
         )
-    assert list(modes) == _CANONICAL, (
-        f"[{COMPONENT}] Python ENFORCEMENT_MODES={list(modes)} diverges from canonical "
+    actual = list(modes)
+    assert actual == _CANONICAL, (
+        f"[{COMPONENT}] Python ENFORCEMENT_MODES={actual} diverges from canonical "
         f"{_CANONICAL} — cross-SDK parity broken"
+    )
+    # Fixture-vs-source cross-check (see the Node test): hold the fixture's
+    # recorded python modes to what the installed SDK actually exposes so a
+    # drifted fixture cannot pass on its own say-so.
+    fixture_python_modes = _DATA["sdk_exposed"]["python"]["modes"]
+    assert fixture_python_modes == actual, (
+        f"[{COMPONENT}] fixture records python modes {fixture_python_modes} but the "
+        f"installed Python SDK exposes {actual} — the parity fixture has drifted "
+        "from the real SDK and must be regenerated"
     )
