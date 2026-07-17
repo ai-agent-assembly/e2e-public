@@ -12,6 +12,20 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    ignore:
+      # AAASM-4768 accepted risk: these are transitive-only deps pulled in by
+      # crewai (frameworks extra), which hard-pins chromadb~=1.1.0,
+      # json-repair~=0.25.2, and mcp~=1.26.0 on every released and
+      # pre-released crewai~=1.15 version. All three windows sit entirely
+      # inside their respective Dependabot alert ranges (GHSA-f4j7-r4q5-qw2c,
+      # GHSA-xf7x-x43h-rpqh, GHSA-vj7q-gjh5-988w/GHSA-jpw9-pfvf-9f58/
+      # GHSA-hvrp-rf83-w775) and cannot be bumped without either an upstream
+      # crewai release that relaxes the pin or dropping crewai from this
+      # repo's `frameworks` extra — neither is in scope here. Remove these
+      # ignores once crewai adopts patched versions.
+      - dependency-name: "chromadb"
+      - dependency-name: "json-repair"
+      - dependency-name: "mcp"
 
   - package-ecosystem: "github-actions"
     directory: "/"
