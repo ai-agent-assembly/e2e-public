@@ -11,6 +11,7 @@ a repo is fetched rather than duplicating clone/build logic here.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -45,6 +46,41 @@ def install_from_source(
         check=True,
     )
     return checkout
+
+
+def install_aasm_cli(
+    ref: str, *, dest: str | None = None, _runner: object | None = None
+) -> str | None:
+    """Build the ``aasm`` CLI from ``agent-assembly`` at *ref*; return its bin dir.
+
+    Returns the directory containing the freshly built ``aasm`` binary (for the
+    caller to prepend to ``PATH`` so ``skip_if_binary_missing('aasm')`` finds it),
+    or ``None`` when the Rust toolchain / ``protoc`` is unavailable. That
+    best-effort gate keeps toolchain-light lanes (e.g. the Python-only ``smoke``
+    profile) skipping cleanly as before, while a toolchain-equipped lane (the
+    ``full`` profile, which sets up Rust + protoc) gets a real binary and the
+    runtime area actually runs instead of skipping unconditionally.
+
+    ``aa-cli`` produces the ``aasm`` binary, so a debug ``cargo build -p aa-cli``
+    is enough for the runtime smoke (``aasm --version`` / ``--help``); a debug
+    build keeps the extra clone+compile within the profile's time budget.
+    """
+    if shutil.which("cargo") is None or shutil.which("protoc") is None:
+        return None
+    runner = _runner if _runner is not None else subprocess.run
+    checkout = install_from_source("agent-assembly", ref, dest=dest, _runner=_runner)
+    runner(  # type: ignore[operator]
+        [
+            "cargo",
+            "build",
+            "-p",
+            "aa-cli",
+            "--manifest-path",
+            str(Path(checkout) / "Cargo.toml"),
+        ],
+        check=True,
+    )
+    return str(Path(checkout) / "target" / "debug")
 
 
 def install_from_release(repo: str, version: str) -> None:
