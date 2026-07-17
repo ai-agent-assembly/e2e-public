@@ -49,7 +49,7 @@ grpc = ["grpcio>=1.82.1", "grpcio-tools>=1.60"]
 # Versions are pinned to the lines the AAASM-3525 smokes were authored against
 # where known (crewai, openai-agents, mcp); the rest carry a sensible floor.
 frameworks = [
-    "langchain>=1.3.13",
+    "langchain>=1.3.14",
     "langgraph>=1.2.9",
     # Pinned to >=1.102.0 to fix GHSA-cg7w-rg45-pc59 (SSRF bypass via DNS rebinding)
     # and GHSA-cqp8-fcvh-x7r3 (SSRF bypass via URL encoding). Prior floor (0.0.14)
