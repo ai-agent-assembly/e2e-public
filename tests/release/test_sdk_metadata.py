@@ -56,24 +56,16 @@ def _check_pypi(version: str) -> None:
     # "0.0.1b2"), so compare parsed Version objects, not raw strings. packaging is
     # not a declared dependency here; skip cleanly (justified) if it is absent.
     try:
-        from packaging.version import InvalidVersion, Version
+        from packaging.version import Version
     except ImportError:
         pytest.skip(
             "[python-sdk] 'packaging' not installed — required to compare PEP 440 "
             "normalized PyPI versions"
         )
-    # NOSONAR — intentional: distinguish "version mismatch" from
-    # "unparseable version" with classification-tagged messages for downstream tooling
-    try:
-        assert Version(published) == Version(bare), (
-            f"[python-sdk] PyPI metadata version {published!r} != requested {bare!r} — "
-            "classification: release_blocker"
-        )
-    except InvalidVersion as exc:
-        pytest.fail(
-            f"[python-sdk] unparseable version (published={published!r}, "
-            f"requested={bare!r}): {exc} — classification: release_blocker"
-        )
+    assert Version(published) == Version(bare), (
+        f"[python-sdk] PyPI metadata version {published!r} != requested {bare!r} — "
+        "classification: release_blocker"
+    )
 
 
 def _check_npm(version: str) -> None:
