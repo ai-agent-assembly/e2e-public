@@ -184,20 +184,28 @@ jobs:
       profile: live
 
   # ---------------------------------------------------------------------------
-  # homebrew (QUARANTINED, AAASM-4478) — runs tests/public/test_homebrew_install.py
-  # on a macos-latest runner (Homebrew preinstalled). These tests have never once
-  # executed: they gate on AASM_HOMEBREW_GATE, which no workflow ever set.
+  # homebrew (AAASM-4786) — runs tests/public/test_homebrew_install.py on a
+  # macos-latest runner (Homebrew preinstalled). Previously dark since
+  # inception (AAASM-4478): the gate was left off pending AAASM-4448, whose
+  # real fix tickets — AAASM-4455 (formula fix) and AAASM-4449 (aa-api-server
+  # release artifact) — are both Done (2026-07-13). AASM_HOMEBREW_GATE=1 below
+  # opts the suite in for real, so this lane finally exercises the published
+  # tap instead of collecting-and-skipping.
   #
-  # The gate is intentionally LEFT OFF here: flipping AASM_HOMEBREW_GATE=1 turns
-  # this red for AAASM-4448 (the formula omits aa-gateway) — pended to the next
-  # rc. Landing the lane now (with the gate off, the file collects and skips
-  # cleanly) wires up the runner/job so the only remaining step at rc time is the
-  # flag flip. continue-on-error keeps it non-gating regardless.
+  # continue-on-error stays true, but for a different reason than before: this
+  # job only runs on schedule/workflow_dispatch (never pull_request), and
+  # nothing consumes its pass/fail (report-failure.sh, the issue-opener, is
+  # not wired to this workflow) — so it isn't gating anything today regardless
+  # of this flag. Homebrew installs on macOS CI runners also have a documented
+  # flakiness history in this org (see the `homebrew-tap-merge` skill /
+  # AAASM-2871 tap-trust workaround): a transient `brew` network/bottle
+  # failure shouldn't redden a scheduled run. The job's own status still
+  # surfaces a persistent failure for a human to see; it's just non-blocking.
   # ---------------------------------------------------------------------------
   homebrew:
     permissions:
       contents: read
-    name: "homebrew (quarantined — AAASM-4448/4449)"
+    name: "homebrew"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     timeout-minutes: 30
@@ -218,7 +226,8 @@ jobs:
         run: uv sync --frozen
 
       - name: Homebrew install verification
-        # AASM_HOMEBREW_GATE intentionally UNSET — see the job comment above. At
-        # rc time, set it to "1" here to opt the tests in against the fixed
-        # AAASM-4455 formula.
+        env:
+          # AAASM-4786: gate is now ON — both upstream blockers (AAASM-4455,
+          # AAASM-4449) are Done, so the tests run for real.
+          AASM_HOMEBREW_GATE: "1"
         run: uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short
