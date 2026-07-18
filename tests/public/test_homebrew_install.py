@@ -1,16 +1,22 @@
 """Homebrew tap and curl installer verification (gated).
 
-Both test groups are explicitly skipped until the upstream prerequisites are
-met:
+Both test groups are opt-in behind a gate env var because they perform real,
+network-bound installs that belong in the scheduled/opt-in lane
+(``verify-release-scheduled.yml``), not the default PR suite:
 
-- Homebrew tap tests: require ``homebrew-tap`` tap to publish a
-  formula with a built bottle.  Gate controlled by env var
-  ``AASM_HOMEBREW_GATE=1``.
-- curl installer tests: require a public static endpoint serving the install
-  script.  Gate controlled by env var ``AASM_CURL_INSTALLER_GATE=1``.
+- Homebrew tap tests: ``brew tap``/``brew install`` against the published
+  ``homebrew-tap`` formula.  Gate: ``AASM_HOMEBREW_GATE=1``.
+- curl installer tests: a HEAD reachability probe plus a real
+  download-and-run of the install script into an isolated dir.  Gate:
+  ``AASM_CURL_INSTALLER_GATE=1``.  The served endpoint
+  (``https://agent-assembly.com/install.sh``, AAASM-3948/ADR-014) is **confirmed
+  live** (HTTP 200, ``application/x-sh``, 2026-07) and supports the
+  ``--install-dir`` / ``AASM_INSTALL_DIR`` contract these tests rely on — the
+  gate now scopes them to the opt-in real-install lane, it is no longer a
+  "not yet available" placeholder.
 
-Set the respective gate variable to ``1`` (e.g. in CI) to opt the tests in
-once the upstream prerequisites are satisfied.
+Set the respective gate variable to ``1`` (as ``verify-release-scheduled.yml``
+does) to opt the tests in.
 """
 
 from __future__ import annotations
@@ -37,7 +43,8 @@ _HOMEBREW_SKIP_REASON = (
     "Homebrew tap formula not yet published — set AASM_HOMEBREW_GATE=1 to enable"
 )
 _CURL_SKIP_REASON = (
-    "curl installer endpoint not yet available — set AASM_CURL_INSTALLER_GATE=1 to enable"
+    "curl installer real-install lane is opt-in (endpoint is live) — set "
+    "AASM_CURL_INSTALLER_GATE=1 to enable (classification: known_prerequisite)"
 )
 
 COMPONENT_BREW = "homebrew-tap"

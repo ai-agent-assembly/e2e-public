@@ -229,9 +229,15 @@ jobs:
       - name: Install Python dependencies
         run: uv sync --frozen
 
-      - name: Homebrew install verification
+      - name: Homebrew + curl-installer verification
         env:
           # AAASM-4786: gate is now ON — both upstream blockers (AAASM-4455,
           # AAASM-4449) are Done, so the tests run for real.
           AASM_HOMEBREW_GATE: "1"
+          # AAASM-4834: the served installer (https://agent-assembly.com/install.sh,
+          # AAASM-3948/ADR-014) is now live and honours the --install-dir /
+          # AASM_INSTALL_DIR contract these tests use, so the previously-dark
+          # curl-installer lane is opted in here too. Non-blocking (continue-on-error
+          # above; no issue-opener wired to this workflow).
+          AASM_CURL_INSTALLER_GATE: "1"
         run: uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short
