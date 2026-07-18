@@ -1,4 +1,4 @@
-"""AC4: checksums are validated, and the signature-verification gap is reported.
+"""AC4: checksums are validated, and the release signature is verified.
 
 Three layers:
 
@@ -6,21 +6,25 @@ Three layers:
   every expected platform binary with a well-formed digest — the checksum logic.
 * **Live (skip-guarded):** download the platform tarball *and* the release's
   ``SHA256SUMS``, recompute the digest, and assert it matches the published one.
-* **Gap report (AC4 "OR explicit gap"):** the release publishes a cosign signature
-  (``SHA256SUMS.cosign.bundle``), but this harness cannot *verify* it — that needs
-  the ``cosign`` tool plus a Sigstore trust root and network. Rather than silently
-  pass, an ``xfail`` records the gap so it is visible in the report, not hidden.
+* **Signature (skip-guarded):** the release publishes a keyless cosign signature
+  (``SHA256SUMS.cosign.bundle``) over ``SHA256SUMS``; when the ``cosign`` tool,
+  network, and a published release are all present, this *actually verifies* the
+  bundle against the GitHub Actions OIDC signing identity. When that toolchain or
+  release is absent it skips cleanly on the real prerequisite (env
+  classification) — never a hardcoded pass/fail that reports nothing.
 
 Finding (2026-06): the agent-assembly release pipeline publishes ``SHA256SUMS``
 on every release and, from ``v0.0.1-alpha.9`` onward, a ``SHA256SUMS.cosign.bundle``
-signature. Checksum integrity is therefore fully verifiable here; signature
-*verification* is the documented, reported gap.
+signature — so both checksum integrity *and* signature verification are exercised
+here against a real release.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import shutil
+import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -109,25 +113,83 @@ def test_live_asset_checksum_matches_published(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.release
-@pytest.mark.xfail(
-    reason=(
-        "AAASM-3161 gap: release publishes SHA256SUMS.cosign.bundle but this harness "
-        "cannot verify the cosign signature — needs the cosign tool + a Sigstore trust "
-        "root + network. Tracked as a known gap, not silently passed."
-    ),
-    strict=False,
-    raises=AssertionError,
-)
-def test_signature_verification_gap_is_reported() -> None:
-    """Document the signature-verification gap explicitly (AC4 'OR explicit gap').
+# The keyless cosign signing identity for the agent-assembly release pipeline: any
+# workflow under the release repo, issued by the GitHub Actions OIDC provider. A
+# regexp on the identity pins the signer to the release repo while staying robust
+# to workflow-file renames.
+_COSIGN_IDENTITY_RE = r"^https://github\.com/ai-agent-assembly/agent-assembly/"
+_COSIGN_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 
-    The release ships a cosign signature bundle over SHA256SUMS, but signature
-    *verification* is unimplemented here. This xfail makes the gap a first-class,
-    reported outcome — flipping to a real cosign verification removes the xfail.
+
+@pytest.mark.release
+def test_live_signature_verifies_over_sha256sums(tmp_path: Path) -> None:
+    """The published cosign bundle is a valid signature over ``SHA256SUMS``.
+
+    AC4 ("checksums/signatures are validated"): the release ships a keyless cosign
+    signature bundle over ``SHA256SUMS`` (from ``v0.0.1-alpha.9`` onward). This
+    downloads both and runs ``cosign verify-blob`` against the GitHub Actions OIDC
+    signing identity — a real verification, not a reported gap.
+
+    Skip-guarded on the genuine prerequisites: a requested release
+    (``AASM_RELEASE_VERSION``), network, the published sidecars, and the ``cosign``
+    tool. Any absent prerequisite skips cleanly (classification:
+    known_prerequisite / external_flake). A *present* bundle that fails
+    verification is a hard failure (classification: release_blocker), never a skip.
     """
-    signature_is_verified = False
-    assert signature_is_verified, (
-        "cosign signature verification of SHA256SUMS.cosign.bundle is not yet "
-        "implemented in this harness (AAASM-3161 documented gap)"
+    version = require_release_version()
+    tag = release_tag(version)
+    data = fetch_release_metadata(tag)
+
+    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+    checksums_name = manifest.checksums_asset_name()
+    signature_name = manifest.signature_asset_name()
+    if checksums_name not in assets:
+        pytest.skip(
+            f"[{COMPONENT}] no {checksums_name} in {tag!r} — checksum file not "
+            "published (classification: known_prerequisite, AASM_RELEASE_VERSION)"
+        )
+    if signature_name not in assets:
+        pytest.skip(
+            f"[{COMPONENT}] no {signature_name} in {tag!r} — cosign signature bundle "
+            "not published (classification: known_prerequisite, AASM_RELEASE_VERSION)"
+        )
+
+    cosign = shutil.which("cosign")
+    if cosign is None:
+        pytest.skip(
+            f"[{COMPONENT}] cosign not on PATH — signature-verification toolchain "
+            "absent (classification: known_prerequisite)"
+        )
+
+    sums_path = tmp_path / checksums_name
+    bundle_path = tmp_path / signature_name
+    try:
+        for name, dest in ((checksums_name, sums_path), (signature_name, bundle_path)):
+            with urllib.request.urlopen(assets[name], timeout=30) as resp:  # noqa: S310
+                dest.write_bytes(resp.read())
+    except urllib.error.URLError as exc:
+        pytest.skip(
+            f"[{COMPONENT}] could not download {checksums_name}/{signature_name} "
+            f"({exc}) — offline environment (classification: external_flake)"
+        )
+
+    result = subprocess.run(
+        [
+            cosign,
+            "verify-blob",
+            "--bundle",
+            str(bundle_path),
+            "--certificate-identity-regexp",
+            _COSIGN_IDENTITY_RE,
+            "--certificate-oidc-issuer",
+            _COSIGN_OIDC_ISSUER,
+            str(sums_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"[{COMPONENT}] cosign could not verify {signature_name!r} over "
+        f"{checksums_name} (exit {result.returncode}) — classification: "
+        f"release_blocker\nstderr: {result.stderr.strip()}"
     )
