@@ -150,22 +150,24 @@ def test_python_sdk_enforcement_modes_match_canonical() -> None:
         # The Python SDK is installed but does not surface the parity constant,
         # so the live cross-check cannot run. Under strict mode this is a hard
         # failure, not a silent skip: the whole point of the harness is that a
-        # missing cross-SDK surface (tracked by AAASM-3158) stays red rather
+        # missing cross-SDK surface (tracked by AAASM-4856) stays red rather
         # than eroding coverage behind a green run. Outside strict mode it
         # degrades to a justified, ticket-referenced skip while the offline
         # data-parity tests above still assert the fixture is self-consistent.
         # The reason strings are kept as literals at each call site so the
-        # marker audit (`aasm-verify markers`) statically resolves the AAASM-3158
-        # ref rather than flagging a variable as unreferenced.
+        # marker audit (`aasm-verify markers`) statically resolves the AAASM-4856
+        # ref rather than flagging a variable as unreferenced. (AAASM-4856 is the
+        # open defect ticket for the missing public ENFORCEMENT_MODES surface; it
+        # supersedes the now-Done coverage Story AAASM-3158 this used to cite.)
         if strict_mode_enabled():
             pytest.fail(
                 f"[{COMPONENT}] agent_assembly installed but does not expose "
-                "ENFORCEMENT_MODES — AAASM-3158 (SDK parity surface); strict mode "
+                "ENFORCEMENT_MODES — AAASM-4856 (SDK parity surface); strict mode "
                 "refuses to skip a missing cross-SDK contract"
             )
         pytest.skip(
             "agent_assembly package installed but does not expose ENFORCEMENT_MODES — "
-            "tracked by AAASM-3158 (SDK parity surface); offline data-parity still asserted"
+            "tracked by AAASM-4856 (SDK parity surface); offline data-parity still asserted"
         )
     actual = list(modes)
     assert actual == _CANONICAL, (
