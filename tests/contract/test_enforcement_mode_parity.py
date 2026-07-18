@@ -26,8 +26,15 @@ Two contracts are exercised:
    rather than asserting a parity that does not exist. See
    ``test_init_runtime_mode_divergence_is_pinned`` below.
 
-Each SDK probe is skipped independently when that SDK's checkout or toolchain
-is absent, so the suite runs in partial environments (e.g. CI without Go).
+Each SDK source is resolved from the ``AASM_<LANG>_SDK_DIR`` env var the verify
+harness materializes (``verify-profiles.yml`` clones each SDK under
+``/tmp/aa-sdks/<lang>-sdk``), falling back to a sibling checkout for local dev.
+When a source cannot be resolved the probe skips in a normal run but **hard-fails
+under strict mode** (``AASM_VERIFY_STRICT=1``): a "not found" skip reads as a
+*justified* environment prerequisite to the skip-audit
+(:mod:`aasm_verify.skip_audit`), so a bare skip would let strict CI go green
+having verified no cross-SDK parity at all — the AAASM-4736/4774/4808 false-green
+class. Under strict, an unresolvable source is a coverage gap, not a prerequisite.
 """
 
 from __future__ import annotations
@@ -37,8 +44,11 @@ import os
 import re
 import shutil
 import subprocess
+from typing import NoReturn
 
 import pytest
+
+from aasm_verify.skip_audit import STRICT_ENV_VAR
 
 # The single source of truth for the canonical enforcement-mode vocabulary.
 # Mirrors ``aa_core::EnforcementMode`` on the wire (snake_case tokens).
@@ -52,19 +62,80 @@ NODE_ASSEMBLY_MODES: frozenset[str] = frozenset(
 )
 
 
-def _sibling_sdk_dir(name: str) -> str | None:
-    """Return a sibling SDK checkout directory if one exists next to this repo.
+# SDK checkout dir -> the env var the verify harness exports for it. These are
+# the same names the fixed sibling probes read (``AASM_NODE_SDK_DIR`` in
+# ``tests/public/test_node_sdk.py``, ``AASM_GO_SDK_DIR`` in
+# ``tests/public/test_go_sdk.py``); ``verify-profiles.yml`` materializes each SDK
+# under ``/tmp/aa-sdks/<name>`` and points these at it.
+_SDK_DIR_ENV: dict[str, str] = {
+    "python-sdk": "AASM_PYTHON_SDK_DIR",
+    "node-sdk": "AASM_NODE_SDK_DIR",
+    "go-sdk": "AASM_GO_SDK_DIR",
+}
 
-    The integration-tests checkout may be the main repo or an isolated git
-    worktree, so the SDKs may live three or four directories up. Mirrors the
-    resolution pattern in ``tests/public/test_go_sdk.py``.
+
+def _strict_mode() -> bool:
+    """True when the run opts into strict verification (``AASM_VERIFY_STRICT=1``).
+
+    Shared contract name with the skip-audit and the AAASM-3160 CI profiles.
     """
+    return os.environ.get(STRICT_ENV_VAR) == "1"
+
+
+def _stop(component: str, message: str) -> NoReturn:
+    """Hard-fail under strict mode; skip (as a known prerequisite) otherwise.
+
+    A missing SDK source is a legitimate prerequisite gate in a partial local
+    run, but under ``AASM_VERIFY_STRICT=1`` it is a coverage gap: the skip-audit
+    classifies a "not found"/env-var reason as *justified*, so a plain skip would
+    let strict CI go green without ever verifying cross-SDK parity (AAASM-4808).
+    Failing under strict is what turns that silent gap back into a red signal.
+
+    The ``classification: known_prerequisite`` tag is a literal so the *static*
+    marker audit (``aasm-verify markers``) reads it as a justified prerequisite,
+    not a policy violation.
+    """
+    if _strict_mode():
+        pytest.fail(
+            f"[{component}] {message} — cross-SDK enforcement-mode parity was NOT "
+            f"verified (AAASM-4808 false-green guard under {STRICT_ENV_VAR}=1)"
+        )
+    pytest.skip(f"[{component}] {message} (classification: known_prerequisite)")
+
+
+def _resolve_sdk_dir(name: str) -> str | None:
+    """Resolve an SDK source checkout, or None when none is available.
+
+    Prefers ``AASM_<LANG>_SDK_DIR`` — the checkout the verify harness
+    materializes (AAASM-4774/4808) so the source probe actually runs instead of
+    skipping — and falls back to a sibling ``../<name>`` checkout for the
+    manual/local workflow. The integration-tests checkout may be the main repo
+    or an isolated git worktree, so a sibling may live three or four directories
+    up. Mirrors the resolution pattern in ``tests/public/test_go_sdk.py``.
+    """
+    env_dir = os.environ.get(_SDK_DIR_ENV[name])
+    if env_dir and os.path.isdir(env_dir):
+        return os.path.normpath(env_dir)
     here = os.path.dirname(os.path.abspath(__file__))
     for up in ("../../..", "../../../.."):
         resolved = os.path.normpath(os.path.join(here, up, name))
         if os.path.isdir(resolved):
             return resolved
     return None
+
+
+def _require_sdk_dir(name: str) -> str:
+    """Resolve *name*'s SDK source dir or stop the test (fail under strict)."""
+    resolved = _resolve_sdk_dir(name)
+    if resolved is None:
+        # `_stop` is NoReturn (raises pytest.fail/skip), so control never falls
+        # through — the return below is reached only when a dir was resolved.
+        _stop(
+            name,
+            f"SDK source not resolved — set {_SDK_DIR_ENV[name]} "
+            f"or clone {name} alongside this repo",
+        )
+    return resolved
 
 
 # --------------------------------------------------------------------------- #
@@ -80,13 +151,11 @@ def _python_enforcement_modes() -> frozenset[str]:
     than import it so the probe has zero dependency on the SDK being installed
     into this repo's virtualenv.
     """
-    sdk_dir = _sibling_sdk_dir("python-sdk")
-    if sdk_dir is None:
-        pytest.skip("[python-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("python-sdk")
 
     assembly_py = os.path.join(sdk_dir, "agent_assembly", "core", "assembly.py")
     if not os.path.isfile(assembly_py):
-        pytest.skip(f"[python-sdk] {assembly_py} not found")
+        _stop("python-sdk", f"{assembly_py} not found — wrong checkout or the contract moved")
 
     with open(assembly_py, encoding="utf-8") as handle:
         source = handle.read()
@@ -109,9 +178,7 @@ def _node_enforcement_modes() -> frozenset[str]:
     resolves the public symbol — i.e. we verify the *public* contract a real
     consumer sees.
     """
-    sdk_dir = _sibling_sdk_dir("node-sdk")
-    if sdk_dir is None:
-        pytest.skip("[node-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("node-sdk")
     if shutil.which("node") is None:
         pytest.skip("[node-sdk] node toolchain not available")
     if not os.path.isdir(os.path.join(sdk_dir, "dist")):
@@ -155,13 +222,11 @@ def _go_enforcement_modes() -> frozenset[str]:
     Observe | Disabled`` const declarations. Source parsing keeps the probe
     independent of the Go toolchain being installed.
     """
-    sdk_dir = _sibling_sdk_dir("go-sdk")
-    if sdk_dir is None:
-        pytest.skip("[go-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("go-sdk")
 
     enforcement_go = os.path.join(sdk_dir, "assembly", "enforcement_mode.go")
     if not os.path.isfile(enforcement_go):
-        pytest.skip(f"[go-sdk] {enforcement_go} not found")
+        _stop("go-sdk", f"{enforcement_go} not found — wrong checkout or the contract moved")
 
     with open(enforcement_go, encoding="utf-8") as handle:
         source = handle.read()
@@ -244,12 +309,10 @@ def test_enforcement_modes_match_across_sdks() -> None:
 
 def _python_runtime_modes() -> frozenset[str]:
     """Extract the Python ``RuntimeMode`` Literal tokens from the SDK source."""
-    sdk_dir = _sibling_sdk_dir("python-sdk")
-    if sdk_dir is None:
-        pytest.skip("[python-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("python-sdk")
     assembly_py = os.path.join(sdk_dir, "agent_assembly", "core", "assembly.py")
     if not os.path.isfile(assembly_py):
-        pytest.skip(f"[python-sdk] {assembly_py} not found")
+        _stop("python-sdk", f"{assembly_py} not found — wrong checkout or the contract moved")
 
     with open(assembly_py, encoding="utf-8") as handle:
         source = handle.read()
@@ -260,12 +323,10 @@ def _python_runtime_modes() -> frozenset[str]:
 
 def _node_assembly_modes() -> frozenset[str]:
     """Extract the Node ``AssemblyMode`` union tokens from the SDK source."""
-    sdk_dir = _sibling_sdk_dir("node-sdk")
-    if sdk_dir is None:
-        pytest.skip("[node-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("node-sdk")
     mode_ts = os.path.join(sdk_dir, "src", "types", "assembly-mode.ts")
     if not os.path.isfile(mode_ts):
-        pytest.skip(f"[node-sdk] {mode_ts} not found")
+        _stop("node-sdk", f"{mode_ts} not found — wrong checkout or the contract moved")
 
     with open(mode_ts, encoding="utf-8") as handle:
         source = handle.read()
@@ -351,13 +412,11 @@ def test_go_has_no_init_mode_enum() -> None:
     ``InitMode`` type in the Go SDK. (``EnforcementMode`` is the governance
     posture, a different axis, and is expected to exist.)
     """
-    sdk_dir = _sibling_sdk_dir("go-sdk")
-    if sdk_dir is None:
-        pytest.skip("[go-sdk] checkout not found next to this repo")
+    sdk_dir = _require_sdk_dir("go-sdk")
 
     assembly_dir = os.path.join(sdk_dir, "assembly")
     if not os.path.isdir(assembly_dir):
-        pytest.skip(f"[go-sdk] {assembly_dir} not found")
+        _stop("go-sdk", f"{assembly_dir} not found — wrong checkout or the contract moved")
 
     # Functional options must exist — that is the Go init-config mechanism.
     options_go = os.path.join(assembly_dir, "options.go")
@@ -384,3 +443,67 @@ def test_go_has_no_init_mode_enum() -> None:
                 "documented divergence (AAASM-2993) is now stale and the "
                 "cross-SDK init-mode parity epic should be revisited"
             )
+
+
+# --------------------------------------------------------------------------- #
+# SDK-source resolution guard (AAASM-4808)
+# --------------------------------------------------------------------------- #
+#
+# These exercise the resolution/strict logic itself — harness behavior, not a
+# cross-SDK probe — so they carry no ``sdk`` marker and run offline in the
+# default suite. They pin the AAASM-4808 fix: an unresolvable SDK source must
+# hard-fail under strict (never green-skip), and the ``AASM_*_DIR`` env var the
+# verify harness sets must actually be honored.
+
+
+def test_env_var_resolves_sdk_dir(monkeypatch, tmp_path) -> None:
+    """``AASM_<LANG>_SDK_DIR`` is honored over (and instead of) the sibling path.
+
+    This is the whole point of the fix: the harness materializes SDKs at
+    ``/tmp/aa-sdks/<lang>-sdk`` and exports these vars — never as siblings — so a
+    resolver that ignored them (the old ``_sibling_sdk_dir``) always skipped.
+    """
+    for name, env_var in _SDK_DIR_ENV.items():
+        monkeypatch.setenv(env_var, str(tmp_path))
+        assert _resolve_sdk_dir(name) == os.path.normpath(str(tmp_path))
+
+
+def test_strict_mode_hard_fails_when_sdk_dir_unresolved(monkeypatch) -> None:
+    """Under strict, an unresolvable SDK source is a FAILURE, not a green skip.
+
+    Regression for the AAASM-4808 false-green: a "not found" skip reads as a
+    justified env prerequisite to the skip-audit, so absent this guard strict CI
+    would go green having verified no cross-SDK parity at all.
+    """
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._resolve_sdk_dir", lambda name: None
+    )
+    monkeypatch.setenv(STRICT_ENV_VAR, "1")
+    with pytest.raises(pytest.fail.Exception):
+        _require_sdk_dir("python-sdk")
+
+
+def test_non_strict_skips_when_sdk_dir_unresolved(monkeypatch) -> None:
+    """Outside strict mode an unresolvable SDK source skips (local-dev workflow)."""
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._resolve_sdk_dir", lambda name: None
+    )
+    monkeypatch.delenv(STRICT_ENV_VAR, raising=False)
+    with pytest.raises(pytest.skip.Exception):
+        _require_sdk_dir("go-sdk")
+
+
+def test_unresolved_skip_reason_is_not_a_bare_greenlight(monkeypatch) -> None:
+    """The non-strict skip stays classifiable as a *prerequisite*, and the
+    strict path raises rather than emitting any skip the audit could justify."""
+    from aasm_verify import skip_audit
+
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._resolve_sdk_dir", lambda name: None
+    )
+    monkeypatch.delenv(STRICT_ENV_VAR, raising=False)
+    with pytest.raises(pytest.skip.Exception) as excinfo:
+        _require_sdk_dir("node-sdk")
+    # A local-dev skip is a genuine prerequisite gate — it should read as
+    # justified (env var named + classification tag), NOT as a policy violation.
+    assert skip_audit.is_justified(str(excinfo.value))
