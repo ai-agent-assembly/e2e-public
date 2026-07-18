@@ -12,7 +12,7 @@ from pathlib import Path
 from aasm_verify import skip_audit
 
 # A synthetic test file exercising every marker shape the audit must recognize.
-_FIXTURE = '''
+_FIXTURE = """
 import pytest
 
 
@@ -51,7 +51,7 @@ def test_inline_env_skip():
 
 def test_inline_bare_skip():
     pytest.skip("just because")
-'''
+"""
 
 
 def _markers(source: str = _FIXTURE) -> list[skip_audit.Marker]:
@@ -169,7 +169,7 @@ def test_classification_tag_justifies_marker() -> None:
 def test_string_literal_skip_calls_are_not_collected(tmp_path: Path) -> None:
     # pytest.skip(...) appearing *inside a string* (e.g. pytester.makepyfile)
     # is a Constant, not a Call — the AST tool must not mistake it for a marker.
-    src = 'def test_a():\n    body = "pytest.skip(\'x\')"\n    assert body\n'
+    src = "def test_a():\n    body = \"pytest.skip('x')\"\n    assert body\n"
     assert skip_audit.collect_markers_from_source(src, "t.py") == []
 
 
@@ -202,6 +202,78 @@ def test_stale_check_flags_closed_tickets() -> None:
     result = skip_audit.MarkerAudit(markers=markers, stale=stale, jira_checked=True)
     assert stale == frozenset({"AAASM-9001"})
     assert [m.kind for m in result.stale_markers] == ["skipif"]
+
+
+def test_partial_resolver_failure_is_recorded_not_reported_clean() -> None:
+    # One ticket's status can't be checked (auth/network error); the others
+    # resolve fine. The unresolved ticket must land in `unresolved` — NOT be
+    # silently treated as "not stale" / clean.
+    def resolver(ticket: str) -> str | None:
+        if ticket == "AAASM-9001":
+            raise skip_audit.JiraResolverError("Jira returned HTTP 401")
+        return "In Progress"
+
+    markers = _markers()
+    tickets = {m.ticket for m in markers if m.ticket}
+    stale, unresolved = skip_audit.resolve_ticket_statuses(tickets, resolver)
+    assert unresolved == frozenset({"AAASM-9001"})
+    assert "AAASM-9001" not in stale
+    audit = skip_audit.MarkerAudit(
+        markers=markers, stale=stale, unresolved=unresolved, jira_checked=True
+    )
+    # The skipif marker pinned to the unresolved ticket surfaces as unverified,
+    # and does NOT masquerade as a clean (stale) result.
+    assert [m.kind for m in audit.unresolved_markers] == ["skipif"]
+    assert audit.stale_markers == []
+
+
+def test_wholesale_resolver_failure_raises() -> None:
+    # Every ticket fails to resolve (wrong/expired creds, wrong site). This must
+    # NOT report a clean "stale: 0" — it raises so the run fails loudly instead.
+    import pytest
+
+    def always_fails(ticket: str) -> str | None:
+        raise skip_audit.JiraResolverError("auth failure")
+
+    markers = _markers()
+    tickets = {m.ticket for m in markers if m.ticket}
+    assert tickets  # guard: the fixture has ticketed markers to attempt
+    with pytest.raises(skip_audit.JiraResolverError):
+        skip_audit.resolve_ticket_statuses(tickets, always_fails)
+
+
+def test_audit_markers_raises_on_wholesale_resolver_failure(tmp_path: Path) -> None:
+    # End-to-end via audit_markers: a resolver that always errors must not yield
+    # a green audit with empty stale/unresolved — it raises.
+    import pytest
+
+    (tmp_path / "test_x.py").write_text(
+        "import pytest\n@pytest.mark.skip(reason='AAASM-1: gap')\ndef test_y():\n    pass\n"
+    )
+
+    def always_fails(ticket: str) -> str | None:
+        raise skip_audit.JiraResolverError("network down")
+
+    with pytest.raises(skip_audit.JiraResolverError):
+        skip_audit.audit_markers(tmp_path, root=tmp_path, resolver=always_fails)
+
+
+def test_not_found_ticket_is_never_fatal() -> None:
+    # A genuine "ticket not found" (resolver returns None) stays never-fatal:
+    # neither stale nor unresolved, and no wholesale-failure raise.
+    stale, unresolved = skip_audit.resolve_ticket_statuses({"AAASM-1", "AAASM-2"}, lambda _t: None)
+    assert stale == frozenset()
+    assert unresolved == frozenset()
+
+
+def test_render_flags_unresolved_distinctly_from_clean() -> None:
+    markers = _markers()
+    audit = skip_audit.MarkerAudit(
+        markers=markers, unresolved=frozenset({"AAASM-9001"}), jira_checked=True
+    )
+    text = skip_audit.render_marker_audit(audit)
+    assert "## Unable to verify (Jira status not checkable)" in text
+    assert "UNABLE TO VERIFY" in text  # summary line warns against reading as clean
 
 
 def test_jira_resolver_absent_without_env() -> None:
