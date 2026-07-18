@@ -316,10 +316,10 @@ jobs:
 
       - name: Install the Python AI-agent frameworks
         # The `frameworks` extra (pyproject.toml) installs the AAASM-3525 Python
-        # frameworks (langchain, langgraph, pydantic-ai, crewai, google-adk, mcp,
-        # openai-agents, microsoft-agent-framework) into the same venv so each
-        # `test_framework_python_*` cell runs its allow path instead of skipping on
-        # a missing framework import.
+        # frameworks (langchain, langgraph, pydantic-ai, google-adk, mcp, openai-agents,
+        # microsoft-agent-framework) into the same venv so each `test_framework_python_*`
+        # cell runs its allow path instead of skipping on a missing framework import.
+        # NOTE: crewai excluded (AAASM-4250) due to GHSA-f4j7-r4q5-qw2c in chromadb.
         #
         # `--prerelease=allow` is required because `agent-framework` (AAASM-3538)
         # pulls pre-release sub-distributions; uv refuses pre-releases by default,
