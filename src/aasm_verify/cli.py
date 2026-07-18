@@ -379,7 +379,14 @@ def cmd_markers(args: argparse.Namespace) -> int:
     Offline by default (deterministic, no network). ``--check-jira`` opts into the
     stale-ticket cross-check when the AASM_VERIFY_JIRA_* env vars are present. The
     tool is a reporting forcing function, not a CI gate — it exits 0 unless
-    ``--strict`` is passed and there are unreferenced or stale markers.
+    ``--strict`` is passed and there are unreferenced, stale, or unresolved
+    markers.
+
+    ``unresolved`` (a *partial* Jira failure — some tickets resolved, some
+    hit 401/timeout) is a non-zero condition alongside stale: a marker whose
+    status *could not be checked* must not read as clean. AAASM-4850 already made
+    a *wholesale* resolver failure raise loudly; this closes the partial case so
+    the drift lane can't go green while some markers went unverified.
     """
     resolver = None
     if args.check_jira:
@@ -395,7 +402,7 @@ def cmd_markers(args: argparse.Namespace) -> int:
         print(json.dumps(audit.as_dict(), indent=2))
     else:
         print(skip_audit.render_marker_audit(audit))
-    if args.strict and (audit.unreferenced or audit.stale_markers):
+    if args.strict and (audit.unreferenced or audit.stale_markers or audit.unresolved_markers):
         return 1
     return 0
 
