@@ -6,10 +6,14 @@ name: Verify
 #
 # Triggers, by design:
 #   * workflow_dispatch — pick any profile on demand with full input control.
-#   * schedule          — only the fast `smoke` profile runs unattended; the
-#                         expensive profiles stay opt-in (run them via dispatch
-#                         or their dedicated verify-*.yml workflows), keeping
-#                         scheduled cost low while still catching drift early.
+#   * schedule          — the fast `smoke` profile runs unattended, plus a
+#                         strict cross-SDK parity lane (`full` profile, `sdk`
+#                         area) so the AAASM-4808/4828 enforcement-mode parity
+#                         guard actually runs against the three real SDKs on a
+#                         schedule (AAASM-4845). The other expensive profiles
+#                         stay opt-in (run them via dispatch or their dedicated
+#                         verify-*.yml workflows), keeping scheduled cost low
+#                         while still catching drift early.
 #
 # This is additive: the existing verify-latest / verify-public-* / verify-tag /
 # verify-release workflows keep their own schedule/release/tag triggers and are
@@ -92,3 +96,19 @@ jobs:
       go_sdk_ref: ${{ inputs.go_sdk_ref || 'master' }}
       examples_ref: ${{ inputs.examples_ref || 'master' }}
       release_version: ${{ inputs.release_version || '' }}
+
+  # Scheduled strict cross-SDK parity lane (AAASM-4845). The smoke `verify` job
+  # above runs the sdk area NON-strict, so the AAASM-4808/4828 enforcement-mode
+  # parity guard skips instead of failing there. This job runs the `full`
+  # profile (AASM_VERIFY_STRICT=1) against the `sdk` area so that guard runs
+  # `-m sdk` strict against the three real SDKs on the schedule. Scheduled-only:
+  # on manual dispatch the operator selects any profile via the `verify` job.
+  strict-sdk-parity:
+    name: "verify [strict sdk parity]"
+    if: ${{ github.event_name == 'schedule' }}
+    uses: ./.github/workflows/verify-profiles.yml
+    with:
+      # Every other input defaults to `master` / latest source refs in the
+      # reusable workflow, matching the scheduled smoke lane above.
+      profile: full
+      area: sdk

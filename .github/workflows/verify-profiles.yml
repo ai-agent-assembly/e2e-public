@@ -247,11 +247,15 @@ jobs:
       AASM_VERIFY_STRICT: "1"
       AASM_CORE_REF: ${{ inputs.agent_assembly_ref }}
       DOCTOR_JSON: /tmp/aasm-reports/doctor.json
-      # Point the live framework drivers at the SDK checkouts cloned below so the
-      # Node / Go AAASM-3525 framework smokes locate a *built* SDK (instead of
-      # skipping for "SDK checkout not found"). The Python SDK is installed into
-      # the uv venv directly (in-process `import agent_assembly`), so it needs no
-      # dir override — only Node/Go drivers resolve a sibling SDK directory.
+      # Point the SDK-source consumers at the checkouts cloned below. The Node /
+      # Go AAASM-3525 framework smokes locate a *built* SDK (instead of skipping
+      # for "SDK checkout not found"), and the cross-SDK parity probe
+      # (tests/contract/test_enforcement_mode_parity.py) parses each SDK's source
+      # tree via these dirs — including Python's via AASM_PYTHON_SDK_DIR, so the
+      # Python side of the strict parity guard resolves its source rather than
+      # skipping (AAASM-4845). The Python SDK checkout is materialized at
+      # /tmp/aa-sdks/python-sdk by the install step below.
+      AASM_PYTHON_SDK_DIR: /tmp/aa-sdks/python-sdk
       AASM_NODE_SDK_DIR: /tmp/aa-sdks/node-sdk
       AASM_GO_SDK_DIR: /tmp/aa-sdks/go-sdk
     steps:
