@@ -98,11 +98,11 @@ def test_openai_agents_allow_path_runs_governed_tool(live_runtime: LiveRuntime) 
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Live deny enforcement for a OpenAI Agents (Node) agent is unprovable today: "
-        "AAASM-3000 (SDK⇄aa-runtime IPC deadlock) and AAASM-3021 (pre-execution "
+        "AAASM-3172 (open flip-gate) tracks flipping this to a hard assert: "
+        "live deny enforcement for a OpenAI Agents (Node) agent is unprovable today "
+        "because of AAASM-3000 (SDK⇄aa-runtime IPC deadlock) and AAASM-3021 (pre-execution "
         "check() unwired — the SDK gateway client fails open, so a denied action "
-        "is not blocked at the SDK layer). Flip to a hard assert via AAASM-3172 "
-        "once a fixed SDK release ships."
+        "is not blocked at the SDK layer). Flip once a fixed SDK release ships."
     ),
 )
 def test_openai_agents_deny_path_blocks_restricted_tool() -> None:
