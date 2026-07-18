@@ -29,12 +29,15 @@ Two contracts are exercised:
 Each SDK source is resolved from the ``AASM_<LANG>_SDK_DIR`` env var the verify
 harness materializes (``verify-profiles.yml`` clones each SDK under
 ``/tmp/aa-sdks/<lang>-sdk``), falling back to a sibling checkout for local dev.
-When a source cannot be resolved the probe skips in a normal run but **hard-fails
-under strict mode** (``AASM_VERIFY_STRICT=1``): a "not found" skip reads as a
-*justified* environment prerequisite to the skip-audit
-(:mod:`aasm_verify.skip_audit`), so a bare skip would let strict CI go green
-having verified no cross-SDK parity at all — the AAASM-4736/4774/4808 false-green
-class. Under strict, an unresolvable source is a coverage gap, not a prerequisite.
+When a source cannot be resolved — *or*, for the node probe, when a resolved SDK
+still can't be exercised (toolchain absent, ``dist/`` unbuilt, or the public
+``import('@agent-assembly/sdk')`` failing) — the probe skips in a normal run but
+**hard-fails under strict mode** (``AASM_VERIFY_STRICT=1``): a "not found" /
+"not built" skip reads as a *justified* environment prerequisite to the
+skip-audit (:mod:`aasm_verify.skip_audit`), so a bare skip would let strict CI go
+green having verified no cross-SDK parity at all — the AAASM-4736/4774/4808/4828
+false-green class. Under strict, any un-exercised source is a coverage gap, not a
+prerequisite, and the cross-SDK equality test refuses to "pass" over a subset.
 """
 
 from __future__ import annotations
@@ -179,13 +182,17 @@ def _node_enforcement_modes() -> frozenset[str]:
     consumer sees.
     """
     sdk_dir = _require_sdk_dir("node-sdk")
+    # These post-resolution prerequisites route through the strict-aware `_stop`
+    # (AAASM-4828, completing AAASM-4808): once the node SDK source *is* resolved,
+    # a missing toolchain / unbuilt `dist/` / failed public import is no longer a
+    # local-only prerequisite under strict — the verify harness materializes and
+    # builds the SDK, so under `AASM_VERIFY_STRICT=1` any of these means node
+    # parity was never verified. A bare `pytest.skip` here reads as *justified* to
+    # the skip-audit, so strict CI would go green having verified no node parity.
     if shutil.which("node") is None:
-        pytest.skip("[node-sdk] node toolchain not available")
+        _stop("node-sdk", "node toolchain not available")
     if not os.path.isdir(os.path.join(sdk_dir, "dist")):
-        pytest.skip(
-            "[node-sdk] dist/ not built — run `pnpm build` in node-sdk "
-            "(classification: known_prerequisite)"
-        )
+        _stop("node-sdk", "dist/ not built — run `pnpm build` in node-sdk")
 
     # Resolve the package by name so the `exports` map governs the import,
     # exactly as a downstream consumer would `import { ENFORCEMENT_MODES }`.
@@ -202,10 +209,14 @@ def _node_enforcement_modes() -> frozenset[str]:
         check=False,
     )
     if result.returncode != 0:
-        pytest.skip(
-            "[node-sdk] could not import @agent-assembly/sdk — "
-            "classification: known_prerequisite "
-            f"(node_modules not linked?)\nstderr: {result.stderr.strip()}"
+        # The dangerous path (AAASM-4828): a resolvable node SDK whose *public*
+        # `import('@agent-assembly/sdk')` fails means the exports-map contract was
+        # never exercised. Under strict this is a coverage gap, not a prerequisite,
+        # so it must fail — not green-skip via a skip-audit-justified reason.
+        _stop(
+            "node-sdk",
+            f"could not import @agent-assembly/sdk (node_modules not linked?): "
+            f"{result.stderr.strip()}",
         )
 
     modes = json.loads(result.stdout)
@@ -269,8 +280,12 @@ def test_enforcement_modes_match_across_sdks() -> None:
 
     This is the load-bearing cross-SDK assertion: even if every SDK individually
     matched the canonical set in the per-SDK tests above, this test guards the
-    pairwise equality directly across whichever SDKs are present. Each absent SDK
-    is skipped individually; the comparison runs over the SDKs that resolved.
+    pairwise equality directly across whichever SDKs are present. In a normal run
+    each absent SDK is skipped individually and the comparison runs over the SDKs
+    that resolved; **under strict (``AASM_VERIFY_STRICT=1``) a skipped SDK is a
+    coverage gap** — the equality would otherwise "pass" over a subset (e.g.
+    python+go only) while node parity was never verified (the AAASM-4828 residual
+    of the AAASM-4808 false-green class), so any skip fails the test instead.
     """
     discovered: dict[str, frozenset[str]] = {}
 
@@ -282,7 +297,15 @@ def test_enforcement_modes_match_across_sdks() -> None:
         try:
             discovered[name] = probe()
         except pytest.skip.Exception:
-            # That SDK/toolchain is absent — skip it, keep comparing the rest.
+            if _strict_mode():
+                # Don't silently drop an SDK under strict: a subset comparison is
+                # a false green — the missing SDK's parity was never verified.
+                pytest.fail(
+                    f"[{name}] enforcement-mode probe skipped under "
+                    f"{STRICT_ENV_VAR}=1 — cross-SDK parity cannot be verified over "
+                    f"a subset (AAASM-4828/4808 false-green guard)"
+                )
+            # Non-strict: that SDK/toolchain is absent — skip it, compare the rest.
             continue
 
     if not discovered:
