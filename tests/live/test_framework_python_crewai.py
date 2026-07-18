@@ -76,7 +76,7 @@ CREWAI_PY314_SKIP_REASON = (
     "raises pydantic.v1.errors.ConfigError "
     '("unable to infer type for attribute chroma_server_nofile"). Install a '
     "crewai/chromadb release that supports this Python to run this cell "
-    "(AAASM-3533)."
+    "(classification: known_prerequisite)."
 )
 
 

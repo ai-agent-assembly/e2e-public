@@ -9,7 +9,8 @@ artifacts (AAASM-3951) must agree on — **without** needing a published release
 network beyond fetching the script.
 
 Network is required only to fetch the installer once; if that fails the whole
-module skips with a justified reason (names AAASM-3955), never a silent gap.
+module skips with a justified reason (a ``classification:`` env tag — these are
+environment prerequisites, not a masked defect), never a silent gap.
 """
 
 from __future__ import annotations
@@ -31,13 +32,19 @@ RAW_INSTALLER_URL = (
 def installer(tmp_path_factory: pytest.TempPathFactory):
     """Fetch the canonical installer once; skip the module if unreachable."""
     if shutil.which("sh") is None:
-        pytest.skip("POSIX sh unavailable — required for installer logic tests (AAASM-3955)")
+        pytest.skip(
+            "POSIX sh unavailable — required for installer logic tests "
+            "(classification: known_prerequisite)"
+        )
     dest = tmp_path_factory.mktemp("installer") / "install-cli.sh"
     try:
         with urllib.request.urlopen(RAW_INSTALLER_URL, timeout=30) as resp:
             dest.write_bytes(resp.read())
     except (urllib.error.URLError, TimeoutError) as exc:  # pragma: no cover - network
-        pytest.skip(f"installer source unreachable ({exc}); network prerequisite — AAASM-3955")
+        pytest.skip(
+            f"installer source unreachable ({exc}); "
+            "network prerequisite (classification: external_flake)"
+        )
     return dest
 
 
