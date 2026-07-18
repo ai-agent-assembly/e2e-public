@@ -39,14 +39,16 @@ record-but-allow" is a server-side concept (the gateway returns
 ``denied: false`` and records the event); there is no client-side observe
 behavior to assert here, so this module intentionally does not test one.
 
-Live core (gated by AAASM-3021)
--------------------------------
-A true end-to-end deny from a real gateway cannot be exercised yet: the shipped
-SDK's ``createClient`` returns ``createNoopGatewayClient`` and never calls the
-gRPC ``checkAction``, so a live core can never produce a client-visible deny
-(AAASM-3021). The ``test_node_live_core_deny_blocks_tool`` placeholder records
-that gap as ``xfail`` so it never produces a false green and flips to ``XPASS``
-the day the SDK wires ``check()`` to the gRPC path.
+Live core (flip-gated on AAASM-3172)
+------------------------------------
+A true end-to-end deny from a real gateway cannot be exercised in this repo yet.
+The wiring fix — making ``createClient`` call the gRPC ``checkAction`` instead of
+returning ``createNoopGatewayClient`` — has landed (AAASM-3021, Done); what is
+missing here is a *published*/built node-sdk to prove it. The
+``test_node_live_core_deny_blocks_tool`` placeholder records that boundary as an
+``xfail(strict=True)`` pinned on the open flip gate **AAASM-3172**, so it never
+produces a false green and flips to ``XPASS`` the day a wired SDK reaches this
+environment.
 
 The package is installed from the sibling ``../node-sdk`` checkout (built via
 ``pnpm build`` if its committed ``dist/`` is stale) into an isolated temporary
@@ -291,8 +293,9 @@ def test_node_wrapper_enforces_deny_and_allow(node_sdk_project: Path) -> None:
 # The same deny driven by a *real* gateway over the SDK's native transport. This
 # cannot pass yet: the shipped createClient returns createNoopGatewayClient and
 # never calls the gRPC checkAction, so a live core's deny is invisible to the
-# client (AAASM-3021). Marked xfail so it is never a false green and surfaces as
-# XPASS the day the SDK wires check() to the gRPC path — the cue to assert hard.
+# client. The wiring fix landed (AAASM-3021, Done); the live proof is flip-gated
+# on a published SDK release (AAASM-3172). Marked xfail so it is never a false
+# green and surfaces as XPASS the day a wired SDK reaches this env.
 _LIVE_CORE_DENY_SCRIPT = textwrap.dedent("""\
     import {
       initAssembly,
@@ -334,22 +337,24 @@ _LIVE_CORE_DENY_SCRIPT = textwrap.dedent("""\
 @pytest.mark.sdk
 @pytest.mark.xfail(
     reason=(
-        "AAASM-3021: the shipped SDK's createClient returns createNoopGatewayClient "
-        "and never calls the gRPC checkAction, so a live core's deny is invisible to "
-        "the client. The wrapper sees { denied: false } and the tool runs. This flips "
-        "to XPASS once the SDK wires check() to the gRPC path — then drop the marker "
-        "and assert against a real aa-core."
+        "AAASM-3172: flip-gated on a published SDK release that wires the shipped "
+        "createClient's check() to the gRPC checkAction. That product fix landed "
+        "(AAASM-3021, Done), but this environment builds no live node-sdk to prove "
+        "it, so a live core's deny cannot be exercised end-to-end here. strict=True "
+        "so the day a wired SDK is present this XPASSes loudly and forces its own "
+        "removal (do not re-point to the Done AAASM-3021)."
     ),
-    strict=False,
+    strict=True,
     raises=AssertionError,
 )
 def test_node_live_core_deny_blocks_tool(node_sdk_project: Path) -> None:
     """Placeholder for a real-gateway deny over the SDK's native transport.
 
     With no client injected, ``createClient`` falls back to the no-op client, so
-    no live-core deny ever reaches the wrapper (AAASM-3021). The deny assertion
-    therefore fails today; ``xfail(strict=False)`` keeps it an honest signal —
-    never a fabricated pass, and an ``XPASS`` flag once the gRPC path is wired.
+    no live-core deny ever reaches the wrapper. The underlying wiring fix
+    (AAASM-3021) has landed; the live proof is gated on a published SDK release
+    (AAASM-3172). ``xfail(strict=True)`` keeps it an honest signal — never a
+    fabricated pass, and a loud ``XPASS`` the day a wired SDK reaches this env.
     """
     result = _run_node(node_sdk_project, _LIVE_CORE_DENY_SCRIPT)
     assert result.returncode == 0, (
