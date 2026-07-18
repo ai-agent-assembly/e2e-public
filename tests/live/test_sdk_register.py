@@ -15,9 +15,13 @@ The registration step is wired honestly against the transport gap recorded in
 ``GatewayClient`` speaks HTTP/REST, but the running gateway serves gRPC or an
 HTTP surface that does not mount the SDK's REST routes (those live in ``aa-api``,
 a library-only crate with no binary). So that test is marked
-``xfail(strict=True)`` against blocking ticket AAASM-4447: it never produces a
-false green, and the day a REST front door exists it ``XPASS``es and strict mode
-fails the run — forcing the marker's removal rather than letting the fix vanish.
+``xfail(strict=True)`` against the open tracking ticket AAASM-4464 (the
+quick-start SDK-register → dashboard E2E): it never produces a false green, and
+the day this harness drives the register path against a REST front door it
+``XPASS``es and strict mode fails the run — forcing the marker's removal rather
+than letting the fix vanish. The transport gap was first diagnosed as AAASM-2985
+and re-discovered as AAASM-4447 (both since closed); AAASM-4464 carries the
+still-open verification work forward.
 """
 
 from __future__ import annotations
@@ -135,10 +139,11 @@ def test_sdk_can_reach_live_gateway(live_gateway: LiveGateway) -> None:
 
 @pytest.mark.xfail(
     reason=(
-        "Transport gap (AAASM-4447, first diagnosed as AAASM-2985): the SDK "
-        "speaks HTTP/REST but the running aa-gateway serves gRPC / an HTTP "
-        "surface without the SDK's REST routes; those routes live in aa-api "
-        "which has no binary. See "
+        "AAASM-4464 (open) tracks the SDK register → dashboard E2E this asserts: "
+        "the SDK's HTTP/REST GatewayClient is driven at live_gateway (legacy-grpc), "
+        "which serves no REST routes — those live in aa-api. Historical context: "
+        "the transport gap was first diagnosed as AAASM-2985 and re-discovered as "
+        "AAASM-4447 (both since closed). See "
         "verification-reports/AAASM-2985-sdk-transport-investigation.md."
     ),
     strict=True,
@@ -147,13 +152,14 @@ def test_sdk_can_reach_live_gateway(live_gateway: LiveGateway) -> None:
 def test_sdk_registers_agent_against_live_gateway(live_gateway: LiveGateway) -> None:
     """Drive the real SDK ``register_agent()`` against the live gateway.
 
-    Expected to fail until an HTTP/REST front door for the SDK exists
-    (AAASM-4447; see the investigation note). ``strict=True`` is the forcing
-    function the AAASM-4477 audit adds: the assertion still fails today so it
-    xfails green, but the day AAASM-4447 lands the call succeeds, the test
-    ``XPASS``es, and strict mode turns that unexpected pass into a **failure** —
-    forcing this marker's removal instead of letting a silent fix go unnoticed
-    (the exact disappearance AAASM-2985/2989/3000 suffered).
+    Expected to fail until this harness drives the register path against an
+    HTTP/REST front door for the SDK (AAASM-4464, the open register→dashboard
+    E2E; see the investigation note). ``strict=True`` is the forcing function the
+    AAASM-4477 audit adds: the assertion still fails today so it xfails green, but
+    the day the register path succeeds the test ``XPASS``es, and strict mode turns
+    that unexpected pass into a **failure** — forcing this marker's removal
+    instead of letting a silent fix go unnoticed (the exact disappearance
+    AAASM-2985/2989/3000 suffered).
     """
     _require_sdk()
 
