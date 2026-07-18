@@ -29,20 +29,21 @@ so this test drives the real decision logic through the public API with a
 plain interceptor object — it does **not** reach into private/test-only
 internals to fabricate a green.
 
-The AAASM-3021 wiring gap (honest boundary)
--------------------------------------------
-In *production* this enforcement is presently dead code: ``init_assembly``
-hands adapters the ``GatewayClient``, which has **no** ``check_tool_start``
-method, so the callback falls through to *allow* regardless of policy. That
-end-to-end gap is tracked by **AAASM-3021**. We document it faithfully with an
-``xfail(strict=False)`` cell that exercises a ``GatewayClient``-shaped
-interceptor (no ``check_tool_start``) and shows the deny is silently dropped —
-rather than pretending it is enforced.
+The production-wiring boundary (flip-gated on AAASM-3172)
+--------------------------------------------------------
+Historically this enforcement was dead code: ``init_assembly`` handed adapters
+the ``GatewayClient``, which had **no** ``check_tool_start`` method, so the
+callback fell through to *allow* regardless of policy. That wiring fix has since
+landed (**AAASM-3021**, Done). What remains is proving it end-to-end against a
+*published* SDK release, which this repo cannot install here — so the
+``GatewayClient``-shaped cell stays an ``xfail(strict=True)`` pinned on the open
+flip gate **AAASM-3172**, and XPASSes loudly (forcing its own removal) the day a
+wired SDK reaches this environment.
 
-The true *live-core* deny (a running ``aa-core`` plus a deny-policy fixture)
-is out of scope for this in-process behavioral test: it is gated on AAASM-3021
-landing the wiring and on a deny-policy live fixture, and is reoriented under
-**AAASM-2989**. A ``skip`` placeholder marks that future coverage.
+The true *live-core* deny (a running ``aa-core`` plus a deny-policy fixture) is
+out of scope for this in-process behavioral test — it is a known_prerequisite
+covered by the ``tests/live/`` suite. A ``skip`` placeholder, also pinned on
+**AAASM-3172**, marks that boundary.
 
 The SDK is an optional dependency of this verification repo (install it from
 ``../python-sdk`` or PyPI ``agent-assembly``); every test SKIPs cleanly when
@@ -199,24 +200,26 @@ def test_pending_without_approval_blocks() -> None:
 
 @pytest.mark.sdk
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
-        "AAASM-3021: init_assembly wires adapters with the GatewayClient, which "
-        "has no check_tool_start, so on_tool_start falls through to allow and the "
-        "deny is never enforced end-to-end. This cell pins the gap until the "
-        "production wiring routes a real deny-capable interceptor."
+        "AAASM-3172: flip-gated on a published SDK release that carries the "
+        "AAASM-3021 pre-exec enforcement wiring. That product fix is Done in "
+        "source, but this environment installs no live python-sdk to prove it, "
+        "so the deny cannot be exercised end-to-end here. strict=True so the "
+        "day a wired SDK is present and the deny enforces, this XPASSes loudly "
+        "and forces its own removal (do not re-point to the Done AAASM-3021)."
     ),
 )
 def test_production_wiring_enforces_deny_xfail() -> None:
-    """XFAIL placeholder for the production wiring gap (AAASM-3021).
+    """XFAIL placeholder for the production wiring gap (flip-gated on AAASM-3172).
 
     The Tier-A cells above prove the *decision logic* enforces a deny via the
     public ``AssemblyCallbackHandler``. This cell asserts the stronger property
     that the *production-shaped* interceptor (no ``check_tool_start`` — the
     ``GatewayClient`` shape ``init_assembly`` actually injects) would also block
-    a tool. It currently falls through to allow, so the expected raise never
-    happens and the test xfails — faithfully marking the AAASM-3021 gap rather
-    than faking a pass.
+    a tool. The underlying wiring fix (AAASM-3021) has landed, but the live
+    proof is gated on a published SDK release (AAASM-3172); until then this
+    xfails faithfully rather than faking a pass.
     """
     _require_sdk()
 
@@ -230,10 +233,11 @@ def test_production_wiring_enforces_deny_xfail() -> None:
 @pytest.mark.sdk
 @pytest.mark.skip(
     reason=(
-        "Live-core deny is out of scope here: it requires a running aa-core with "
-        "a deny-policy fixture AND the AAASM-3021 wiring to route per-action "
-        "decisions through the adapter. Tracked alongside AAASM-2989 "
-        "(live-at-runtime reorientation); see module docstring."
+        "AAASM-3172: the end-to-end live-core deny is out of scope for this "
+        "in-process behavioral test — it requires a running aa-core with a "
+        "deny-policy fixture (a known_prerequisite covered by the tests/live/ "
+        "suite, not here). The per-action wiring it depended on has landed "
+        "(AAASM-3021, Done); the live proof stays flip-gated on AAASM-3172."
     )
 )
 def test_live_core_deny_blocks_governed_tool() -> None:

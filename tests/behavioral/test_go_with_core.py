@@ -41,13 +41,15 @@ documented here, not asserted as a distinct client-side branch.
 Tier-B — live-core deny (placeholder, ``live`` + ``xfail``)
 -----------------------------------------------------------
 A *true* end-to-end deny — driving the Go SDK's real ``GatewayClient.Check``
-against a running ``aa-gateway`` with a deny policy — is **not yet possible**.
-``assembly/gateway_client.go`` ``(*GatewayClient).Check`` is a stub: it opens
-``_, _ = c, request`` and discards the request, no ``GatewayTransport`` is ever
-constructed, and the generated gRPC ``CheckAction`` call is never invoked. Wiring
-the real transport is tracked by **AAASM-3021**; until it lands the live path is
-marked ``xfail`` so it documents the gap without hanging or failing CI. It also
-carries the ``live`` marker so the default suite (``-m 'not live'``) skips it.
+against a running ``aa-gateway`` with a deny policy — cannot be exercised in this
+repo yet. Wiring the real transport (replacing the ``(*GatewayClient).Check``
+stub with a ``GatewayTransport`` + gRPC ``CheckAction`` call) has landed
+(**AAASM-3021**, Done); what remains is a live gateway plus a built Go SDK to
+prove it. The live path is a strict ``xfail`` pinned on the open flip gate
+**AAASM-3172**, so it documents the boundary and XPASSes loudly once the deny is
+wired in — rather than a dead ``run=False`` doc that can never surface a
+regression. It also carries the ``live`` marker so the default suite
+(``-m 'not live'``) skips it.
 """
 
 from __future__ import annotations
@@ -341,23 +343,23 @@ def test_allow_decision_lets_inner_tool_run(acquisition: str) -> None:
 @pytest.mark.live
 @pytest.mark.xfail(
     reason=(
-        "Live-core deny is not yet wired: assembly/gateway_client.go "
-        "(*GatewayClient).Check is a stub (_, _ = c, request) with no "
-        "GatewayTransport constructed and the generated gRPC CheckAction never "
-        "called. Tracked by AAASM-3021."
+        "AAASM-3172: flip-gated on a published SDK release that wires the Go "
+        "SDK's (*GatewayClient).Check to a GatewayTransport + the generated gRPC "
+        "CheckAction. That product fix landed (AAASM-3021, Done), but this "
+        "placeholder has no live gateway + built Go SDK to prove it, so it fails "
+        "today. strict=True so it XPASSes loudly the day the live deny is wired "
+        "in (do not re-point to the Done AAASM-3021)."
     ),
-    run=False,
-    strict=False,
+    strict=True,
+    raises=AssertionError,
 )
 def test_live_core_deny_blocks_tool() -> None:
     """Placeholder for the true end-to-end deny against a running aa-gateway.
 
-    When AAASM-3021 wires the Go SDK's real ``GatewayClient.Check`` to a
-    ``GatewayTransport`` and the generated gRPC ``CheckAction`` call, this cell
-    should stand up ``aa-gateway`` with a deny policy and assert that the Go
-    SDK's *real* client (not an injected stub) blocks the tool. Until then it is
-    ``xfail(run=False)`` so it documents the gap without executing or hanging.
+    When AAASM-3172 flips this in — against a published SDK carrying the
+    AAASM-3021 wiring — this cell should stand up ``aa-gateway`` with a deny
+    policy and assert that the Go SDK's *real* client (not an injected stub)
+    blocks the tool. Until then it raises so it is a strict xfail pinned on the
+    open gate, not a dead ``run=False`` doc that can never surface a regression.
     """
-    raise AssertionError(  # pragma: no cover - never executed (run=False)
-        "live-core deny path is gated by AAASM-3021"
-    )
+    raise AssertionError("live-core deny path is flip-gated on AAASM-3172")
