@@ -129,7 +129,9 @@ def _require_sdk_dir(name: str) -> str:
     resolved = _resolve_sdk_dir(name)
     if resolved is not None:
         return resolved
-    _stop(
+    # `_stop` is NoReturn (raises pytest.fail/skip); `return` it so every path is
+    # an explicit return/raise rather than an implicit fall-through to None.
+    return _stop(
         name,
         f"SDK source not resolved — set {_SDK_DIR_ENV[name]} or clone {name} alongside this repo",
     )
