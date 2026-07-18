@@ -196,24 +196,29 @@ jobs:
   # opts the suite in for real, so this lane finally exercises the published
   # tap instead of collecting-and-skipping.
   #
-  # continue-on-error stays true, but for a different reason than before: this
-  # job only runs on schedule/workflow_dispatch (never pull_request), and
-  # nothing consumes its pass/fail (report-failure.sh, the issue-opener, is
-  # not wired to this workflow) — so it isn't gating anything today regardless
-  # of this flag. Homebrew installs on macOS CI runners also have a documented
-  # flakiness history in this org (see the `homebrew-tap-merge` skill /
-  # AAASM-2871 tap-trust workaround): a transient `brew` network/bottle
-  # failure shouldn't redden a scheduled run. The job's own status still
-  # surfaces a persistent failure for a human to see; it's just non-blocking.
+  # continue-on-error stays true so a red run never blocks, but a genuine
+  # regression is no longer merely a non-blocking yellow job: AAASM-4850 wires
+  # this lane's pass/fail into report-failure.sh (the `install`-area issue-opener),
+  # mirroring the scheduled public-stack lanes, so a real failure files/updates a
+  # tracked GitHub issue. The flag is kept because Homebrew installs on macOS CI
+  # runners have a documented flakiness history in this org (see the
+  # `homebrew-tap-merge` skill / AAASM-2871 tap-trust workaround): a transient
+  # `brew` network/bottle failure shouldn't redden a scheduled run, but it will
+  # still surface as an issue for a human to triage.
   # ---------------------------------------------------------------------------
   homebrew:
     permissions:
       contents: read
+      issues: write  # report-failure.sh opens/updates a GitHub issue on failure
     name: "homebrew"
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     timeout-minutes: 30
     continue-on-error: true
+    # Shared by the pytest run + the summarize step so the failure summary reads
+    # the same JSON report the run wrote.
+    env:
+      PYTEST_JSON: /tmp/pytest-report-install.json
     steps:
       - name: Checkout integration-tests repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -237,7 +242,34 @@ jobs:
           # AAASM-4834: the served installer (https://agent-assembly.com/install.sh,
           # AAASM-3948/ADR-014) is now live and honours the --install-dir /
           # AASM_INSTALL_DIR contract these tests use, so the previously-dark
-          # curl-installer lane is opted in here too. Non-blocking (continue-on-error
-          # above; no issue-opener wired to this workflow).
+          # curl-installer lane is opted in here too.
           AASM_CURL_INSTALLER_GATE: "1"
-        run: uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short
+        # Write a JSON report so the failure path below can summarize + open an
+        # issue, exactly like the scheduled public-stack lanes do.
+        run: |
+          uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short \
+            --json-report --json-report-file="$PYTEST_JSON"
+
+      # AAASM-4850: wire this lane's pass/fail into the issue-opener so a genuine
+      # regression is tracked, not just left as a non-blocking yellow job. The job
+      # stays continue-on-error (a transient macOS `brew` network/bottle failure
+      # shouldn't redden a scheduled run — see the block comment above), but a real
+      # failure now files/updates a GitHub issue for the `install` area.
+      - name: Summarize run on failure
+        if: failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/summarize-run.sh \
+            --area    install \
+            --mode    release \
+            --run-url "$RUN_URL" \
+            --output  /tmp/summary-install.json
+
+      - name: Report failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/report-failure.sh \
+            --summary /tmp/summary-install.json
