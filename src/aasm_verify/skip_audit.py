@@ -651,7 +651,9 @@ def _make_jira_resolver(base_url: str, email: str, token: str) -> JiraResolver:
             # failure isn't silently read as a clean "stale: 0". The message
             # carries only the ticket key + HTTP code (no secrets), safe to log.
             raise JiraResolverError(f"Jira returned HTTP {exc.code} for {ticket}") from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except OSError as exc:
+            # urllib.error.URLError and TimeoutError are both OSError subclasses,
+            # so a single OSError arm covers every connect/DNS/timeout failure.
             raise JiraResolverError(f"could not reach Jira to check {ticket}") from exc
         except (KeyError, ValueError, TypeError) as exc:
             # Unexpected/empty response shape — an unusable check, not a clean one.
@@ -671,78 +673,115 @@ def jira_resolver_from_env(environ: dict | None = None) -> JiraResolver | None:
     return _make_jira_resolver(url, email, token)
 
 
-def render_marker_audit(audit: MarkerAudit) -> str:
-    """Render a human-readable marker-audit report (markdown-flavored text)."""
-    out: list[str] = []
-    add = out.append
-    add("# Marker Audit (AAASM-4479)")
-    add("")
-    add(f"- markers found:                    {len(audit.markers)}")
-    add(f"- unreferenced (policy violations): {len(audit.unreferenced)}")
-    add(f"- rc-quarantine (rc_pending):       {len(audit.rc_quarantine)}")
+def _render_summary_block(audit: MarkerAudit) -> list[str]:
+    """Header + top-of-report count lines (including the Jira-checked branch)."""
+    lines = [
+        "# Marker Audit (AAASM-4479)",
+        "",
+        f"- markers found:                    {len(audit.markers)}",
+        f"- unreferenced (policy violations): {len(audit.unreferenced)}",
+        f"- rc-quarantine (rc_pending):       {len(audit.rc_quarantine)}",
+    ]
     if audit.jira_checked:
-        add(f"- stale (ticket Done/Closed):       {len(audit.stale_markers)}")
+        lines.append(f"- stale (ticket Done/Closed):       {len(audit.stale_markers)}")
         if audit.unresolved_markers:
-            add(
+            lines.append(
                 f"- UNABLE TO VERIFY:                  {len(audit.unresolved_markers)} "
                 "ticket(s) — Jira status NOT checked (do NOT read 'stale' as clean)"
             )
     else:
-        add(
+        lines.append(
             "- stale (ticket Done/Closed):       not checked "
             "(offline — set AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN} to enable)"
         )
-    add("")
+    lines.append("")
+    return lines
 
-    add("## Unreferenced markers (policy violations)")
-    add(
-        "A skip/xfail with neither a tracking ticket nor an environment "
-        "requirement in its reason. Add an open AAASM-NNN ticket key, or justify "
-        "the env guard."
-    )
+
+def _render_unreferenced_section(audit: MarkerAudit) -> list[str]:
+    lines = [
+        "## Unreferenced markers (policy violations)",
+        (
+            "A skip/xfail with neither a tracking ticket nor an environment "
+            "requirement in its reason. Add an open AAASM-NNN ticket key, or justify "
+            "the env guard."
+        ),
+    ]
     if not audit.unreferenced:
-        add(_EMPTY_SECTION_LINE)
-    for m in audit.unreferenced:
-        add(f"- {m.path}:{m.lineno} [{m.kind}] {m.reason or '<no reason>'}")
-    add("")
-
-    add("## rc-quarantine registry (rc_pending)")
-    add(
-        "Assertions that are correct but blocked on an rc-pending upstream fix — "
-        "visible-but-non-blocking. Single source of truth for AAASM-4476/4477/4478."
+        lines.append(_EMPTY_SECTION_LINE)
+    lines.extend(
+        f"- {m.path}:{m.lineno} [{m.kind}] {m.reason or '<no reason>'}" for m in audit.unreferenced
     )
+    lines.append("")
+    return lines
+
+
+def _render_rc_quarantine_section(audit: MarkerAudit) -> list[str]:
+    lines = [
+        "## rc-quarantine registry (rc_pending)",
+        (
+            "Assertions that are correct but blocked on an rc-pending upstream fix — "
+            "visible-but-non-blocking. Single source of truth for AAASM-4476/4477/4478."
+        ),
+    ]
     if not audit.rc_quarantine:
-        add(_EMPTY_SECTION_LINE)
+        lines.append(_EMPTY_SECTION_LINE)
     for m in audit.rc_quarantine:
         ticket = m.ticket or "<NO TICKET — policy violation>"
-        add(f"- {m.path}:{m.lineno} → {ticket}: {m.reason or '<no reason>'}")
-    add("")
+        lines.append(f"- {m.path}:{m.lineno} → {ticket}: {m.reason or '<no reason>'}")
+    lines.append("")
+    return lines
 
-    add("## Stale markers (ticket already closed)")
+
+def _render_stale_section(audit: MarkerAudit) -> list[str]:
+    lines = ["## Stale markers (ticket already closed)"]
     if not audit.jira_checked:
-        add("- not checked (offline)")
+        lines.append("- not checked (offline)")
     elif not audit.stale_markers:
-        add(_EMPTY_SECTION_LINE)
+        lines.append(_EMPTY_SECTION_LINE)
     else:
-        for m in audit.stale_markers:
-            add(
-                f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket} is Done/Closed — "
-                "remove the marker (the defect it masked is fixed)"
-            )
-    add("")
+        lines.extend(
+            f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket} is Done/Closed — "
+            "remove the marker (the defect it masked is fixed)"
+            for m in audit.stale_markers
+        )
+    lines.append("")
+    return lines
 
-    add("## Unable to verify (Jira status not checkable)")
-    add(
-        "Markers whose ticket status could NOT be resolved (auth/network/protocol "
-        "error). This is distinct from a clean 'stale: 0' — do NOT read it as "
-        "all-clear; fix the Jira creds/connectivity and re-run."
-    )
+
+def _render_unable_to_verify_section(audit: MarkerAudit) -> list[str]:
+    lines = [
+        "## Unable to verify (Jira status not checkable)",
+        (
+            "Markers whose ticket status could NOT be resolved (auth/network/protocol "
+            "error). This is distinct from a clean 'stale: 0' — do NOT read it as "
+            "all-clear; fix the Jira creds/connectivity and re-run."
+        ),
+    ]
     if not audit.jira_checked:
-        add("- not checked (offline)")
+        lines.append("- not checked (offline)")
     elif not audit.unresolved_markers:
-        add(_EMPTY_SECTION_LINE)
+        lines.append(_EMPTY_SECTION_LINE)
     else:
-        for m in audit.unresolved_markers:
-            add(f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket}: status could not be verified")
-    add("")
+        lines.extend(
+            f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket}: status could not be verified"
+            for m in audit.unresolved_markers
+        )
+    lines.append("")
+    return lines
+
+
+def render_marker_audit(audit: MarkerAudit) -> str:
+    """Render a human-readable marker-audit report (markdown-flavored text).
+
+    Each report section is built by its own ``_render_*_section`` helper so this
+    entry point stays a flat concatenation (keeps cognitive complexity low —
+    AAASM-4850).
+    """
+    out: list[str] = []
+    out.extend(_render_summary_block(audit))
+    out.extend(_render_unreferenced_section(audit))
+    out.extend(_render_rc_quarantine_section(audit))
+    out.extend(_render_stale_section(audit))
+    out.extend(_render_unable_to_verify_section(audit))
     return "\n".join(out)
