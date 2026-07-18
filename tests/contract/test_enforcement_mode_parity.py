@@ -530,3 +530,124 @@ def test_unresolved_skip_reason_is_not_a_bare_greenlight(monkeypatch) -> None:
     # A local-dev skip is a genuine prerequisite gate — it should read as
     # justified (env var named + classification tag), NOT as a policy violation.
     assert skip_audit.is_justified(str(excinfo.value))
+
+
+# --------------------------------------------------------------------------- #
+# Node post-resolution guard (AAASM-4828 — completes AAASM-4808)
+# --------------------------------------------------------------------------- #
+#
+# AAASM-4808 routed *resolution* failure through the strict-aware `_stop`, but the
+# node probe's three post-resolution paths (toolchain absent, `dist/` unbuilt, and
+# the public `import('@agent-assembly/sdk')` failing) stayed bare `pytest.skip` —
+# so a resolvable-but-unexercisable node SDK still green-skipped under strict, and
+# the cross-SDK equality test swallowed that skip and "passed" over python+go
+# alone. These offline tests pin both halves of the fix.
+
+
+def _stub_node_env(monkeypatch, tmp_path, *, returncode: int) -> None:
+    """Make the node probe reach (and stop at) its subprocess-import step.
+
+    Resolves node-sdk to *tmp_path*, gives it a ``dist/`` and a fake ``node`` on
+    PATH so the toolchain/dist gates pass, then stubs ``subprocess.run`` to return
+    *returncode* — driving the ``import('@agent-assembly/sdk')`` failure path.
+    """
+    (tmp_path / "dist").mkdir()
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._resolve_sdk_dir",
+        lambda name: str(tmp_path),
+    )
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/bin/node")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a[0] if a else [], returncode, "", "Cannot find module '@agent-assembly/sdk'"
+        ),
+    )
+
+
+def test_node_import_failure_hard_fails_under_strict(monkeypatch, tmp_path) -> None:
+    """Under strict, a node public-import failure FAILS — it does not green-skip.
+
+    The AAASM-4828 residual: the `import('@agent-assembly/sdk')` failure path was a
+    bare, skip-audit-justified `pytest.skip`, so strict CI went green having never
+    exercised the node exports-map contract. It must now raise under strict.
+    """
+    _stub_node_env(monkeypatch, tmp_path, returncode=3)
+    monkeypatch.setenv(STRICT_ENV_VAR, "1")
+    with pytest.raises(pytest.fail.Exception):
+        _node_enforcement_modes()
+
+
+def test_node_import_failure_skips_justified_when_non_strict(monkeypatch, tmp_path) -> None:
+    """Outside strict, the same node import failure is a justified prerequisite skip."""
+    from aasm_verify import skip_audit
+
+    _stub_node_env(monkeypatch, tmp_path, returncode=3)
+    monkeypatch.delenv(STRICT_ENV_VAR, raising=False)
+    with pytest.raises(pytest.skip.Exception) as excinfo:
+        _node_enforcement_modes()
+    assert skip_audit.is_justified(str(excinfo.value))
+
+
+def test_node_missing_toolchain_hard_fails_under_strict(monkeypatch, tmp_path) -> None:
+    """Under strict, an absent node toolchain FAILS (was a bare, unclassified skip)."""
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._resolve_sdk_dir",
+        lambda name: str(tmp_path),
+    )
+    monkeypatch.setattr(shutil, "which", lambda _cmd: None)
+    monkeypatch.setenv(STRICT_ENV_VAR, "1")
+    with pytest.raises(pytest.fail.Exception):
+        _node_enforcement_modes()
+
+
+def test_equality_fails_under_strict_when_an_sdk_probe_skips(monkeypatch) -> None:
+    """Under strict, the cross-SDK equality refuses to pass over a subset.
+
+    Even when the SDKs that resolved agree, a node probe that skips means node
+    parity was never verified — so under strict the equality test fails rather
+    than green-passing over python+go alone (the AAASM-4828 equality half).
+    """
+
+    def _node_skips() -> frozenset[str]:
+        pytest.skip("[node-sdk] dist/ not built (classification: known_prerequisite)")
+
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._python_enforcement_modes",
+        lambda: CANONICAL_ENFORCEMENT_MODES,
+    )
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._node_enforcement_modes",
+        _node_skips,
+    )
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._go_enforcement_modes",
+        lambda: CANONICAL_ENFORCEMENT_MODES,
+    )
+    monkeypatch.setenv(STRICT_ENV_VAR, "1")
+    with pytest.raises(pytest.fail.Exception):
+        test_enforcement_modes_match_across_sdks()
+
+
+def test_equality_drops_skipped_sdk_when_non_strict(monkeypatch) -> None:
+    """Outside strict, a skipped SDK is dropped and the rest still compare (local dev)."""
+
+    def _node_skips() -> frozenset[str]:
+        pytest.skip("[node-sdk] dist/ not built (classification: known_prerequisite)")
+
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._python_enforcement_modes",
+        lambda: CANONICAL_ENFORCEMENT_MODES,
+    )
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._node_enforcement_modes",
+        _node_skips,
+    )
+    monkeypatch.setattr(
+        "tests.contract.test_enforcement_mode_parity._go_enforcement_modes",
+        lambda: CANONICAL_ENFORCEMENT_MODES,
+    )
+    monkeypatch.delenv(STRICT_ENV_VAR, raising=False)
+    # Node drops out; python+go remain and agree — no exception.
+    test_enforcement_modes_match_across_sdks()
