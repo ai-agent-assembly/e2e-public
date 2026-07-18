@@ -239,5 +239,7 @@ def test_real_tree_audit_is_offline_and_finds_markers() -> None:
     audit = skip_audit.audit_markers(tests_dir, root=tests_dir.parent)
     assert not audit.jira_checked
     assert len(audit.markers) > 0
-    # The AAASM-3021 xfail placeholder is a known, ticket-referenced marker.
-    assert any(m.ticket == "AAASM-3021" for m in audit.markers)
+    # The AAASM-3172 deny-enforcement xfail is a known, ticket-referenced marker
+    # (the behavioral deny xfails were re-pointed from the Done AAASM-3021 to the
+    # still-open gate AAASM-3172 in AAASM-4827).
+    assert any(m.ticket == "AAASM-3172" for m in audit.markers)
