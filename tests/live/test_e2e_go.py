@@ -100,10 +100,10 @@ def test_go_allow_path_event_session(live_runtime: LiveRuntime) -> None:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Go SDK→runtime deny enforcement is unprovable today: AAASM-3000 "
+        "AAASM-3172 (open flip-gate) tracks flipping this to a hard assert: "
+        "Go SDK→runtime deny enforcement is unprovable today because of AAASM-3000 "
         "(SDK⇄aa-runtime IPC deadlock) and AAASM-3021 (pre-execution Check() is a "
-        "no-op — `_, _ = c, request`). Flip to a hard assert via AAASM-3172 once "
-        "a fixed SDK release ships."
+        "no-op — `_, _ = c, request`). Flip once a fixed SDK release ships."
     ),
 )
 def test_go_deny_path_blocks_restricted_tool() -> None:

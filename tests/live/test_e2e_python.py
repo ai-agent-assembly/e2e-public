@@ -98,11 +98,11 @@ def test_python_allow_path_event_session(live_runtime: LiveRuntime) -> None:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "SDK→runtime deny enforcement is unprovable today: AAASM-3000 "
+        "AAASM-3172 (open flip-gate) tracks flipping this to a hard assert: "
+        "SDK→runtime deny enforcement is unprovable today because of AAASM-3000 "
         "(SDK⇄aa-runtime IPC deadlock — close() hangs, no events delivered) and "
         "AAASM-3021 (SDK pre-execution check() is unwired/stubbed, so a denied "
-        "action is not blocked at the SDK layer). Flip to a hard assert via "
-        "AAASM-3172 once a fixed SDK release ships."
+        "action is not blocked at the SDK layer). Flip once a fixed SDK release ships."
     ),
 )
 def test_python_deny_path_blocks_restricted_tool(live_runtime: LiveRuntime) -> None:

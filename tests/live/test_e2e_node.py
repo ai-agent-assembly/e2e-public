@@ -105,10 +105,11 @@ def test_node_allow_path_event_session(live_runtime: LiveRuntime) -> None:
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Node SDK→runtime deny enforcement is unprovable today: AAASM-3000 "
+        "AAASM-3172 (open flip-gate) tracks flipping this to a hard assert: "
+        "Node SDK→runtime deny enforcement is unprovable today because of AAASM-3000 "
         "(SDK⇄aa-runtime IPC deadlock) and AAASM-3021 (pre-execution check() "
-        "unwired — createNoopGatewayClient always returns denied:false). Flip to "
-        "a hard assert via AAASM-3172 once a fixed SDK release ships."
+        "unwired — createNoopGatewayClient always returns denied:false). Flip once "
+        "a fixed SDK release ships."
     ),
 )
 def test_node_deny_path_blocks_restricted_tool() -> None:

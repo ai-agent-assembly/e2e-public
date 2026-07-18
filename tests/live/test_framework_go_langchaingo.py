@@ -156,12 +156,13 @@ def test_wraptools_allow_path_governs_generic_agent(live_runtime: LiveRuntime) -
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Go framework deny enforcement is unprovable today: AAASM-3000 "
+        "AAASM-3172 (open flip-gate) tracks flipping this to a hard assert: "
+        "Go framework deny enforcement is unprovable today because of AAASM-3000 "
         "(SDK⇄aa-runtime IPC deadlock) and AAASM-3021 (Go SDK pre-execution "
         "Check() is a no-op — `_, _ = c, request`), so a denied tool a real "
-        "LangChainGo agent calls is not blocked at the SDK boundary. Flip to a "
-        "hard assert via AAASM-3172 once a fixed SDK release ships. Budget/egress "
-        "deny assertions are deferred to the same flip."
+        "LangChainGo agent calls is not blocked at the SDK boundary. Flip once a "
+        "fixed SDK release ships. Budget/egress deny assertions are deferred to "
+        "the same flip."
     ),
 )
 def test_langchaingo_deny_path_blocks_restricted_tool() -> None:
