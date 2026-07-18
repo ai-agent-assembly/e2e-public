@@ -245,9 +245,26 @@ JIRA_URL_ENV: str = "AASM_VERIFY_JIRA_URL"
 JIRA_EMAIL_ENV: str = "AASM_VERIFY_JIRA_EMAIL"
 JIRA_TOKEN_ENV: str = "AASM_VERIFY_JIRA_TOKEN"
 
-# A resolver maps a ticket key to its current Jira status name (or ``None`` when
-# it can't be determined). Injectable so the audit is testable offline.
+# A resolver maps a ticket key to its current Jira status name. It returns
+# ``None`` only for a genuine "ticket not found" (a 404 — the key in a marker
+# reason simply doesn't exist), which is never fatal. When the status *couldn't
+# be checked at all* — an auth/network/protocol failure — it raises
+# :class:`JiraResolverError` instead, so a wholesale credential/site failure can
+# never masquerade as a clean "stale: 0". Injectable so the audit is testable
+# offline.
 JiraResolver = Callable[[str], "str | None"]
+
+
+class JiraResolverError(Exception):
+    """The Jira status of a ticket could not be determined (auth/network/protocol
+    failure), as opposed to a genuine "ticket not found".
+
+    This distinction is the whole point: treating an *unable-to-check* result the
+    same as *checked-and-clean* is what let ``markers --check-jira --strict`` pass
+    green with wrong/expired creds, reporting "stale: 0" indistinguishably from a
+    real all-clear. A per-ticket 404 stays never-fatal; a resolver failure — and
+    especially a *wholesale* one — is surfaced loudly.
+    """
 
 
 @dataclass(frozen=True)
@@ -468,13 +485,56 @@ def collect_markers(tests_dir: str | Path, root: str | Path | None = None) -> li
 
 
 def stale_tickets(tickets: object, resolver: JiraResolver) -> frozenset[str]:
-    """Return the subset of *tickets* whose Jira status is Done/Closed/etc."""
-    found: set[str] = set()
-    for ticket in sorted(set(tickets)):  # type: ignore[arg-type]
-        status = resolver(ticket)
+    """Return the subset of *tickets* whose Jira status is Done/Closed/etc.
+
+    Convenience wrapper over :func:`resolve_ticket_statuses` that discards the
+    unresolved partition; it still raises :class:`JiraResolverError` on a
+    wholesale resolver failure so a "couldn't check anything" run is never read as
+    an empty (clean) stale set.
+    """
+    stale, _unresolved = resolve_ticket_statuses(tickets, resolver)
+    return stale
+
+
+def resolve_ticket_statuses(
+    tickets: object, resolver: JiraResolver
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Resolve each ticket's Jira status, partitioning into ``(stale, unresolved)``.
+
+    * *stale* — status is Done/Closed/etc. (the marker's defect is fixed; remove it).
+    * *unresolved* — the resolver raised :class:`JiraResolverError` for that ticket
+      (auth/network/protocol failure — it *couldn't be checked*). This is kept
+      distinct from "checked, clean" so a resolver failure is never silently
+      counted as "not stale".
+
+    A genuine "ticket not found" (resolver returns ``None``) is neither stale nor
+    unresolved — it stays never-fatal, exactly as before.
+
+    A **wholesale** failure — every ticket that was attempted errored, and at least
+    one was attempted — raises :class:`JiraResolverError`. That is the wrong /
+    expired / wrong-site-creds case: it means the check itself was unusable, not
+    that every marker is open, so it must fail loudly rather than report an empty
+    stale set as if all-clear.
+    """
+    ordered = sorted(set(tickets))  # type: ignore[arg-type]
+    stale: set[str] = set()
+    unresolved: set[str] = set()
+    for ticket in ordered:
+        try:
+            status = resolver(ticket)
+        except JiraResolverError:
+            unresolved.add(ticket)
+            continue
         if status and status.strip().lower() in _DONE_STATUSES:
-            found.add(ticket)
-    return frozenset(found)
+            stale.add(ticket)
+    if ordered and len(unresolved) == len(ordered):
+        raise JiraResolverError(
+            f"Jira status check failed for all {len(ordered)} ticket(s): the "
+            "check could not be performed (unreachable or misconfigured Jira — "
+            "verify AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN}). Refusing to report a "
+            "clean 'stale: 0' result that could not actually be verified."
+        )
+    return frozenset(stale), frozenset(unresolved)
 
 
 @dataclass
@@ -483,6 +543,10 @@ class MarkerAudit:
 
     markers: list[Marker]
     stale: frozenset[str] = field(default_factory=frozenset)
+    # Tickets whose Jira status could not be checked (auth/network/protocol
+    # error). Kept apart from ``stale`` so an unverifiable run is never rendered
+    # as a clean "stale: 0".
+    unresolved: frozenset[str] = field(default_factory=frozenset)
     jira_checked: bool = False
 
     @property
@@ -505,18 +569,29 @@ class MarkerAudit:
         """Markers whose referenced ticket is already closed (stale — remove them)."""
         return [m for m in self.markers if m.ticket in self.stale]
 
+    @property
+    def unresolved_markers(self) -> list[Marker]:
+        """Markers whose ticket status could NOT be checked (auth/network error).
+
+        Distinct from a clean stale set: their status is unknown, so treating the
+        run as all-clear would hide exactly what ``--check-jira`` exists to find.
+        """
+        return [m for m in self.markers if m.ticket in self.unresolved]
+
     def as_dict(self) -> dict:
         return {
             "markers": [m.as_dict() for m in self.markers],
             "unreferenced": [m.as_dict() for m in self.unreferenced],
             "rc_quarantine": [m.as_dict() for m in self.rc_quarantine],
             "stale": [m.as_dict() for m in self.stale_markers],
+            "unresolved": [m.as_dict() for m in self.unresolved_markers],
             "jira_checked": self.jira_checked,
             "counts": {
                 "markers": len(self.markers),
                 "unreferenced": len(self.unreferenced),
                 "rc_quarantine": len(self.rc_quarantine),
                 "stale": len(self.stale_markers),
+                "unresolved": len(self.unresolved_markers),
             },
         }
 
@@ -531,17 +606,27 @@ def audit_markers(
     When *resolver* is None the audit is fully offline: markers + refs + no-ref
     flags only, no stale check. Pass a resolver (see :func:`jira_resolver_from_env`)
     to additionally flag markers pinned to already-closed tickets.
+
+    Raises :class:`JiraResolverError` when a resolver is supplied but the Jira
+    status of *every* ticketed marker fails to resolve — a wholesale failure is
+    surfaced loudly rather than reported as a clean (empty) stale set.
     """
     markers = collect_markers(tests_dir, root)
     stale: frozenset[str] = frozenset()
+    unresolved: frozenset[str] = frozenset()
     if resolver is not None:
-        stale = stale_tickets({m.ticket for m in markers if m.ticket}, resolver)
-    return MarkerAudit(markers=markers, stale=stale, jira_checked=resolver is not None)
+        stale, unresolved = resolve_ticket_statuses(
+            {m.ticket for m in markers if m.ticket}, resolver
+        )
+    return MarkerAudit(
+        markers=markers, stale=stale, unresolved=unresolved, jira_checked=resolver is not None
+    )
 
 
 def _make_jira_resolver(base_url: str, email: str, token: str) -> JiraResolver:
     """Build a resolver that queries the Jira REST API for an issue's status name."""
     import base64
+    import urllib.error
     import urllib.request
 
     auth = base64.b64encode(f"{email}:{token}".encode()).decode()
@@ -556,8 +641,21 @@ def _make_jira_resolver(base_url: str, email: str, token: str) -> JiraResolver:
             with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
                 payload = json.loads(resp.read().decode("utf-8"))
             return payload["fields"]["status"]["name"]
-        except Exception:  # network/auth/shape errors → unknown status, never fatal
-            return None
+        except urllib.error.HTTPError as exc:
+            # A genuine "ticket not found" (404) is never fatal — the key in a
+            # marker reason simply doesn't exist; report it as unknown status.
+            if exc.code == 404:
+                return None
+            # Auth (401/403), rate-limit, or server error means the status
+            # COULDN'T be checked — surface it so a wholesale credential/site
+            # failure isn't silently read as a clean "stale: 0". The message
+            # carries only the ticket key + HTTP code (no secrets), safe to log.
+            raise JiraResolverError(f"Jira returned HTTP {exc.code} for {ticket}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise JiraResolverError(f"could not reach Jira to check {ticket}") from exc
+        except (KeyError, ValueError, TypeError) as exc:
+            # Unexpected/empty response shape — an unusable check, not a clean one.
+            raise JiraResolverError(f"unexpected Jira response for {ticket}") from exc
 
     return resolve
 
@@ -584,15 +682,24 @@ def render_marker_audit(audit: MarkerAudit) -> str:
     add(f"- rc-quarantine (rc_pending):       {len(audit.rc_quarantine)}")
     if audit.jira_checked:
         add(f"- stale (ticket Done/Closed):       {len(audit.stale_markers)}")
+        if audit.unresolved_markers:
+            add(
+                f"- UNABLE TO VERIFY:                  {len(audit.unresolved_markers)} "
+                "ticket(s) — Jira status NOT checked (do NOT read 'stale' as clean)"
+            )
     else:
-        add("- stale (ticket Done/Closed):       not checked "
-            "(offline — set AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN} to enable)")
+        add(
+            "- stale (ticket Done/Closed):       not checked "
+            "(offline — set AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN} to enable)"
+        )
     add("")
 
     add("## Unreferenced markers (policy violations)")
-    add("A skip/xfail with neither a tracking ticket nor an environment "
+    add(
+        "A skip/xfail with neither a tracking ticket nor an environment "
         "requirement in its reason. Add an open AAASM-NNN ticket key, or justify "
-        "the env guard.")
+        "the env guard."
+    )
     if not audit.unreferenced:
         add(_EMPTY_SECTION_LINE)
     for m in audit.unreferenced:
@@ -600,8 +707,10 @@ def render_marker_audit(audit: MarkerAudit) -> str:
     add("")
 
     add("## rc-quarantine registry (rc_pending)")
-    add("Assertions that are correct but blocked on an rc-pending upstream fix — "
-        "visible-but-non-blocking. Single source of truth for AAASM-4476/4477/4478.")
+    add(
+        "Assertions that are correct but blocked on an rc-pending upstream fix — "
+        "visible-but-non-blocking. Single source of truth for AAASM-4476/4477/4478."
+    )
     if not audit.rc_quarantine:
         add(_EMPTY_SECTION_LINE)
     for m in audit.rc_quarantine:
@@ -616,7 +725,24 @@ def render_marker_audit(audit: MarkerAudit) -> str:
         add(_EMPTY_SECTION_LINE)
     else:
         for m in audit.stale_markers:
-            add(f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket} is Done/Closed — "
-                "remove the marker (the defect it masked is fixed)")
+            add(
+                f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket} is Done/Closed — "
+                "remove the marker (the defect it masked is fixed)"
+            )
+    add("")
+
+    add("## Unable to verify (Jira status not checkable)")
+    add(
+        "Markers whose ticket status could NOT be resolved (auth/network/protocol "
+        "error). This is distinct from a clean 'stale: 0' — do NOT read it as "
+        "all-clear; fix the Jira creds/connectivity and re-run."
+    )
+    if not audit.jira_checked:
+        add("- not checked (offline)")
+    elif not audit.unresolved_markers:
+        add(_EMPTY_SECTION_LINE)
+    else:
+        for m in audit.unresolved_markers:
+            add(f"- {m.path}:{m.lineno} [{m.kind}] {m.ticket}: status could not be verified")
     add("")
     return "\n".join(out)
