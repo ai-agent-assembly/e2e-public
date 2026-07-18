@@ -149,18 +149,24 @@ def test_prepare_area_artifacts_installs_aasm_for_runtime() -> None:
 def test_prepare_area_artifacts_installs_python_sdk_for_sdk() -> None:
     # AAASM-4770: the sdk area used to skip unconditionally because nothing
     # installed the python-sdk first. prepare_area_artifacts must invoke the
-    # python-sdk installer for the sdk area (and not for others). The installers
-    # are fully mocked so no real clone/install runs.
+    # python-sdk installer for the sdk area (and not for others). AAASM-4845: it
+    # must also expose the returned checkout via AASM_PYTHON_SDK_DIR so the
+    # cross-SDK parity probe resolves the Python source. The installers are fully
+    # mocked so no real clone/install runs.
     refs = ResolvedRefs(mode="latest", python_sdk="py-ref")
     with (
         mock.patch.object(runners.installers, "install_aasm_cli", return_value=None),
         mock.patch.object(runners.installers, "install_node_sdk", return_value=None),
         mock.patch.object(runners.installers, "install_go_sdk", return_value=None),
         mock.patch.object(runners.installers, "install_examples", return_value=None),
-        mock.patch.object(runners.installers, "install_python_sdk") as installer,
+        mock.patch.object(
+            runners.installers, "install_python_sdk", return_value="/fake/python-sdk"
+        ) as installer,
+        mock.patch.dict(runners.os.environ, {}, clear=False),
     ):
         runners.prepare_area_artifacts(refs, ["sdk"])
         installer.assert_called_once_with("py-ref")
+        assert runners.os.environ["AASM_PYTHON_SDK_DIR"] == "/fake/python-sdk"
 
         # An area selection without sdk must not trigger the python-sdk installer.
         installer.reset_mock()

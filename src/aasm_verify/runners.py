@@ -105,9 +105,10 @@ def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
     the workflow, and an area whose toolchain is genuinely absent stays skipped
     (unchanged) rather than hard-failing. Wires the ``runtime`` area (the ``aasm``
     CLI, exposed on ``PATH``), the ``sdk`` area (the ``python-sdk``
-    ``agent_assembly`` package installed into this interpreter, the built
-    ``node-sdk`` checkout exposed via ``AASM_NODE_SDK_DIR``, and the ``go-sdk``
-    checkout exposed via ``AASM_GO_SDK_DIR``), and the ``examples`` area (the
+    ``agent_assembly`` package installed into this interpreter and its checkout
+    exposed via ``AASM_PYTHON_SDK_DIR``, the built ``node-sdk`` checkout exposed
+    via ``AASM_NODE_SDK_DIR``, and the ``go-sdk`` checkout exposed via
+    ``AASM_GO_SDK_DIR``), and the ``examples`` area (the
     examples checkout, exposed via ``AASM_EXAMPLES_DIR``).
     """
     if refs.mode == "release":
@@ -118,8 +119,15 @@ def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
             os.environ["PATH"] = bindir + os.pathsep + os.environ.get("PATH", "")
     if "sdk" in areas:
         # Installs agent_assembly into this interpreter; the per-area pytest
-        # subprocess (same sys.executable) then imports it. No env var needed.
-        installers.install_python_sdk(refs.python_sdk)
+        # subprocess (same sys.executable) imports it — no env var needed for
+        # the import. But the strict cross-SDK parity probe
+        # (tests/contract/test_enforcement_mode_parity.py) parses the SDK
+        # *source* via AASM_PYTHON_SDK_DIR, so expose the checkout dir the same
+        # way node/go do or the Python side of the parity guard resolves to
+        # None (AAASM-4845).
+        python_dir = installers.install_python_sdk(refs.python_sdk)
+        if python_dir:
+            os.environ["AASM_PYTHON_SDK_DIR"] = python_dir
         # node-sdk: built pure-JS checkout, exposed via AASM_NODE_SDK_DIR so the
         # node smoke runs with its cwd inside the package and resolves
         # @agent-assembly/sdk by self-reference (AAASM-4774).
