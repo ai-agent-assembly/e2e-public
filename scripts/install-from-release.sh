@@ -12,7 +12,7 @@
 #   --go-sdk <version>       Go module version, e.g. v0.1.0 (optional)
 #   --repo <name>            Single repo mode: python-sdk | node-sdk | go-sdk
 #   --version <version>      Version for single-repo mode (used with --repo)
-#   --tmpdir <dir>           Working directory (default: /tmp/aa-release-test)
+#   --tmpdir <dir>           Working directory (default: a fresh `mktemp -d` dir)
 #   -h, --help               Show this help message
 #
 # Examples:
@@ -32,7 +32,16 @@ NODE_SDK_VERSION=""
 GO_SDK_VERSION=""
 SINGLE_REPO=""
 SINGLE_VERSION=""
-TMPDIR_ROOT="/tmp/aa-release-test"
+TMPDIR_ROOT=""
+
+# Package identifiers per language registry. Generated from
+# metadata/harness.yaml via scripts/generate_harness_metadata.py — do
+# not edit by hand.
+# BEGIN GENERATED: install-defaults-package-ids
+PYTHON_PACKAGE_NAME="agent-assembly"
+NODE_PACKAGE_NAME="@agent-assembly/sdk"
+GO_MODULE_PATH="github.com/ai-agent-assembly/go-sdk"
+# END GENERATED: install-defaults-package-ids
 
 usage() {
   sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# //' | sed 's/^#//'
@@ -68,39 +77,46 @@ parse_args() {
 log() { echo "[install-from-release] $*"; }
 
 install_python_sdk() {
-  local version="$1"
-  local venv_dir="${TMPDIR_ROOT}/python-sdk-${version}"
-  log "Installing agent-assembly==${version} from PyPI..."
+  local sdk_version="$1"
+  local venv_dir="${TMPDIR_ROOT}/python-sdk-${sdk_version}"
+  log "Installing ${PYTHON_PACKAGE_NAME}==${sdk_version} from PyPI..."
   python3 -m venv "$venv_dir"
-  "${venv_dir}/bin/pip" install --quiet "agent-assembly==${version}"
-  log "Python SDK installed: $("${venv_dir}/bin/pip" show agent-assembly | grep Version)"
+  "${venv_dir}/bin/pip" install --quiet "${PYTHON_PACKAGE_NAME}==${sdk_version}"
+  log "Python SDK installed: $("${venv_dir}/bin/pip" show "${PYTHON_PACKAGE_NAME}" | grep Version)"
 }
 
 install_node_sdk() {
-  local version="$1"
-  local work_dir="${TMPDIR_ROOT}/node-sdk-${version}"
-  log "Installing @agent-assembly/sdk@${version} from npm..."
+  local sdk_version="$1"
+  local work_dir="${TMPDIR_ROOT}/node-sdk-${sdk_version}"
+  log "Installing ${NODE_PACKAGE_NAME}@${sdk_version} from npm..."
   mkdir -p "$work_dir"
   cd "$work_dir"
-  npm install --silent "@agent-assembly/sdk@${version}"
-  log "Node SDK installed: $(node -e "console.log(require('./node_modules/@agent-assembly/sdk/package.json').version)")"
+  npm install --silent "${NODE_PACKAGE_NAME}@${sdk_version}"
+  log "Node SDK installed: $(node -e "console.log(require('./node_modules/${NODE_PACKAGE_NAME}/package.json').version)")"
   cd -
 }
 
 install_go_sdk() {
-  local version="$1"
-  local work_dir="${TMPDIR_ROOT}/go-sdk-${version}"
-  log "Installing github.com/ai-agent-assembly/go-sdk@${version}..."
+  local sdk_version="$1"
+  local work_dir="${TMPDIR_ROOT}/go-sdk-${sdk_version}"
+  log "Installing ${GO_MODULE_PATH}@${sdk_version}..."
   mkdir -p "$work_dir"
   cd "$work_dir"
   go mod init aa-release-test
-  go get "github.com/ai-agent-assembly/go-sdk@${version}"
-  log "Go SDK installed: $version"
+  go get "${GO_MODULE_PATH}@${sdk_version}"
+  log "Go SDK installed: $sdk_version"
   cd -
 }
 
 main() {
   parse_args "$@"
+
+  if [[ -z "$TMPDIR_ROOT" ]]; then
+    # No caller-supplied --tmpdir: mint a fresh, unpredictable dir instead of a
+    # fixed /tmp path, so there is nothing for a symlink/race to target
+    # (AAASM-4792/4812).
+    TMPDIR_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/aa-release-test.XXXXXX")"
+  fi
 
   mkdir -p "$TMPDIR_ROOT"
 

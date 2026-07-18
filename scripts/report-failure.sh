@@ -97,9 +97,11 @@ fi
 # is idempotent (--force) and must never abort the run: a missing label previously
 # caused `gh issue create` to exit 1 and fail the whole reporting step.
 ensure_label() {
-  local name="$1" color="$2" description="$3"
-  gh label create "$name" --repo "$REPO" --color "$color" --description "$description" --force \
-    >/dev/null 2>&1 || echo "warning: could not ensure label '$name' (continuing)" >&2
+  local label_name="$1"
+  local label_color="$2"
+  local label_description="$3"
+  gh label create "$label_name" --repo "$REPO" --color "$label_color" --description "$label_description" --force \
+    >/dev/null 2>&1 || echo "warning: could not ensure label '$label_name' (continuing)" >&2
 }
 ensure_label "$TEST_FAILURE_LABEL" "d73a4a" "Automated verification failure"
 ensure_label "scheduled-run" "0e8a16" "Filed by a scheduled verification run"

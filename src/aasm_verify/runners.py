@@ -21,6 +21,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 
+from aasm_verify import installers
 from aasm_verify.refs import ResolvedRefs
 
 # All selectable areas, in display order.
@@ -89,6 +90,51 @@ def _pytest_command(marker: str, json_report: str | None) -> list[str]:
     if json_report:
         cmd += ["--json-report", f"--json-report-file={json_report}"]
     return cmd
+
+
+def prepare_area_artifacts(refs: ResolvedRefs, areas: Sequence[str]) -> None:
+    """Install the artifacts the selected *areas* assert against (AAASM-4736).
+
+    The public pytest areas skip when their artifact is absent, so a run that
+    never installs anything goes green without exercising the product. This
+    installs what it can up front and exposes it on ``os.environ`` so each
+    per-area pytest subprocess (spawned by :func:`run_area` from a copy of
+    ``os.environ``) inherits it.
+
+    Best-effort and source-mode only: release mode installs published packages in
+    the workflow, and an area whose toolchain is genuinely absent stays skipped
+    (unchanged) rather than hard-failing. Wires the ``runtime`` area (the ``aasm``
+    CLI, exposed on ``PATH``), the ``sdk`` area (the ``python-sdk``
+    ``agent_assembly`` package installed into this interpreter, the built
+    ``node-sdk`` checkout exposed via ``AASM_NODE_SDK_DIR``, and the ``go-sdk``
+    checkout exposed via ``AASM_GO_SDK_DIR``), and the ``examples`` area (the
+    examples checkout, exposed via ``AASM_EXAMPLES_DIR``).
+    """
+    if refs.mode == "release":
+        return
+    if "runtime" in areas:
+        bindir = installers.install_aasm_cli(refs.agent_assembly)
+        if bindir:
+            os.environ["PATH"] = bindir + os.pathsep + os.environ.get("PATH", "")
+    if "sdk" in areas:
+        # Installs agent_assembly into this interpreter; the per-area pytest
+        # subprocess (same sys.executable) then imports it. No env var needed.
+        installers.install_python_sdk(refs.python_sdk)
+        # node-sdk: built pure-JS checkout, exposed via AASM_NODE_SDK_DIR so the
+        # node smoke runs with its cwd inside the package and resolves
+        # @agent-assembly/sdk by self-reference (AAASM-4774).
+        node_dir = installers.install_node_sdk(refs.node_sdk)
+        if node_dir:
+            os.environ["AASM_NODE_SDK_DIR"] = node_dir
+        # go-sdk: source checkout, exposed via AASM_GO_SDK_DIR so the Go smoke's
+        # source acquisition runs instead of skipping (AAASM-4774).
+        go_dir = installers.install_go_sdk(refs.go_sdk)
+        if go_dir:
+            os.environ["AASM_GO_SDK_DIR"] = go_dir
+    if "examples" in areas:
+        examples_dir = installers.install_examples(refs.examples)
+        if examples_dir:
+            os.environ["AASM_EXAMPLES_DIR"] = examples_dir
 
 
 def run_area(

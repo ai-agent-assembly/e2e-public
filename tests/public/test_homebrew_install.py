@@ -86,6 +86,47 @@ def test_homebrew_install_aasm() -> None:
     )
     assert version_result.stdout.strip(), f"[{COMPONENT_BREW}] aasm --version produced empty output"
 
+    # AAASM-4448: the formula must provide the FULL binary set a fresh install is
+    # supposed to ship, not just `aasm`. Assert `aa-gateway` is present and
+    # runnable so a formula that omits it (the AAASM-4448 defect) fails here
+    # instead of passing on the `aasm`-only check. This assertion is dormant
+    # until AASM_HOMEBREW_GATE=1 opts the file in; once the AAASM-4455 formula fix
+    # ships it must stay green in lockstep.
+    gateway_result = subprocess.run(
+        ["aa-gateway", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert gateway_result.returncode == 0, (
+        f"[{COMPONENT_BREW}] aa-gateway not installed/runnable after brew install "
+        f"(exit {gateway_result.returncode}) — formula is incomplete (AAASM-4448)\n"
+        f"stderr: {gateway_result.stderr.strip()}"
+    )
+
+
+@pytest.mark.release
+@pytest.mark.skipif(not _HOMEBREW_GATE, reason=_HOMEBREW_SKIP_REASON)
+def test_homebrew_installs_aa_api_server() -> None:
+    """The formula must also install ``aa-api-server`` (AAASM-4447/4449).
+
+    The full binary set a fresh Homebrew install should provide includes
+    ``aa-api-server`` (the SDK's REST front door). AAASM-4449 (the release
+    publishing the binary) and AAASM-4455 (the formula installing it) are both
+    Done, so this now asserts for real instead of quarantining behind
+    ``rc_pending``.
+    """
+    skip_if_binary_missing("brew")
+    result = subprocess.run(
+        ["aa-api-server", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"[{COMPONENT_BREW}] aa-api-server not installed/runnable after brew "
+        f"install (exit {result.returncode}) — binary not published (AAASM-4449)\n"
+        f"stderr: {result.stderr.strip()}"
+    )
+
 
 @pytest.mark.release
 @pytest.mark.skipif(not _HOMEBREW_GATE, reason=_HOMEBREW_SKIP_REASON)

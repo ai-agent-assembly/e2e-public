@@ -71,11 +71,18 @@ _GO_MOD_PROXY = textwrap.dedent("""\
 
 
 def _go_sdk_path() -> str | None:
-    """Return the local go-sdk directory if it exists next to this repo.
+    """Return the local go-sdk checkout directory, or None when none is available.
 
-    The checkout may live two or three directories up depending on whether the
-    tests run from the main repo or an isolated git worktree.
+    Prefers ``AASM_GO_SDK_DIR`` — the checkout the verify harness materializes
+    (AAASM-4774) so the source acquisition actually runs instead of skipping —
+    and falls back to a sibling ``../go-sdk`` checkout for the manual/local
+    workflow. The checkout may live two or three directories up depending on
+    whether the tests run from the main repo or an isolated git worktree. Either
+    must contain a ``go.mod`` to count.
     """
+    env_dir = os.environ.get("AASM_GO_SDK_DIR")
+    if env_dir and os.path.isfile(os.path.join(env_dir, "go.mod")):
+        return os.path.normpath(env_dir)
     here = os.path.dirname(os.path.abspath(__file__))
     for up in ("../../..", "../../../.."):
         resolved = os.path.normpath(os.path.join(here, up, "go-sdk"))
@@ -141,7 +148,7 @@ def _write_proxy_consumer(tmp: str) -> None:
     if result.returncode != 0:
         pytest.skip(
             f"[{COMPONENT}] go get from module proxy failed (offline or proxy "
-            f"unreachable)\nstderr: {result.stderr.strip()}"
+            f"unreachable) — classification: external_flake\nstderr: {result.stderr.strip()}"
         )
 
 

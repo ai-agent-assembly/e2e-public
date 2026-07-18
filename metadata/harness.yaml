@@ -1,0 +1,58 @@
+# Shared metadata source of truth for the integration-tests harness.
+#
+# This file drives generated blocks in scripts/install-from-*.sh,
+# scripts/resolve-refs.sh, and scripts/verify-public-stack.sh via
+# scripts/generate_harness_metadata.py.
+#
+# When the next SDK release changes tag naming, or the CLI subcommand
+# name changes, edit this file and re-run the generator — the harness's
+# install/verify shell scripts are updated in lockstep.
+#
+# AAASM-4337 — Wave-3 shared-metadata rollout.
+
+sdk_versions:
+  python: "0.0.1rc3"
+  node: "0.0.1-rc.3"
+  go: "v0.0.1-rc.3"
+
+release_channels:
+  stable_tag: "v0.0.1-rc.3"
+  branch: "master"
+
+urls:
+  agent_assembly_repo: "https://github.com/ai-agent-assembly/agent-assembly"
+  install_script: "https://agent-assembly.com/install.sh"
+  dashboard_smoke: "https://docs.agent-assembly.com/"
+
+# GitHub org that hosts every public Agent Assembly repo cloned by the
+# install-from-branch / install-from-tag helpers. Consumed by the
+# `install-defaults-github-org` sentinel block.
+github:
+  org: "ai-agent-assembly"
+
+# Package identifiers per language registry. Consumed by the
+# `install-defaults-package-ids` sentinel block in install-from-release.sh.
+# Version strings themselves stay caller-supplied — these fields only pin
+# the package NAME (pypi dist, npm scope, go module path).
+packages:
+  python_pypi: "agent-assembly"
+  node_npm: "@agent-assembly/sdk"
+  go_module: "github.com/ai-agent-assembly/go-sdk"
+
+# Public-stack verification CLI entrypoint. Consumed by the
+# `harness-verify-command` sentinel block in resolve-refs.sh and
+# verify-public-stack.sh. If the CLI subcommand is renamed, both wrappers
+# stay in lockstep automatically.
+verify_cli:
+  binary: "aasm-verify"
+  subcommand: "public"
+
+# Install-command templates for the docs / smoke matrix. These are
+# rendered but not yet consumed by any shell script (kept here so the
+# next wave — Wave-4 — can point the docs generator at the same SoT
+# without a schema change). See AAASM-4335 for the umbrella plan.
+install_commands:
+  python_uv: "uv add agent-assembly==0.0.1rc3"
+  python_pip: "pip install agent-assembly==0.0.1rc3"
+  node_pnpm: "pnpm add @agent-assembly/sdk@0.0.1-rc.3"
+  go_get: "go get github.com/ai-agent-assembly/go-sdk@v0.0.1-rc.3"

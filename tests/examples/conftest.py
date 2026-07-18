@@ -35,7 +35,7 @@ import pytest
 
 from tests.examples.manifest import FRAMEWORK_HEAVY_ENV_VAR, Example
 
-COMPONENT = "agent-assembly-examples"
+COMPONENT = "examples"
 
 # Directory / file names that are dependency or build artifacts. They are
 # stripped when copying an example so a clean run cannot reuse cached deps.
@@ -58,13 +58,13 @@ _ARTIFACT_NAMES: frozenset[str] = frozenset(
 
 
 def examples_repo_path() -> Path | None:
-    """Return the local ``agent-assembly-examples`` checkout, or ``None``.
+    """Return the local ``examples`` checkout, or ``None``.
 
     The repo is expected as a sibling of the integration-tests repo (the layout
     the public ``tests/public`` suite already assumes). Returns ``None`` when it
     is not present, so callers can emit a justified env skip.
     """
-    candidate = Path(__file__).resolve().parents[3] / "agent-assembly-examples"
+    candidate = Path(__file__).resolve().parents[3] / "examples"
     return candidate if (candidate / "README.md").is_file() else None
 
 
@@ -206,7 +206,7 @@ def require_clean_run_env(example: Example) -> Path:
     if src is None:
         pytest.skip(
             f"[{COMPONENT}] examples repo (or {example.rel_path}) not found — "
-            "clone https://github.com/ai-agent-assembly/agent-assembly-examples "
+            "clone https://github.com/ai-agent-assembly/examples "
             "alongside this repo to enable clean-env example runs"
         )
 
@@ -296,7 +296,8 @@ def validate_example_clean(example: Example, clean_dir: Path, env: dict[str, str
             pytest.skip(
                 f"[{COMPONENT}] {example.id} has no committed lockfile "
                 f"({', '.join(lockfiles)}) — `{' '.join(example.install_cmd)}` "
-                "cannot run; example-repo prerequisite, not a product failure"
+                "cannot run; example-repo prerequisite, not a product failure "
+                "(classification: known_prerequisite)"
             )
 
     if example.install_cmd:
@@ -318,7 +319,8 @@ def validate_example_clean(example: Example, clean_dir: Path, env: dict[str, str
     if run.returncode != example.expected_exit and _looks_like_env_failure(run.combined):
         pytest.skip(
             f"[{COMPONENT}] {example.id} run hit a network/registry error — "
-            f"skipping; not a product failure. exit {run.returncode}"
+            f"skipping; not a product failure. exit {run.returncode} "
+            "(classification: external_flake)"
         )
     assert run.returncode == example.expected_exit, (
         f"[{COMPONENT}] {example.id} clean run FAILED "

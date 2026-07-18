@@ -1,0 +1,237 @@
+name: Verify Release (Scheduled)
+
+# AAASM-4476 — a routine, unattended lane that installs the CURRENT production
+# release from its real public distribution channels and verifies against it,
+# on a cadence independent of whether a new release just happened. Fills the two
+# gaps the existing workflows leave:
+#
+#   1. Every other workflow tests source-built artifacts (git refs) — which by
+#      construction cannot observe packaging-time defects (a missing wheel, a
+#      missing npm platform package, a formula omission), because building from
+#      source skips the publish step where those defects live. Only a lane that
+#      installs the *published* package can. `verify-release.yml` does that, but
+#      only on a Release-publish event. This lane runs it on a schedule.
+#
+#   2. The repo had NO `pull_request` trigger at all — opening a PR ran nothing
+#      (see `.claude/CLAUDE.md`). This adds a cheap PR gate: the offline
+#      `aasm-verify` harness self-tests (`tests/test_*.py`), which pass today, so
+#      it is a real green gate, not a red-by-design one.
+#
+# Quarantine history (AAASM-4792): the registry/live jobs were originally
+# expected to go red for rc-pending defects (AAASM-4446 Python cp313 wheel,
+# AAASM-4467 npm platform package) until the next rc shipped. Both tickets are
+# now Done (2026-07-12/13) — unlike the homebrew job below, whose gate AAASM-4786
+# flipped on once its own blockers (AAASM-4455/4449) closed, these jobs' `if:`
+# gate has not yet been re-evaluated against a fresh rc (see the per-job
+# comments below for the current status of each deferred defect).
+# `continue-on-error` is not a valid key on a job that calls a reusable
+# workflow via `uses:` (GitHub's schema rejects it), so these jobs rely on
+# their `if:` gate instead — they only ever run on `schedule` /
+# `workflow_dispatch`, never `pull_request`, so a red run is visible but never
+# blocks a PR or counts as a required check. The green, required signal is the
+# harness self-test job only.
+
+on:
+  pull_request:
+  schedule:
+    # Daily 04:00 UTC — a regression in an already-shipped version (a wheel
+    # silently disappearing from a later re-index, a dist-tag pointing stale) is
+    # caught routinely, not only at the moment of publish.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # harness-self-tests — the ONLY green/required signal, and the repo's first
+  # real PR gate. Runs the offline `aasm-verify` harness unit tests
+  # (`tests/test_*.py`); these exercise the CLI/report/marker-audit logic with
+  # no network or product toolchain, so they pass reliably on every PR today.
+  # ---------------------------------------------------------------------------
+  harness-self-tests:
+    permissions:
+      contents: read
+    name: "harness self-tests (offline)"
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Run harness self-tests (offline, no product toolchain)
+        run: uv run --frozen pytest tests/test_*.py -q
+
+  # ---------------------------------------------------------------------------
+  # resolve-release-versions — dynamically resolve the CURRENT released version
+  # from the real distribution channels (GitHub Releases / PyPI / npm / Go
+  # proxy), so the release lane tracks whatever is actually live rather than a
+  # human-supplied dispatch input. The product version drives the release
+  # profile (a single version installs all SDKs, matching verify-release.yml);
+  # the per-registry versions are surfaced for observability.
+  # ---------------------------------------------------------------------------
+  resolve-release-versions:
+    permissions:
+      contents: read
+    name: "resolve current released version"
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      product_version: ${{ steps.resolve.outputs.product_version }}
+    steps:
+      - name: Resolve current released versions from real channels
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Latest agent-assembly GitHub Release tag, INCLUDING prereleases
+          # (the current line is an rc), i.e. the most-recently-created release.
+          TAG="$(curl -sSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ai-agent-assembly/agent-assembly/releases?per_page=1" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['tag_name'] if d else '')")"
+
+          # Current PyPI / npm / Go-proxy versions — recorded for the summary so a
+          # divergence (e.g. a stale dist-tag) is visible even though the release
+          # profile installs a single product version.
+          PY="$(curl -sSL https://pypi.org/pypi/agent-assembly/json \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" || echo "")"
+          NODE="$(curl -sSL https://registry.npmjs.org/@agent-assembly%2Fsdk/latest \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('version',''))" || echo "")"
+          GO="$(curl -sSL https://proxy.golang.org/github.com/agent-assembly/go-sdk/@latest \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('Version',''))" || echo "")"
+
+          # Strip a leading 'v' for the PyPI/npm-style product version, and scrub
+          # any stray newlines before writing to GITHUB_OUTPUT.
+          BARE="${TAG#v}"
+          BARE="${BARE//$'\n'/}"; BARE="${BARE//$'\r'/}"
+
+          {
+            printf 'product_version<<GH_DELIM\n%s\nGH_DELIM\n' "$BARE"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Resolved current released versions"
+            echo ""
+            echo "| Channel | Version |"
+            echo "|---|---|"
+            echo "| agent-assembly (GitHub Release tag) | ${TAG:-none} |"
+            echo "| product version (release profile input) | ${BARE:-none} |"
+            echo "| python-sdk (PyPI agent-assembly) | ${PY:-none} |"
+            echo "| node-sdk (npm @agent-assembly/sdk) | ${NODE:-none} |"
+            echo "| go-sdk (Go proxy) | ${GO:-none} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # release (QUARANTINED) — installs the published SDKs from PyPI/npm/Go proxy
+  # at the resolved current version and runs the strict release suite
+  # (`verify-profiles.yml` `release` sets AASM_VERIFY_STRICT=1). Originally
+  # expected red for AAASM-4446 (Python cp313 wheel) / AAASM-4467 (npm platform
+  # package) until the next rc shipped — both tickets are now Done (2026-07-12/
+  # 13, see the top-of-file quarantine-history note), but this job's `if:` gate
+  # has not yet been re-evaluated against a fresh rc, so it still only runs on
+  # schedule/workflow_dispatch (never pull_request) — see the top-of-file note
+  # on why `continue-on-error` isn't set here (invalid on a `uses:` job).
+  # ---------------------------------------------------------------------------
+  # AAASM-4446 status (AAASM-4792): the ticket is Done, but the forcing-function
+  # assertion this comment defers to, `test_python_sdk_native_binding_required`
+  # (tests/public/test_python_sdk.py), still carries an open `rc_pending`
+  # marker as of this writing (`uv run aasm-verify markers`) — so cp313 wheel
+  # availability is not yet confirmed live. Add the `python-version: "3.13"`
+  # matrix cell here once that marker actually xpasses and is removed, not
+  # from the ticket status alone.
+  release:
+    permissions:
+      contents: read
+    name: "release (quarantined — AAASM-4446/4467 Done, gate not yet re-evaluated)"
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: resolve-release-versions
+    uses: ./.github/workflows/verify-profiles.yml
+    with:
+      profile: release
+      release_version: ${{ needs.resolve-release-versions.outputs.product_version }}
+
+  # ---------------------------------------------------------------------------
+  # live (QUARANTINED) — builds + runs aa-gateway/aa-runtime and drives the SDKs
+  # against it (-m live). Folded into the routine schedule (previously
+  # dispatch-only). Quarantined for the same reasons as `release` above (see
+  # the top-of-file quarantine-history note); runs only on schedule/
+  # workflow_dispatch (never pull_request) — see the top-of-file note on why
+  # `continue-on-error` isn't set here (invalid on a `uses:` job).
+  # ---------------------------------------------------------------------------
+  live:
+    permissions:
+      contents: read
+    name: "live (quarantined)"
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/verify-profiles.yml
+    with:
+      profile: live
+
+  # ---------------------------------------------------------------------------
+  # homebrew (AAASM-4786) — runs tests/public/test_homebrew_install.py on a
+  # macos-latest runner (Homebrew preinstalled). Previously dark since
+  # inception (AAASM-4478): the gate was left off pending AAASM-4448, whose
+  # real fix tickets — AAASM-4455 (formula fix) and AAASM-4449 (aa-api-server
+  # release artifact) — are both Done (2026-07-13). AASM_HOMEBREW_GATE=1 below
+  # opts the suite in for real, so this lane finally exercises the published
+  # tap instead of collecting-and-skipping.
+  #
+  # continue-on-error stays true, but for a different reason than before: this
+  # job only runs on schedule/workflow_dispatch (never pull_request), and
+  # nothing consumes its pass/fail (report-failure.sh, the issue-opener, is
+  # not wired to this workflow) — so it isn't gating anything today regardless
+  # of this flag. Homebrew installs on macOS CI runners also have a documented
+  # flakiness history in this org (see the `homebrew-tap-merge` skill /
+  # AAASM-2871 tap-trust workaround): a transient `brew` network/bottle
+  # failure shouldn't redden a scheduled run. The job's own status still
+  # surfaces a persistent failure for a human to see; it's just non-blocking.
+  # ---------------------------------------------------------------------------
+  homebrew:
+    permissions:
+      contents: read
+    name: "homebrew"
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Checkout integration-tests repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        run: pip install uv --quiet
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Homebrew install verification
+        env:
+          # AAASM-4786: gate is now ON — both upstream blockers (AAASM-4455,
+          # AAASM-4449) are Done, so the tests run for real.
+          AASM_HOMEBREW_GATE: "1"
+        run: uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short

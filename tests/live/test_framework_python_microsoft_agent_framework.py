@@ -96,9 +96,10 @@ def test_microsoft_agent_framework_governance_path_is_wired() -> None:
     patch = MicrosoftAgentFrameworkPatch(_DenyInterceptor())
     assert patch.apply() is True, "Microsoft Agent Framework tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; tool.invoke throws
+        # Extract coroutine to ensure only the throwing call is in raises block
+        coro = tool.invoke(arguments={"query": "weather"})  # NOSONAR — setup before raises
         with pytest.raises(PolicyViolationError):
-            asyncio.run(tool.invoke(arguments={"query": "weather"}))
+            asyncio.run(coro)
         assert calls == [], "deny path let the Microsoft Agent Framework tool body execute"
     finally:
         patch.revert()
@@ -141,7 +142,7 @@ def test_microsoft_agent_framework_allow_path_runs_tool_through_live_runtime(
 
 # AAASM-3172 FLIP SITE: when a fixed SDK release ships (AAASM-3000 + AAASM-3021
 # resolved), drop this strict xfail and assert the denied tool is short-circuited.
-@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)
+@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)  # AAASM-3172
 def test_microsoft_agent_framework_deny_path_blocks_tool_through_live_runtime(
     live_runtime: LiveRuntime,
 ) -> None:
@@ -167,9 +168,10 @@ def test_microsoft_agent_framework_deny_path_blocks_tool_through_live_runtime(
     assert patch.apply() is True, "Microsoft Agent Framework tool hook did not install"
     tool, calls = _build_governed_tool()
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; tool.invoke throws
+        # Extract coroutine to ensure only the throwing call is in raises block
+        coro = tool.invoke(arguments={"query": "secret"})  # NOSONAR — setup before raises
         with pytest.raises(PolicyViolationError):
-            asyncio.run(tool.invoke(arguments={"query": "secret"}))
+            asyncio.run(coro)
         assert calls == [], "deny path let the tool body execute"
     finally:
         patch.revert()

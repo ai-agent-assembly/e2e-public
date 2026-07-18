@@ -53,6 +53,21 @@ def test_is_justified_true_for_env_requirement() -> None:
     assert skip_audit.is_justified("clone the examples repo alongside this one")
 
 
+def test_is_justified_true_for_known_prerequisite_classification() -> None:
+    # The repo's documented taxonomy: a self-tagged known_prerequisite /
+    # external_flake skip is a justified environment-conditional skip.
+    assert skip_audit.is_justified("aasm@1.2.3 not on PyPI — classification: known_prerequisite")
+    assert skip_audit.is_justified("GitHub API unreachable (classification: external_flake)")
+
+
+def test_is_justified_false_for_release_blocker_classification() -> None:
+    # release_blocker names a real defect — its classification alone must NOT
+    # justify a skip; it still needs a tracking ticket or env requirement.
+    assert not skip_audit.is_justified(
+        "binary reports wrong version — classification: release_blocker"
+    )
+
+
 def test_is_justified_false_for_bare_reason() -> None:
     assert not skip_audit.is_justified("temporarily disabled")
     assert not skip_audit.is_justified("just because")

@@ -1,4 +1,4 @@
-"""Smoke tests for the agent-assembly-examples repo."""
+"""Smoke tests for the examples repo."""
 
 from __future__ import annotations
 
@@ -6,20 +6,29 @@ import os
 
 import pytest
 
-COMPONENT = "agent-assembly-examples"
+COMPONENT = "examples"
 
 _EXAMPLES_SKIP_REASON = (
     f"[{COMPONENT}] examples repo not found next to this repo — "
-    "clone https://github.com/ai-agent-assembly/agent-assembly-examples alongside "
+    "clone https://github.com/ai-agent-assembly/examples alongside "
     "this repo to enable examples smoke tests"
 )
 
 
 def _examples_path() -> str | None:
-    """Return the local examples directory if it exists next to this repo."""
+    """Return the examples checkout directory, or None when none is available.
+
+    Prefers ``AASM_EXAMPLES_DIR`` — the path the verify harness materializes the
+    checkout at (AAASM-4770) so a run actually exercises the examples instead of
+    skipping — and falls back to a sibling ``../examples`` checkout for the
+    manual/local workflow. Either must contain a ``python/`` directory to count.
+    """
+    env_dir = os.environ.get("AASM_EXAMPLES_DIR")
+    if env_dir and os.path.isdir(os.path.join(env_dir, "python")):
+        return os.path.normpath(env_dir)
     candidate = os.path.join(
         os.path.dirname(__file__),
-        "..", "..", "..", "..", "agent-assembly-examples",
+        "..", "..", "..", "..", "examples",
     )
     resolved = os.path.normpath(candidate)
     return resolved if os.path.isdir(os.path.join(resolved, "python")) else None

@@ -71,11 +71,15 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 
 ## Repo-specific gotchas
 
-- **No PR-gating CI.** Every workflow triggers on `schedule` + `workflow_dispatch`
-  only — there is **no `pull_request` / `push` trigger**, so opening a PR runs
-  nothing. **Validate locally** (`ruff` + the relevant `pytest` area, and `-m live`
-  when you touch the live harness); do not wait on CI to catch a regression.
-- **Canonical remote is `origin`** (→ `ai-agent-assembly/agent-assembly-integration-tests`);
+- **Minimal PR-gating CI (AAASM-4476).** The only `pull_request` trigger is
+  `verify-release-scheduled.yml`'s `harness-self-tests` job — the offline
+  `aasm-verify` harness unit tests (`tests/test_*.py`). Every *product*
+  verification workflow (the `verify-*` stack) is still `schedule` +
+  `workflow_dispatch` only, so opening a PR does **not** build or install any
+  product artifact. **Validate locally** (`ruff` + the relevant `pytest` area,
+  and `-m live` when you touch the live harness); do not wait on CI to catch a
+  product regression.
+- **Canonical remote is `origin`** (→ `ai-agent-assembly/e2e-public`);
   confirm with `git remote -v` / `git branch -r` before scoping — a local checkout
   can be behind. Default branch is **`master`**.
 - **Scheduled runs open GitHub Issues on failure** (`report-failure.sh`): one issue
@@ -88,7 +92,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 ## Project policy
 
 - **JIRA:** project AAASM; set **Component** (`customfield_10041`) to this repo
-  (`AI-agent-assembly/agent-assembly-integration-tests`); Team (`customfield_10001`)
+  (`ai-agent-assembly/e2e-public`); Team (`customfield_10001`)
   = Pioneer. Epic → Story → Subtask (one Subtask ≈ one commit) + a `Verify …`
   subtask per Story.
 - **Commits:** `<emoji> (<scope>): <imperative summary>` (gitmoji.dev), one logical
@@ -99,6 +103,85 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
   Helm/Terraform/air-gapped/migration work even if a spec mentions it.
 - **Keep summaries public-safe.** This is a *public* repo: no private repo names
   (`agent-assembly-cloud`, `-enterprise`), secrets, or internal SaaS assumptions.
+
+## Verification policy — a diagnosed defect must stay red until it is *fixed*
+
+This harness exists to *find* cross-repo defects. The moment it finds one, the
+path of least resistance is to `xfail`/`skip` the failing assertion to get the
+suite green again — and that is exactly the mistake this policy exists to stop.
+
+**The rule.** When a verification report (`verification-reports/` or equivalent)
+diagnoses a concrete defect, one of these two things must be true — enforced by
+convention, not individual diligence:
+
+1. **A tracking ticket is opened, and it stays open until the *defect* is
+   fixed.** It is **never** closed by adjusting the harness to stop reporting the
+   defect. Only a real fix in the product repo closes it.
+2. **If the assertion is converted to an interim marker**, that marker must
+   (a) reference the open tracking ticket by key in its `reason=`/adjacent
+   comment, and (b) use `xfail(strict=True)` where the assertion is expected to
+   raise, so that the day the defect is fixed the marker **xpasses loudly** and
+   forces its own removal. A bare `skip`/`xfail(strict=False)` with no ticket is
+   a policy violation.
+
+**The quarantine mechanism (`rc_pending`).** For an assertion that is *correct*
+but blocked on an rc-pending upstream fix, use the `rc_pending` marker
+(`@pytest.mark.rc_pending(reason="AAASM-NNN: …")`, or the
+`aasm_verify.rc_pending.rc_pending(ticket, reason)` helper). `tests/conftest.py`
+turns it into a non-strict xfail so it is **visible-but-non-blocking**, and the
+audit lists it in a dedicated "rc-quarantine registry". This is the single
+source of truth the sibling CI-realness tickets (AAASM-4476/4477/4478) attach
+their rc-deferred assertions to.
+
+**The forcing function (`aasm-verify markers`).** Run
+`uv run aasm-verify markers` to statically enumerate every `skip`/`skipif`/
+`xfail`/`rc_pending` marker under `tests/`, extract the adjacent `AAASM-NNN`
+ref, and flag (a) markers with **no ticket ref** (policy violation) and
+(b) markers whose ticket is already **Done/Closed** (stale — the fix landed, the
+marker should have been removed). It is **offline by default** (deterministic,
+no Jira creds); pass `--check-jira` with `AASM_VERIFY_JIRA_{URL,EMAIL,TOKEN}` set
+to enable the stale-ticket cross-check. It is a *reporting* forcing function, not
+a blocking CI gate — treat its output as the standing list of what the suite is
+currently masking.
+
+**Justifying an environment-conditional skip — the `classification:` taxonomy.**
+Not every skip masks a defect: a build artifact, checkout, or release that is
+simply absent in *this* environment is a legitimate prerequisite gate, not a
+policy violation. The audit accepts two justifications for a marker — a tracking
+ticket (`AAASM-NNN`, for a masked defect) **or** an environment requirement in
+the `reason=`. For the latter, prefer the repo's documented classification
+taxonomy so the *why* is machine-checkable and consistent across the suite:
+
+- `classification: known_prerequisite` — a build artifact / SDK checkout /
+  published release / toolchain that isn't present here (e.g. `dist/` not built,
+  a package not yet on PyPI). Justified; **not** a defect.
+- `classification: external_flake` — a transient network/registry error
+  (proxy unreachable, GitHub API hiccup). Justified; **not** a defect.
+- `classification: release_blocker` — a real defect. This tag does **not**
+  justify a skip on its own; it must carry a tracking ticket (or be a hard
+  `pytest.fail`, not a skip). The audit deliberately keeps flagging a bare
+  `release_blocker` skip.
+
+Because the audit reads reasons statically (via `ast`, never a live run), the
+classifying phrase must survive as a **string literal** at the marker site: an
+f-string's literal parts count, but an interpolated value (`str(exc)`) does not —
+so tag the literal, e.g. `pytest.skip(f"{exc} (classification: known_prerequisite)")`.
+A `reason=` factored into a **module-level string constant**
+(`reason=DENY_XFAIL_REASON`) is resolved to that constant's literal, so a shared
+reason constant carrying a ticket key or env phrase stays classifiable without
+duplicating it at every marker.
+
+**Case study — why this rule exists.** In June 2026,
+`verification-reports/AAASM-2985-sdk-transport-investigation.md` correctly
+diagnosed that the SDK's gRPC registration transport had no matching endpoint in
+the documented local-gateway deployment (naming `aa-api` as "a library-only
+crate with no binary"). AAASM-2985 was then marked **Done** and its follow-on
+AAASM-2989/3000 re-pointed the harness at a different transport path behind an
+`xfail`/`skip` — closing the *finding* without fixing the *defect*. Six months
+later the org re-discovered the identical production-impacting gap from scratch,
+at higher cost, as **AAASM-4447/4449**. A real bug was found once, masked by a
+marker, and lost. The marker audit above is the check that makes that
+disappearance impossible to do silently again.
 
 ## Documentation conventions — document the WHY, not the WHAT
 

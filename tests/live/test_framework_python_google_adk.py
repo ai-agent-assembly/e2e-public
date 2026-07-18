@@ -110,9 +110,10 @@ def test_google_adk_governance_path_is_wired() -> None:
     patch = GoogleADKPatch(callback_handler=_DenyInterceptor(), process_agent_id=PROCESS_AGENT_ID)
     assert patch.apply() is True, "Google ADK tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; run_async throws
+        # Extract coroutine to ensure only the throwing call is in raises block
+        coro = tool.run_async(args={"city": "paris"}, tool_context=None)  # NOSONAR — setup
         with pytest.raises(PolicyViolationError):
-            asyncio.run(tool.run_async(args={"city": "paris"}, tool_context=None))
+            asyncio.run(coro)
         assert calls == [], "deny decision let the tool body execute"
     finally:
         patch.revert()
@@ -170,7 +171,7 @@ def test_google_adk_allow_path_emits_audit_event(live_runtime: LiveRuntime) -> N
 
 # AAASM-3172 FLIP SITE: when a fixed SDK release ships (AAASM-3000 + AAASM-3021
 # resolved), drop this strict xfail and assert the denied tool is blocked.
-@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)
+@pytest.mark.xfail(strict=True, reason=DENY_XFAIL_REASON)  # AAASM-3172
 def test_google_adk_deny_path_blocks_tool_through_live_runtime(
     live_runtime: LiveRuntime,
 ) -> None:
@@ -194,9 +195,10 @@ def test_google_adk_deny_path_blocks_tool_through_live_runtime(
     patch = GoogleADKPatch(callback_handler=interceptor, process_agent_id=PROCESS_AGENT_ID)
     assert patch.apply() is True, "Google ADK tool hook did not install"
     try:
-        # NOSONAR(python:S5778) — asyncio.run is a thin wrapper; run_async throws
+        # Extract coroutine to ensure only the throwing call is in raises block
+        coro = tool.run_async(args={"city": "secret"}, tool_context=None)  # NOSONAR — setup
         with pytest.raises(PolicyViolationError):
-            asyncio.run(tool.run_async(args={"city": "secret"}, tool_context=None))
+            asyncio.run(coro)
         assert calls == [], "deny path let the tool body execute"
     finally:
         patch.revert()

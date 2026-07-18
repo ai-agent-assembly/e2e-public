@@ -9,7 +9,7 @@
 #                      agent-assembly-examples (required)
 #   --tag <tag>        Git tag to checkout, e.g. v0.1.0 (required)
 #   --org <org>        GitHub organization (default: ai-agent-assembly)
-#   --dest <dir>       Destination directory (default: /tmp/aa-install/<repo>-<tag>)
+#   --dest <dir>       Destination directory (default: a fresh `mktemp -d` dir)
 #   -h, --help         Show this help message
 #
 # Examples:
@@ -20,7 +20,9 @@ set -euo pipefail
 
 REPO=""
 TAG=""
+# BEGIN GENERATED: install-defaults-github-org
 ORG="ai-agent-assembly"
+# END GENERATED: install-defaults-github-org
 DEST=""
 
 usage() {
@@ -50,11 +52,11 @@ validate_args() {
 log() { echo "[install-from-tag] $*"; }
 
 verify_tag_exists() {
-  local clone_url="$1"
-  local tag="$2"
-  log "Verifying tag $tag exists on remote..."
-  git ls-remote --tags "$clone_url" "refs/tags/${tag}" | grep -q "$tag" \
-    || { echo "Error: tag '$tag' not found on $clone_url" >&2; exit 1; }
+  local repo_url="$1"
+  local git_tag="$2"
+  log "Verifying tag $git_tag exists on remote..."
+  git ls-remote --tags "$repo_url" "refs/tags/${git_tag}" | grep -q "$git_tag" \
+    || { echo "Error: tag '$git_tag' not found on $repo_url" >&2; exit 1; }
 }
 
 main() {
@@ -63,12 +65,20 @@ main() {
 
   local clone_url="https://github.com/${ORG}/${REPO}.git"
   local tag_slug="${TAG//\//-}"
-  local dest="${DEST:-/tmp/aa-install/${REPO}-${tag_slug}}"
+  local dest
+  if [[ -n "$DEST" ]]; then
+    dest="$DEST"
+    rm -rf "$dest"
+  else
+    # No caller-supplied --dest: mint a fresh, unpredictable dir instead of a
+    # fixed /tmp path, so there is nothing for a symlink/race to target
+    # (AAASM-4792/4812).
+    dest="$(mktemp -d "${TMPDIR:-/tmp}/aa-install-${REPO}-${tag_slug}.XXXXXX")"
+  fi
 
   verify_tag_exists "$clone_url" "$TAG"
 
   log "Cloning $clone_url @ tag $TAG → $dest"
-  rm -rf "$dest"
   git clone --depth 1 --branch "$TAG" "$clone_url" "$dest"
 
   log "Cloned successfully: $dest"

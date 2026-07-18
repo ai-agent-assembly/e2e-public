@@ -22,7 +22,7 @@ def _summary(**overrides: object) -> Summary:
         "run_type": "scheduled",
         "result": "pass",
         "date": "2026-06-18",
-        "workflow_run_url": "https://github.com/ai-agent-assembly/agent-assembly-integration-tests/actions/runs/1",
+        "workflow_run_url": "https://github.com/ai-agent-assembly/e2e-public/actions/runs/1",
         "tested_refs": ["master"],
         "retain": "short-term",
         "suites": [Suite("test_python_sdk", "pass", 12)],
@@ -34,7 +34,7 @@ def _summary(**overrides: object) -> Summary:
 def test_channel_identity_is_public_integration() -> None:
     s = _summary()
     assert s.report_type == "public-integration"
-    assert s.source_repo == "agent-assembly-integration-tests"
+    assert s.source_repo == "e2e-public"
 
 
 def test_frontmatter_has_nine_fields_in_schema_order() -> None:
@@ -123,7 +123,7 @@ def test_render_report_md_frontmatter_matches_schema() -> None:
         assert f"{field}:" in frontmatter_block
     # public-integration channel identity is present and correct.
     assert "report_type: public-integration" in frontmatter_block
-    assert "source_repo: agent-assembly-integration-tests" in frontmatter_block
+    assert "source_repo: e2e-public" in frontmatter_block
 
 
 def test_render_report_md_is_deterministic() -> None:

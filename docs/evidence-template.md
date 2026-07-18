@@ -34,7 +34,7 @@ the outcome of a verification run.
 ### CI run link
 
 <!-- Paste the GitHub Actions run URL, e.g.:
-https://github.com/ai-agent-assembly/agent-assembly-integration-tests/actions/runs/123456789 -->
+https://github.com/ai-agent-assembly/e2e-public/actions/runs/123456789 -->
 
 ### Failures / observations
 

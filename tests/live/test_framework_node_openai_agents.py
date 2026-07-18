@@ -80,7 +80,7 @@ def test_openai_agents_allow_path_runs_governed_tool(live_runtime: LiveRuntime) 
     try:
         driver = locate_framework_driver(FRAMEWORK)
     except FrameworkDriverUnavailable as exc:
-        pytest.skip(str(exc))
+        pytest.skip(f"{exc} (classification: known_prerequisite)")
 
     result = run_framework_driver(driver, live_runtime.socket_path)
     assert result["ok"] is True
