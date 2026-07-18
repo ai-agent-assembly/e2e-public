@@ -127,7 +127,7 @@ def require_framework(import_name: str, package_hint: str) -> None:
     if spec is None:
         pytest.skip(
             f"{import_name} not importable — install {package_hint} to run this "
-            f"framework's live governance smoke test (AAASM-3525)"
+            "framework's live governance smoke test"
         )
 
 

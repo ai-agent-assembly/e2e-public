@@ -315,3 +315,76 @@ def test_real_tree_audit_is_offline_and_finds_markers() -> None:
     # (the behavioral deny xfails were re-pointed from the Done AAASM-3021 to the
     # still-open gate AAASM-3172 in AAASM-4827).
     assert any(m.ticket == "AAASM-3172" for m in audit.markers)
+
+
+# The AAASM-4853 de-stale set: six now-Done tickets that markers used to cite.
+# The env-justified skips dropped the ref (staying justified by an env phrase /
+# ``classification:`` tag); the ENFORCEMENT_MODES parity skip was re-pointed from
+# the Done coverage Story AAASM-3158 to the open defect Bug AAASM-4856. None of
+# these Done keys may reappear as a live marker citation or the weekly
+# ``markers --check-jira --strict`` drift lane goes red on a stale citation again.
+_DESTALED_DONE_TICKETS = frozenset(
+    {"AAASM-3151", "AAASM-3157", "AAASM-3158", "AAASM-3525", "AAASM-3533", "AAASM-3955"}
+)
+
+
+def test_destaled_done_tickets_no_longer_cited_by_any_marker() -> None:
+    tests_dir = Path(__file__).parent
+    audit = skip_audit.audit_markers(tests_dir, root=tests_dir.parent)
+    cited = {m.ticket for m in audit.markers if m.ticket}
+    assert cited.isdisjoint(_DESTALED_DONE_TICKETS), (
+        f"a de-staled Done ticket is cited again: {sorted(cited & _DESTALED_DONE_TICKETS)}"
+    )
+    # The parity gap re-point must stay visible against the open defect ticket.
+    assert "AAASM-4856" in cited
+    # De-staling must not have dropped any marker into an unreferenced policy
+    # violation: every env-justified skip kept an env phrase / classification tag.
+    assert audit.unreferenced == []
+
+
+def _markers_cli_args(tmp_path: Path) -> object:
+    import argparse
+
+    return argparse.Namespace(
+        check_jira=True, strict=True, json=False, tests_dir=str(tmp_path), root=str(tmp_path)
+    )
+
+
+def _two_ticketed_markers(tmp_path: Path) -> None:
+    (tmp_path / "test_x.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.skip(reason='AAASM-1: gap one')\n"
+        "def test_a():\n    pass\n"
+        "@pytest.mark.skip(reason='AAASM-2: gap two')\n"
+        "def test_b():\n    pass\n"
+    )
+
+
+def test_cli_markers_strict_exits_nonzero_on_partial_unresolved(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    # LOW defect (cli.py): a PARTIAL Jira failure (one ticket resolves, one hits
+    # 401/timeout) must make `markers --strict` exit non-zero — not read as clean.
+    # AAASM-4850 fixed only the wholesale case; this closes the partial case.
+    from aasm_verify import cli
+
+    def partial_resolver(ticket: str) -> str | None:
+        if ticket == "AAASM-2":
+            raise skip_audit.JiraResolverError("Jira returned HTTP 401 for AAASM-2")
+        return "In Progress"
+
+    monkeypatch.setattr(cli.skip_audit, "jira_resolver_from_env", lambda: partial_resolver)
+    _two_ticketed_markers(tmp_path)
+    assert cli.cmd_markers(_markers_cli_args(tmp_path)) == 1
+
+
+def test_cli_markers_strict_exits_zero_when_all_resolve_open(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    # Contrast: when every ticket resolves to an open status, strict exits 0 — so
+    # the non-zero above is specifically the unresolved marker, not the tickets.
+    from aasm_verify import cli
+
+    monkeypatch.setattr(cli.skip_audit, "jira_resolver_from_env", lambda: lambda _t: "In Progress")
+    _two_ticketed_markers(tmp_path)
+    assert cli.cmd_markers(_markers_cli_args(tmp_path)) == 0

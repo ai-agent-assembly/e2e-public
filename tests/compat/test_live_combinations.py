@@ -69,14 +69,14 @@ def test_supported_combination_live(entry: CompatEntry) -> None:
     if not _entry_selected(entry, profile):
         pytest.skip(
             f"combination {entry.pair_label} not opted in — "
-            "set AASM_COMPAT_MATRIX=full|smoke to run live combinations (AAASM-3157)"
+            "set AASM_COMPAT_MATRIX=full|smoke to run live combinations"
         )
 
     missing = [b for b in _REQUIRED_BINARIES if shutil.which(b) is None]
     if missing:
         pytest.skip(
             f"build toolchain not found in PATH: {', '.join(missing)} — "
-            f"install {', '.join(_REQUIRED_BINARIES)} to build {entry.pair_label} (AAASM-3157)"
+            f"install {', '.join(_REQUIRED_BINARIES)} to build {entry.pair_label}"
         )
 
     # Reaching here means an operator opted in AND the toolchains exist. The

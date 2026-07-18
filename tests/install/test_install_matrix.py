@@ -130,7 +130,7 @@ def _skip_unless_runnable(case: InstallCase) -> None:
     if not _github_reachable():
         pytest.skip(
             f"[{case.target}] network not available (github.com:443 unreachable) "
-            f"— the {case.mode} install path requires network access (AAASM-3151)"
+            f"— the {case.mode} install path requires network access"
         )
 
 
