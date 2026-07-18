@@ -7,19 +7,26 @@
 #
 # Environment variables:
 #   AA_REF      Branch, tag, or SHA (default: master)
-#   AA_WORK_DIR Working directory for the clone (default: /tmp/aa-smoke-conformance)
+#   AA_WORK_DIR Working directory for the clone (default: a fresh `mktemp -d` dir)
 
 set -euo pipefail
 
 REPO_URL="https://github.com/ai-agent-assembly/agent-assembly.git"
 REF="${AA_REF:-master}"
-WORK_DIR="${AA_WORK_DIR:-/tmp/aa-smoke-conformance}"
+if [[ -n "${AA_WORK_DIR:-}" ]]; then
+  WORK_DIR="$AA_WORK_DIR"
+  rm -rf "$WORK_DIR"
+else
+  # No caller-supplied AA_WORK_DIR: mint a fresh, unpredictable dir instead of
+  # a fixed /tmp path, so there is nothing for a symlink/race to target
+  # (AAASM-4792/4812).
+  WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aa-smoke-conformance.XXXXXX")"
+fi
 
 log()  { echo "[smoke-test-conformance] $*"; }
 fail() { echo "[smoke-test-conformance] FAIL: $*" >&2; exit 1; }
 
-log "Cloning agent-assembly @ $REF (for conformance vectors)..."
-rm -rf "$WORK_DIR"
+log "Cloning agent-assembly @ $REF into $WORK_DIR (for conformance vectors)..."
 git clone --depth 1 --branch "$REF" "$REPO_URL" "$WORK_DIR" 2>/dev/null \
   || { git clone "$REPO_URL" "$WORK_DIR"; git -C "$WORK_DIR" checkout "$REF"; }
 
