@@ -20,7 +20,7 @@ on:
         required: false
         default: ""
       examples_tag:
-        description: "agent-assembly-examples tag, e.g. v0.1.0"
+        description: "examples tag, e.g. v0.1.0"
         required: false
         default: ""
 

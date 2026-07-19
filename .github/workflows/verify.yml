@@ -62,7 +62,7 @@ on:
         required: false
         default: "master"
       examples_ref:
-        description: "agent-assembly-examples ref (branch/tag/SHA)"
+        description: "examples ref (branch/tag/SHA)"
         required: false
         default: "master"
       release_version:

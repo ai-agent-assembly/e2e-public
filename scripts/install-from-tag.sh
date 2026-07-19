@@ -6,7 +6,7 @@
 #
 # Options:
 #   --repo <repo>      Repository name: agent-assembly | python-sdk | node-sdk | go-sdk |
-#                      agent-assembly-examples (required)
+#                      examples (required)
 #   --tag <tag>        Git tag to checkout, e.g. v0.1.0 (required)
 #   --org <org>        GitHub organization (default: ai-agent-assembly)
 #   --dest <dir>       Destination directory (default: a fresh `mktemp -d` dir)

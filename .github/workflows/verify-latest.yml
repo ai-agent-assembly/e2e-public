@@ -22,7 +22,7 @@ on:
         required: false
         default: "master"
       examples_ref:
-        description: "agent-assembly-examples branch/tag/SHA (default: master)"
+        description: "examples branch/tag/SHA (default: master)"
         required: false
         default: "master"
 
