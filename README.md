@@ -70,11 +70,11 @@ bash scripts/verify-public-stack.sh
 # Verify a specific tag across all repos
 bash scripts/verify-public-stack.sh \
   --mode tag \
-  --agent-assembly v0.1.0 \
-  --python-sdk v0.1.0 \
-  --node-sdk v0.1.0 \
-  --go-sdk v0.1.0 \
-  --examples v0.1.0
+  --agent-assembly-ref v0.1.0 \
+  --python-sdk-ref v0.1.0 \
+  --node-sdk-ref v0.1.0 \
+  --go-sdk-ref v0.1.0 \
+  --examples-ref v0.1.0
 
 # Install from a named branch and smoke-test
 bash scripts/install-from-branch.sh --repo agent-assembly --ref feat/my-branch
