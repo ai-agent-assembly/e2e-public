@@ -1,4 +1,4 @@
-# CLAUDE.md — agent-assembly-integration-tests
+# CLAUDE.md — e2e-public
 
 Guidance for Claude Code (and humans) working in this repository. This file holds
 **repo-specific** context only; universal engineering policy lives in the global
@@ -16,7 +16,7 @@ that proves **cross-repo behavior no single product repo can prove on its own**:
 runtime × SDK compatibility, install paths (branch / tag / SHA / published
 registry), example-repo flows, and protocol conformance. It does **not** replace
 the unit/integration tests inside each product repo. The repos it verifies
-(`agent-assembly`, `python-sdk`, `node-sdk`, `go-sdk`, `agent-assembly-examples`)
+(`agent-assembly`, `python-sdk`, `node-sdk`, `go-sdk`, `examples`)
 live elsewhere; this one only orchestrates and asserts against them.
 
 ## Layout (see `README.md` for the full tree)

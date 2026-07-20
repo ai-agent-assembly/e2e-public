@@ -1,6 +1,6 @@
 # Production Validation Runbook
 
-This runbook explains how to use `agent-assembly-integration-tests` as the
+This runbook explains how to use `e2e-public` as the
 **production validation harness** for the Agent Assembly public stack. It is the
 practical companion to [`verification-modes.md`](verification-modes.md) (which
 explains *which ref/mode to target*) and [`evidence-template.md`](evidence-template.md)

@@ -1,6 +1,6 @@
 # Verification Modes
 
-`agent-assembly-integration-tests` supports four verification modes that target different
+`e2e-public` supports four verification modes that target different
 states of the public stack. Choose the mode that matches what you are trying to verify.
 
 ## Modes
