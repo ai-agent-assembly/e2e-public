@@ -102,7 +102,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 - **Self-hosted deployment is out of scope** product-wide — don't propose
   Helm/Terraform/air-gapped/migration work even if a spec mentions it.
 - **Keep summaries public-safe.** This is a *public* repo: no private repo names
-  (`agent-assembly-cloud`, `-enterprise`), secrets, or internal SaaS assumptions.
+  (`cloud`, `agent-assembly-enterprise`), secrets, or internal SaaS assumptions.
 
 ## Verification policy — a diagnosed defect must stay red until it is *fixed*
 

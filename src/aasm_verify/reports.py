@@ -6,7 +6,7 @@ report contract defines:
 * ``summary.json`` — the machine-readable, normalized result. Its first nine
   top-level keys map 1:1 onto the published ``report.md`` frontmatter; the
   remaining keys (``scope``, ``suites``, ``counts``) feed the human-readable
-  body. See ``inner-document`` ``docs/verification-reports/summary-json.md``.
+  body. See ``internal-docs`` ``docs/verification-reports/summary-json.md``.
 * ``report.md`` — the curated report whose YAML frontmatter matches the
   AAASM-2236 frontmatter schema 1:1 and is published into the
   ``public-integration/`` channel by ``publish-inner-doc-report.sh``.
