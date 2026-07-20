@@ -1,11 +1,11 @@
-# CLAUDE.md — agent-assembly-integration-tests
+# CLAUDE.md — e2e-public
 
 Guidance for Claude Code (and humans) working in this repository. This file holds
 **repo-specific** context only; universal engineering policy lives in the global
 config. When a fact here duplicates `README.md`, `pyproject.toml`, or a script,
 treat those as the source of truth and update them, not just this file.
 
-Org-wide baseline: https://github.com/ai-agent-assembly/.github/blob/main/CLAUDE.md
+Org-wide baseline: https://github.com/ai-agent-assembly/.github/blob/master/CLAUDE.md
 (org-universal conventions this file doesn't repeat).
 
 ## What this repo is
@@ -16,7 +16,7 @@ that proves **cross-repo behavior no single product repo can prove on its own**:
 runtime × SDK compatibility, install paths (branch / tag / SHA / published
 registry), example-repo flows, and protocol conformance. It does **not** replace
 the unit/integration tests inside each product repo. The repos it verifies
-(`agent-assembly`, `python-sdk`, `node-sdk`, `go-sdk`, `agent-assembly-examples`)
+(`agent-assembly`, `python-sdk`, `node-sdk`, `go-sdk`, `examples`)
 live elsewhere; this one only orchestrates and asserts against them.
 
 ## Layout (see `README.md` for the full tree)
@@ -91,7 +91,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 
 ## Project policy
 
-- **JIRA:** project AAASM; set **Component** (`customfield_10041`) to this repo
+- **JIRA:** project AAASM; set the native **Components** field to this repo
   (`ai-agent-assembly/e2e-public`); Team (`customfield_10001`)
   = Pioneer. Epic → Story → Subtask (one Subtask ≈ one commit) + a `Verify …`
   subtask per Story.

@@ -11,12 +11,12 @@
 # AAASM-4337 — Wave-3 shared-metadata rollout.
 
 sdk_versions:
-  python: "0.0.1rc3"
-  node: "0.0.1-rc.3"
-  go: "v0.0.1-rc.3"
+  python: "0.0.1rc6"
+  node: "0.0.1-rc.6"
+  go: "v0.0.1-rc.6"
 
 release_channels:
-  stable_tag: "v0.0.1-rc.3"
+  stable_tag: "v0.0.1-rc.6"
   branch: "master"
 
 urls:
@@ -52,7 +52,7 @@ verify_cli:
 # next wave — Wave-4 — can point the docs generator at the same SoT
 # without a schema change). See AAASM-4335 for the umbrella plan.
 install_commands:
-  python_uv: "uv add agent-assembly==0.0.1rc3"
-  python_pip: "pip install agent-assembly==0.0.1rc3"
-  node_pnpm: "pnpm add @agent-assembly/sdk@0.0.1-rc.3"
-  go_get: "go get github.com/ai-agent-assembly/go-sdk@v0.0.1-rc.3"
+  python_uv: "uv add agent-assembly==0.0.1rc6"
+  python_pip: "pip install agent-assembly==0.0.1rc6"
+  node_pnpm: "pnpm add @agent-assembly/sdk@0.0.1-rc.6"
+  go_get: "go get github.com/ai-agent-assembly/go-sdk@v0.0.1-rc.6"

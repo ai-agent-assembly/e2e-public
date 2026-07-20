@@ -1,4 +1,4 @@
-# agent-assembly-integration-tests
+# e2e-public
 
 Public integration tests for verifying Agent Assembly runtime, SDKs, installers, release artifacts, and examples across branches, tags, and published versions.
 
@@ -16,7 +16,7 @@ This repo does **not** replace unit or integration tests inside each product rep
 ## Repository layout
 
 ```text
-agent-assembly-integration-tests/
+e2e-public/
   scripts/
     verify-public-stack.sh     # entry point: verify all repos at given refs
     summarize-run.sh           # produce sanitized summary.json from pytest report
@@ -91,7 +91,7 @@ bash scripts/install-from-release.sh --python-sdk 0.1.0 --node-sdk 0.1.0
 | `python-sdk` | https://github.com/ai-agent-assembly/python-sdk |
 | `node-sdk` | https://github.com/ai-agent-assembly/node-sdk |
 | `go-sdk` | https://github.com/ai-agent-assembly/go-sdk |
-| `agent-assembly-examples` | https://github.com/ai-agent-assembly/examples |
+| `examples` | https://github.com/ai-agent-assembly/examples |
 
 ## CI
 

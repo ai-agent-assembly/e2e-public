@@ -1,6 +1,6 @@
 # CI Validation Profiles
 
-`agent-assembly-integration-tests` exposes its verification as five named **profiles**
+`e2e-public` exposes its verification as five named **profiles**
 that trade speed against depth. A profile bundles a real `aasm-verify` (or `pytest`)
 invocation with a `doctor` preflight and per-profile report artifacts, so CI clearly
 separates fast smoke from deeper production validation.
