@@ -152,13 +152,13 @@ jobs:
   # schedule/workflow_dispatch (never pull_request) — see the top-of-file note
   # on why `continue-on-error` isn't set here (invalid on a `uses:` job).
   # ---------------------------------------------------------------------------
-  # AAASM-4446 status (AAASM-4792): the ticket is Done, but the forcing-function
-  # assertion this comment defers to, `test_python_sdk_native_binding_required`
-  # (tests/public/test_python_sdk.py), still carries an open `rc_pending`
-  # marker as of this writing (`uv run aasm-verify markers`) — so cp313 wheel
-  # availability is not yet confirmed live. Add the `python-version: "3.13"`
-  # matrix cell here once that marker actually xpasses and is removed, not
-  # from the ticket status alone.
+  # AAASM-4446 status (AAASM-4792, corrected AAASM-4938): the ticket is Done, and
+  # the forcing-function assertion this comment defers to,
+  # `test_python_sdk_native_binding_required` (tests/public/test_python_sdk.py),
+  # is now a plain strict assert — it no longer carries an `rc_pending` marker
+  # (`uv run aasm-verify markers` reports 0 rc_pending), so the cp313-wheel
+  # quarantine it tracked is lifted. What remains open is only this job's own
+  # `if:` gate (schedule/dispatch only), not yet re-evaluated against a fresh rc.
   release:
     permissions:
       contents: read
