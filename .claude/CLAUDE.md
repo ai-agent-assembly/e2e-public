@@ -91,7 +91,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 
 ## Project policy
 
-- **JIRA:** project AAASM; set **Component** (`customfield_10041`) to this repo
+- **JIRA:** project AAASM; set the native **Components** field to this repo
   (`ai-agent-assembly/e2e-public`); Team (`customfield_10001`)
   = Pioneer. Epic → Story → Subtask (one Subtask ≈ one commit) + a `Verify …`
   subtask per Story.
