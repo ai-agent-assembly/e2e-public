@@ -1,4 +1,4 @@
-# CODEOWNERS — agent-assembly-integration-tests
+# CODEOWNERS — e2e-public
 #
 # Routes review requests to the project lead for all paths.
 # Replace @Chisanan232 with a GitHub team (e.g. @ai-agent-assembly/<team>)
