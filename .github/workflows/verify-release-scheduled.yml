@@ -117,7 +117,7 @@ jobs:
             | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" || echo "")"
           NODE="$(curl -sSL https://registry.npmjs.org/@agent-assembly%2Fsdk/latest \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('version',''))" || echo "")"
-          GO="$(curl -sSL https://proxy.golang.org/github.com/agent-assembly/go-sdk/@latest \
+          GO="$(curl -sSL https://proxy.golang.org/github.com/ai-agent-assembly/go-sdk/@latest \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('Version',''))" || echo "")"
 
           # Strip a leading 'v' for the PyPI/npm-style product version, and scrub
