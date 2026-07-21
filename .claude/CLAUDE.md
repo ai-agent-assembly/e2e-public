@@ -5,7 +5,7 @@ Guidance for Claude Code (and humans) working in this repository. This file hold
 config. When a fact here duplicates `README.md`, `pyproject.toml`, or a script,
 treat those as the source of truth and update them, not just this file.
 
-Org-wide baseline: https://github.com/ai-agent-assembly/.github/blob/master/CLAUDE.md
+Org-wide baseline: https://github.com/ai-agent-assembly/.github/blob/HEAD/CLAUDE.md
 (org-universal conventions this file doesn't repeat).
 
 ## What this repo is
@@ -81,7 +81,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
   product regression.
 - **Canonical remote is `origin`** (→ `ai-agent-assembly/e2e-public`);
   confirm with `git remote -v` / `git branch -r` before scoping — a local checkout
-  can be behind. Default branch is **`master`**.
+  can be behind. Default branch is **`main`**.
 - **Scheduled runs open GitHub Issues on failure** (`report-failure.sh`): one issue
   per failing area (`runtime`/`sdk`/`examples`/`install`/`conformance`), labelled
   `test-failure` + `area: <area>`. Summaries are sanitized — **never** emit log
@@ -98,7 +98,7 @@ composed by the session-scoped `live_gateway` fixture (`conftest.py`):
 - **Commits:** `<emoji> (<scope>): <imperative summary>` (gitmoji.dev), one logical
   unit per commit, bisectable. **Branch:** `<release-or-phase>/<ticket>/<type>/<short_summary>`.
   **PR title:** `[<ticket>] <emoji> (<scope>): <summary>`; base branch **always
-  `master`**; body follows `.github/PULL_REQUEST_TEMPLATE.md`; ≥1 Pioneer approval.
+  `main`**; body follows `.github/PULL_REQUEST_TEMPLATE.md`; ≥1 Pioneer approval.
 - **Self-hosted deployment is out of scope** product-wide — don't propose
   Helm/Terraform/air-gapped/migration work even if a spec mentions it.
 - **Keep summaries public-safe.** This is a *public* repo: no private repo names
