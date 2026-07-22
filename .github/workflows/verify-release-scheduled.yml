@@ -69,13 +69,13 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Run harness self-tests (offline, no product toolchain)
-        run: uv run --frozen pytest tests/test_*.py -q
+        run: uv run --locked --no-build --no-binary-package aasm-verify pytest tests/test_*.py -q
 
   # ---------------------------------------------------------------------------
   # resolve-release-versions — dynamically resolve the CURRENT released version
@@ -233,10 +233,10 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Homebrew + curl-installer verification
         env:
@@ -251,7 +251,7 @@ jobs:
         # Write a JSON report so the failure path below can summarize + open an
         # issue, exactly like the scheduled public-stack lanes do.
         run: |
-          uv run --frozen pytest tests/public/test_homebrew_install.py -v --tb=short \
+          uv run --locked --no-build --no-binary-package aasm-verify pytest tests/public/test_homebrew_install.py -v --tb=short \
             --json-report --json-report-file="$PYTEST_JSON"
 
       # AAASM-4850: wire this lane's pass/fail into the issue-opener so a genuine
