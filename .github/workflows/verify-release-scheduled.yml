@@ -104,7 +104,11 @@ jobs:
 
           # Latest agent-assembly GitHub Release tag, INCLUDING prereleases
           # (the current line is an rc), i.e. the most-recently-created release.
-          TAG="$(curl -sSL \
+          # --proto '=https' pins the redirect chain to HTTPS only (no silent
+          # downgrade to plain HTTP on a redirect); the response is JSON metadata
+          # parsed by a fixed local script, not executed, so there is no separate
+          # artifact-integrity check to add here.
+          TAG="$(curl -sSL --proto '=https' \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/ai-agent-assembly/agent-assembly/releases?per_page=1" \
@@ -113,11 +117,11 @@ jobs:
           # Current PyPI / npm / Go-proxy versions — recorded for the summary so a
           # divergence (e.g. a stale dist-tag) is visible even though the release
           # profile installs a single product version.
-          PY="$(curl -sSL https://pypi.org/pypi/agent-assembly/json \
+          PY="$(curl -sSL --proto '=https' https://pypi.org/pypi/agent-assembly/json \
             | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" || echo "")"
-          NODE="$(curl -sSL https://registry.npmjs.org/@agent-assembly%2Fsdk/latest \
+          NODE="$(curl -sSL --proto '=https' https://registry.npmjs.org/@agent-assembly%2Fsdk/latest \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('version',''))" || echo "")"
-          GO="$(curl -sSL https://proxy.golang.org/github.com/ai-agent-assembly/go-sdk/@latest \
+          GO="$(curl -sSL --proto '=https' https://proxy.golang.org/github.com/ai-agent-assembly/go-sdk/@latest \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('Version',''))" || echo "")"
 
           # Strip a leading 'v' for the PyPI/npm-style product version, and scrub
