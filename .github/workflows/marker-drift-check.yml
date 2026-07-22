@@ -33,10 +33,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       # Unconditional offline audit — the anti-dark-lane floor (AAASM-4812).
       # The stale-ticket cross-check below needs Jira creds, but the static
@@ -46,7 +46,7 @@ jobs:
       # runs, so even with no secrets provisioned the job does real work rather
       # than going green having done nothing.
       - name: Audit skip/xfail/rc_pending markers (offline, unreferenced)
-        run: uv run --frozen aasm-verify markers --strict
+        run: uv run --locked --no-build --no-binary-package aasm-verify aasm-verify markers --strict
 
       # The stale-ticket cross-check adds the Jira status lookup on top of the
       # offline audit above; it needs AASM_VERIFY_JIRA_* creds provisioned as
@@ -58,4 +58,4 @@ jobs:
           AASM_VERIFY_JIRA_EMAIL: ${{ secrets.AASM_VERIFY_JIRA_EMAIL }}
           AASM_VERIFY_JIRA_TOKEN: ${{ secrets.AASM_VERIFY_JIRA_TOKEN }}
         if: ${{ env.AASM_VERIFY_JIRA_URL != '' && env.AASM_VERIFY_JIRA_EMAIL != '' && env.AASM_VERIFY_JIRA_TOKEN != '' }}
-        run: uv run --frozen aasm-verify markers --check-jira --strict
+        run: uv run --locked --no-build --no-binary-package aasm-verify aasm-verify markers --check-jira --strict

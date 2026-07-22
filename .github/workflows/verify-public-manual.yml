@@ -100,10 +100,10 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Run verification (${{ matrix.area }})
         env:
@@ -115,7 +115,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref || 'master' }}
           EXAMPLES_REF:   ${{ inputs.examples_ref || 'master' }}
         run: |
-          uv run --frozen aasm-verify public \
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public \
             --mode             "$MODE" \
             --area             "$AREA" \
             --agent-assembly-ref "$AA_REF" \

@@ -39,16 +39,16 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Run verification (${{ matrix.area }})
         env:
           AREA: ${{ matrix.area }}
         run: |
-          uv run --frozen aasm-verify public --mode latest --area "$AREA"
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public --mode latest --area "$AREA"
 
       - name: Summarize run on failure
         if: failure()
