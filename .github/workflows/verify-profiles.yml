@@ -90,10 +90,10 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Preflight (aasm-verify doctor)
         run: |
@@ -101,7 +101,7 @@ jobs:
           # Advisory: doctor exits non-zero only when a required capability is
           # FAIL. Keep going so the smoke areas (which skip cleanly when their
           # artifact is absent) still run and the JSON is always captured.
-          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Smoke verification (runtime + sdk + conformance)
         env:
@@ -111,7 +111,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
         run: |
           for area in runtime sdk conformance; do
-            uv run --frozen aasm-verify public \
+            uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public \
               --mode latest \
               --area "$area" \
               --agent-assembly-ref "$AA_REF" \
@@ -176,15 +176,15 @@ jobs:
           sudo apt-get install -y protobuf-compiler
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Full verification (${{ inputs.area }})
         env:
@@ -195,7 +195,7 @@ jobs:
           GO_SDK_REF:     ${{ inputs.go_sdk_ref }}
           EXAMPLES_REF:   ${{ inputs.examples_ref }}
         run: |
-          uv run --frozen aasm-verify public \
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public \
             --mode latest \
             --area "${AREA:-all}" \
             --agent-assembly-ref "$AA_REF" \
@@ -211,7 +211,7 @@ jobs:
           AA_REF: ${{ inputs.agent_assembly_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          uv run --frozen aasm-verify report \
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify report \
             --pytest-json "$PYTEST_JSON" \
             --summary /tmp/aasm-reports/summary.json \
             --out /tmp/aasm-reports/report.md \
@@ -291,10 +291,10 @@ jobs:
           sudo apt-get install -y protobuf-compiler
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       # ---- Make the SDKs available to the live framework smokes (AAASM-3531) ----
       # The AAASM-3525 framework live tests do an in-process `import agent_assembly`
@@ -313,10 +313,10 @@ jobs:
         run: |
           bash scripts/install-from-branch.sh \
             --repo python-sdk --ref "$PYTHON_SDK_REF" --dest /tmp/aa-sdks/python-sdk
-          uv pip install maturin
-          VIRTUAL_ENV="$PWD/.venv" uv run --no-sync maturin develop \
+          uv pip install --no-build maturin
+          VIRTUAL_ENV="$PWD/.venv" uv run --no-sync --no-build maturin develop \
             --manifest-path /tmp/aa-sdks/python-sdk/native/aa-ffi-python/Cargo.toml
-          uv run --no-sync python -c "import agent_assembly; from agent_assembly._core import RuntimeClient, GovernanceEvent; print('agent_assembly + _core importable')"
+          uv run --no-sync --no-build python -c "import agent_assembly; from agent_assembly._core import RuntimeClient, GovernanceEvent; print('agent_assembly + _core importable')"
 
       - name: Install the Python AI-agent frameworks
         # The `frameworks` extra (pyproject.toml) installs the AAASM-3525 Python
@@ -325,10 +325,15 @@ jobs:
         # cell runs its allow path instead of skipping on a missing framework import.
         # NOTE: crewai excluded (AAASM-4250) due to GHSA-f4j7-r4q5-qw2c in chromadb.
         #
-        # `--prerelease=allow` is required because `agent-framework` (AAASM-3538)
-        # pulls pre-release sub-distributions; uv refuses pre-releases by default,
-        # so the whole extra fails to resolve without it.
-        run: uv pip install --prerelease=allow -e '.[frameworks]'
+        # `agent-framework` (AAASM-3538) pulls pre-release sub-distributions;
+        # uv.lock already records the resolved pre-release versions for the
+        # `frameworks` extra, so re-syncing against the committed lock (rather
+        # than an unlocked `uv pip install`) resolves them without needing
+        # `--prerelease=allow` here. `--inexact` is required: a plain (exact)
+        # `uv sync` removes anything not in the lockfile, which would delete the
+        # `agent_assembly` / `agent_assembly._core` native build the previous
+        # step just installed via `maturin develop` (not a locked dependency).
+        run: uv sync --extra frameworks --locked --no-build --no-binary-package aasm-verify --inexact
 
       - name: Build the Node SDK for the live framework drivers
         # The Node framework drivers resolve a *built* node-sdk: `pnpm build`
@@ -340,7 +345,13 @@ jobs:
         run: |
           bash scripts/install-from-branch.sh \
             --repo node-sdk --ref "$NODE_SDK_REF" --dest "$AASM_NODE_SDK_DIR"
-          pnpm --dir "$AASM_NODE_SDK_DIR" install
+          # --ignore-scripts: node-sdk's own `postinstall` only verifies a
+          # bundled native binding exists (best-effort, catches its own errors
+          # and warns rather than failing) — the binding is built fresh by the
+          # `native:build` step below anyway, so skipping lifecycle scripts at
+          # install time drops nothing this job needs while blocking arbitrary
+          # dependency postinstall code from running.
+          pnpm --dir "$AASM_NODE_SDK_DIR" install --ignore-scripts
           pnpm --dir "$AASM_NODE_SDK_DIR" build
           pnpm --dir "$AASM_NODE_SDK_DIR" native:build
 
@@ -359,7 +370,7 @@ jobs:
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --no-sync --no-build aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Live-core tests (-m live)
         # With the SDKs + frameworks installed above, the AAASM-3525 framework
@@ -367,7 +378,7 @@ jobs:
         # skip. The remaining live suite still skips cleanly if a capability is
         # genuinely absent. --json-report captures the outcome for the artifact.
         run: |
-          uv run --no-sync pytest -m live -v --tb=short \
+          uv run --no-sync --no-build pytest -m live -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-live.json
 
       - name: Render report (enforce AASM_VERIFY_STRICT skip-audit)
@@ -384,7 +395,7 @@ jobs:
           AA_REF: ${{ inputs.agent_assembly_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          uv run --no-sync aasm-verify report \
+          uv run --no-sync --no-build aasm-verify report \
             --pytest-json /tmp/aasm-reports/pytest-live.json \
             --summary /tmp/aasm-reports/summary.json \
             --out /tmp/aasm-reports/report.md \
@@ -443,15 +454,15 @@ jobs:
           go-version: "stable"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Install published SDKs from registries
         env:
@@ -465,7 +476,7 @@ jobs:
         env:
           AASM_RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          uv run --frozen pytest -m release -v --tb=short \
+          uv run --locked --no-build --no-binary-package aasm-verify pytest -m release -v --tb=short \
             --json-report --json-report-file=/tmp/aasm-reports/pytest-release.json
 
       - name: Render report (enforce AASM_VERIFY_STRICT skip-audit)
@@ -479,7 +490,7 @@ jobs:
           VERSION: ${{ inputs.release_version }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          uv run --frozen aasm-verify report \
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify report \
             --pytest-json /tmp/aasm-reports/pytest-release.json \
             --summary /tmp/aasm-reports/summary.json \
             --out /tmp/aasm-reports/report.md \
@@ -530,29 +541,29 @@ jobs:
           version: latest
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python dependencies
-        run: uv sync --frozen
+        run: uv sync --locked --no-build --no-binary-package aasm-verify
 
       - name: Install Playwright Chromium
         # Best-effort: when the browser cannot be provisioned the doctor
         # 'browser' capability warns and the dashboard screenshot tests skip
         # cleanly, so a failure here must not fail the whole profile.
         run: |
-          uv run --frozen python -m playwright install --with-deps chromium || \
+          uv run --locked --no-build --no-binary-package aasm-verify python -m playwright install --with-deps chromium || \
             echo "Playwright Chromium install failed; dashboard screenshots will skip."
 
       - name: Preflight (aasm-verify doctor)
         run: |
           mkdir -p /tmp/aasm-reports
-          uv run --frozen aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify doctor --json | tee "$DOCTOR_JSON" || true
 
       - name: Dashboard examples verification
         env:
           EXAMPLES_REF: ${{ inputs.examples_ref }}
         run: |
-          uv run --frozen aasm-verify public \
+          uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public \
             --mode latest \
             --area examples \
             --examples-ref "$EXAMPLES_REF" \
