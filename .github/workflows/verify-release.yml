@@ -91,7 +91,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Install uv
-        run: pip install uv --quiet
+        run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
       - name: Install Python SDK from PyPI
         if: ${{ steps.versions.outputs.python_sdk_version != '' }}
@@ -118,8 +118,8 @@ jobs:
         env:
           AASM_RELEASE_VERSION: ${{ steps.versions.outputs.aasm_release_version }}
         run: |
-          uv sync --frozen
-          uv run --frozen pytest -m release -v --tb=short
+          uv sync --locked --no-build --no-binary-package aasm-verify
+          uv run --locked --no-build --no-binary-package aasm-verify pytest -m release -v --tb=short
 
       - name: Summary
         env:
