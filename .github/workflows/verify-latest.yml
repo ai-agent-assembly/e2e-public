@@ -10,21 +10,21 @@ on:
         required: false
         default: "master"
       python_sdk_ref:
-        description: "python-sdk branch/tag/SHA (default: master)"
+        description: "python-sdk branch/tag/SHA (default: main)"
         required: false
-        default: "master"
+        default: "main"
       node_sdk_ref:
-        description: "node-sdk branch/tag/SHA (default: master)"
+        description: "node-sdk branch/tag/SHA (default: main)"
         required: false
-        default: "master"
+        default: "main"
       go_sdk_ref:
-        description: "go-sdk branch/tag/SHA (default: master)"
+        description: "go-sdk branch/tag/SHA (default: main)"
         required: false
-        default: "master"
+        default: "main"
       examples_ref:
-        description: "examples branch/tag/SHA (default: master)"
+        description: "examples branch/tag/SHA (default: main)"
         required: false
-        default: "master"
+        default: "main"
 
 permissions:
   contents: read
@@ -78,9 +78,9 @@ jobs:
 
       - name: Run SDK smoke tests
         env:
-          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'master' }}
-          NODE_SDK_REF: ${{ inputs.node_sdk_ref || 'master' }}
-          GO_SDK_REF: ${{ inputs.go_sdk_ref || 'master' }}
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'main' }}
+          NODE_SDK_REF: ${{ inputs.node_sdk_ref || 'main' }}
+          GO_SDK_REF: ${{ inputs.go_sdk_ref || 'main' }}
         run: |
           bash tests/sdk/smoke-test-python-sdk.sh
           bash tests/sdk/smoke-test-node-sdk.sh
@@ -88,7 +88,7 @@ jobs:
 
       - name: Run examples smoke test
         env:
-          EXAMPLES_REF: ${{ inputs.examples_ref || 'master' }}
+          EXAMPLES_REF: ${{ inputs.examples_ref || 'main' }}
         run: bash tests/examples/smoke-test-examples.sh
 
       - name: Run conformance smoke test
