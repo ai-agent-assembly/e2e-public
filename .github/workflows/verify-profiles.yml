@@ -313,7 +313,7 @@ jobs:
         run: |
           bash scripts/install-from-branch.sh \
             --repo python-sdk --ref "$PYTHON_SDK_REF" --dest /tmp/aa-sdks/python-sdk
-          uv pip install --no-build maturin
+          uv pip install --no-build maturin==1.14.1
           VIRTUAL_ENV="$PWD/.venv" uv run --no-sync --no-build maturin develop \
             --manifest-path /tmp/aa-sdks/python-sdk/native/aa-ffi-python/Cargo.toml
           uv run --no-sync --no-build python -c "import agent_assembly; from agent_assembly._core import RuntimeClient, GovernanceEvent; print('agent_assembly + _core importable')"
