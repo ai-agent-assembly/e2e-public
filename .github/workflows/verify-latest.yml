@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       agent_assembly_ref:
-        description: "agent-assembly branch/tag/SHA (default: master)"
+        description: "agent-assembly branch/tag/SHA (default: main)"
         required: false
-        default: "master"
+        default: "main"
       python_sdk_ref:
         description: "python-sdk branch/tag/SHA (default: main)"
         required: false
@@ -73,7 +73,7 @@ jobs:
 
       - name: Run install smoke test (agent-assembly)
         env:
-          AA_REF: ${{ inputs.agent_assembly_ref || 'master' }}
+          AA_REF: ${{ inputs.agent_assembly_ref || 'main' }}
         run: bash tests/install/smoke-test-rust-build.sh
 
       - name: Run SDK smoke tests
@@ -93,5 +93,5 @@ jobs:
 
       - name: Run conformance smoke test
         env:
-          AA_REF: ${{ inputs.agent_assembly_ref || 'master' }}
+          AA_REF: ${{ inputs.agent_assembly_ref || 'main' }}
         run: bash tests/conformance/smoke-test-conformance.sh
