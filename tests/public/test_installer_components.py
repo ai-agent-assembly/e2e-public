@@ -23,7 +23,7 @@ import urllib.request
 import pytest
 
 RAW_INSTALLER_URL = (
-    "https://raw.githubusercontent.com/ai-agent-assembly/agent-assembly/master/"
+    "https://raw.githubusercontent.com/ai-agent-assembly/agent-assembly/HEAD/"
     "scripts/install-cli.sh"
 )
 
