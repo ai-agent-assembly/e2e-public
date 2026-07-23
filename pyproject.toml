@@ -34,7 +34,7 @@ browser = ["playwright>=1.61.0"]
 # single universal uv.lock covering all extras together, that ceiling applies
 # even when only installing `grpc` on its own. Re-check when a2a-sdk/mem0ai
 # lift their protobuf cap.
-grpc = ["grpcio>=1.82.1", "grpcio-tools>=1.60"]
+grpc = ["grpcio>=1.83.0", "grpcio-tools>=1.60"]
 
 # Opt-in extra for the AAASM-3525 Python framework live smokes
 # (`tests/live/test_framework_python_*.py`). These do an in-process
