@@ -102,7 +102,7 @@ bash scripts/install-from-release.sh --python-sdk 0.1.0 --node-sdk 0.1.0
 | `verify-release.yml` | GitHub release publish + `workflow_dispatch` | Verify public install paths |
 | `verify-public-manual.yml` | `workflow_dispatch` | Manual public stack check with mode/area/ref selection |
 | `verify-public-scheduled.yml` | Schedule (1st/15th monthly) + `workflow_dispatch` | Scheduled public health check; creates failure issues |
-| `harness-metadata-check.yml` | PR + `push` to `master` (paths-filtered) | Guard shared metadata (`metadata/harness.yaml`) against drift; validate shell syntax |
+| `harness-metadata-check.yml` | PR + `push` to `main` (paths-filtered) | Guard shared metadata (`metadata/harness.yaml`) against drift; validate shell syntax |
 
 ## Shared metadata
 

@@ -25,7 +25,7 @@ on:
       - ".github/workflows/harness-metadata-check.yml"
   push:
     branches:
-      - master
+      - main
     paths:
       - "metadata/harness.yaml"
       - "scripts/generate_harness_metadata.py"
