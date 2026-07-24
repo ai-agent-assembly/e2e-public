@@ -137,7 +137,7 @@ INSTALL_MATRIX: tuple[InstallCase, ...] = (
         install_argv=_aasm_clone_argv(_REF_PLACEHOLDER),
         verify_argv=("git", "rev-parse", "HEAD"),
         expected_ref_kind="ref",
-        expected_ref="the cloned branch tip SHA (AA_REF, default master)",
+        expected_ref="the cloned branch tip SHA (AA_REF, default main)",
         required_tools=("git",),
     ),
     InstallCase(

@@ -142,9 +142,9 @@ bash tests/install/smoke-test-rust-build.sh   # install area (no marker)
 ```bash
 AA_REF=v0.1.0          bash tests/install/smoke-test-rust-build.sh
 PYTHON_SDK_REF=v0.1.0  bash tests/sdk/smoke-test-python-sdk.sh
-NODE_SDK_REF=master    bash tests/sdk/smoke-test-node-sdk.sh
-EXAMPLES_REF=master    bash tests/examples/smoke-test-examples.sh
-AA_REF=master          bash tests/conformance/smoke-test-conformance.sh
+NODE_SDK_REF=main      bash tests/sdk/smoke-test-node-sdk.sh
+EXAMPLES_REF=main      bash tests/examples/smoke-test-examples.sh
+AA_REF=main            bash tests/conformance/smoke-test-conformance.sh
 ```
 
 ### 4.3 `release` area — published registry install paths
@@ -176,7 +176,7 @@ runs a real SDK against it. It is **excluded by default** and slow (clone +
 uv run pytest -m live -v
 
 # Pin / reuse the core source:
-AASM_CORE_REF=master            uv run pytest -m live -v    # git ref to clone
+AASM_CORE_REF=main              uv run pytest -m live -v    # git ref to clone
 AASM_CORE_SOURCE_DIR=/path/aa   uv run pytest -m live -v    # reuse an existing checkout
 ```
 

@@ -13,7 +13,7 @@
 #   -h, --help         Show this help message
 #
 # Examples:
-#   bash scripts/install-from-branch.sh --repo agent-assembly --ref master
+#   bash scripts/install-from-branch.sh --repo agent-assembly --ref main
 #   bash scripts/install-from-branch.sh --repo python-sdk --ref feat/my-feature
 #   bash scripts/install-from-branch.sh --repo go-sdk --ref v0.1.0
 

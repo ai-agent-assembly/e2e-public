@@ -5,7 +5,7 @@
     "version and records whether that combination is a SUPPORTED integration",
     "target. Every row carries a reason string; unsupported rows must explain",
     "WHY the pair is not validated (e.g. the SDK predates a wire-protocol change).",
-    "Channels: 'latest-branch' tracks master HEAD, 'latest-release' is the most",
+    "Channels: 'latest-branch' tracks main HEAD, 'latest-release' is the most",
     "recent published release, 'previous-release' is the prior supported release",
     "kept under compatibility validation (AC4).",
     "This data is consumed offline by tests/compat/matrix.py; the live build of",
@@ -20,31 +20,31 @@
   },
   "entries": [
     {
-      "id": "latest-branch-python-master",
+      "id": "latest-branch-python-main",
       "runtime_channel": "latest-branch",
-      "runtime_version": "master",
+      "runtime_version": "main",
       "sdk": "python",
-      "sdk_version": "master",
+      "sdk_version": "main",
       "supported": true,
-      "reason": "master x master is the primary development integration target."
+      "reason": "main x main is the primary development integration target."
     },
     {
-      "id": "latest-branch-node-master",
+      "id": "latest-branch-node-main",
       "runtime_channel": "latest-branch",
-      "runtime_version": "master",
+      "runtime_version": "main",
       "sdk": "node",
-      "sdk_version": "master",
+      "sdk_version": "main",
       "supported": true,
-      "reason": "master x master is the primary development integration target."
+      "reason": "main x main is the primary development integration target."
     },
     {
-      "id": "latest-branch-go-master",
+      "id": "latest-branch-go-main",
       "runtime_channel": "latest-branch",
-      "runtime_version": "master",
+      "runtime_version": "main",
       "sdk": "go",
-      "sdk_version": "master",
+      "sdk_version": "main",
       "supported": true,
-      "reason": "master x master is the primary development integration target."
+      "reason": "main x main is the primary development integration target."
     },
     {
       "id": "latest-release-python-0.0.1",
@@ -103,11 +103,11 @@
     {
       "id": "latest-branch-python-0.0.1-alpha.1",
       "runtime_channel": "latest-branch",
-      "runtime_version": "master",
+      "runtime_version": "main",
       "sdk": "python",
       "sdk_version": "0.0.1-alpha.1",
       "supported": false,
-      "reason": "Unsupported: alpha.1 python-sdk predates the master wire-protocol change; an old SDK against a new runtime is not validated."
+      "reason": "Unsupported: alpha.1 python-sdk predates the main wire-protocol change; an old SDK against a new runtime is not validated."
     },
     {
       "id": "previous-release-node-0.0.1",

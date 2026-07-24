@@ -5,13 +5,13 @@
 # It clones the repo at the specified ref, runs `cargo check`, and reports pass/fail.
 #
 # Environment variables:
-#   AA_REF      Branch, tag, or SHA to test (default: master)
+#   AA_REF      Branch, tag, or SHA to test (default: main)
 #   AA_WORK_DIR Working directory for the clone (default: a fresh `mktemp -d` dir)
 
 set -euo pipefail
 
 REPO_URL="https://github.com/ai-agent-assembly/agent-assembly.git"
-REF="${AA_REF:-master}"
+REF="${AA_REF:-main}"
 if [[ -n "${AA_WORK_DIR:-}" ]]; then
   WORK_DIR="$AA_WORK_DIR"
   rm -rf "$WORK_DIR"

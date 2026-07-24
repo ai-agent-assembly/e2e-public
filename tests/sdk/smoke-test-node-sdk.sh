@@ -2,13 +2,13 @@
 # Smoke test: verify the Agent Assembly Node SDK can be installed from source.
 #
 # Environment variables:
-#   NODE_SDK_REF   Branch, tag, or SHA (default: master)
+#   NODE_SDK_REF   Branch, tag, or SHA (default: main)
 #   AA_WORK_DIR    Working directory (default: a fresh `mktemp -d` dir)
 
 set -euo pipefail
 
 REPO_URL="https://github.com/ai-agent-assembly/node-sdk.git"
-REF="${NODE_SDK_REF:-master}"
+REF="${NODE_SDK_REF:-main}"
 if [[ -n "${AA_WORK_DIR:-}" ]]; then
   WORK_DIR="$AA_WORK_DIR"
   rm -rf "$WORK_DIR"
