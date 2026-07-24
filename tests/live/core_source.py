@@ -17,7 +17,7 @@ from pathlib import Path
 
 DEFAULT_ORG = "ai-agent-assembly"
 DEFAULT_REPO = "agent-assembly"
-DEFAULT_REF = "master"
+DEFAULT_REF = "main"
 
 
 def core_source_override() -> Path | None:
