@@ -17,7 +17,7 @@ sdk_versions:
 
 release_channels:
   stable_tag: "v0.0.1-rc.6"
-  branch: "master"
+  branch: "main"
 
 urls:
   agent_assembly_repo: "https://github.com/ai-agent-assembly/agent-assembly"
