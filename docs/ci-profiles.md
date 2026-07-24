@@ -65,7 +65,7 @@ Run the **Verify** workflow and pick:
 - **area** — area selector for `smoke`/`full` (`all`, `runtime`, `sdk`, `examples`,
   `install`, `conformance`); ignored by `live`/`release`/`dashboard`
 - **ref inputs** — `agent_assembly_ref`, `python_sdk_ref`, `node_sdk_ref`,
-  `go_sdk_ref`, `examples_ref` (branch / tag / SHA, default `master`)
+  `go_sdk_ref`, `examples_ref` (branch / tag / SHA, default `main`)
 - **release_version** — required by the `release` profile (e.g. `0.0.1`)
 
 ### Scheduled
