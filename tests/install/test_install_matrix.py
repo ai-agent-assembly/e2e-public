@@ -65,7 +65,7 @@ def _resolve_template(argv: tuple[str, ...], *, dest: str = "") -> tuple[str, ..
         os.environ.get("AA_CORE_TAG")
         or os.environ.get("AA_CORE_SHA")
         or os.environ.get("AA_REF")
-        or "master"
+        or "main"
     )
     resolved = []
     for arg in argv:
@@ -254,15 +254,17 @@ def test_template_resolution_substitutes_placeholders(monkeypatch: pytest.Monkey
     monkeypatch.setenv("AASM_RELEASE_VERSION", "0.0.1")
     monkeypatch.delenv("AA_CORE_TAG", raising=False)
     monkeypatch.delenv("AA_CORE_SHA", raising=False)
-    monkeypatch.setenv("AA_REF", "master")
+    monkeypatch.delenv("AA_REF", raising=False)
     py = _resolve_template(("pip", "install", "agent-assembly=={version}"))
     assert py == ("pip", "install", "agent-assembly==0.0.1")
     go = _resolve_template(
         ("go", "get", "github.com/ai-agent-assembly/go-sdk@{version}")
     )
     assert go[-1].endswith("@v0.0.1")
+    # With no ref env set, the source-mode ref defaults to the repos' current
+    # default branch (main); the retired `master` would clone-fail (AAASM-5057).
     src = _resolve_template(("--ref", "{ref}"))
-    assert src == ("--ref", "master")
+    assert src == ("--ref", "main")
 
 
 # --------------------------------------------------------------------------- #
