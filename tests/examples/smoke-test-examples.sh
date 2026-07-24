@@ -2,13 +2,13 @@
 # Smoke test: verify the examples repo clones and its README exists.
 #
 # Environment variables:
-#   EXAMPLES_REF   Branch, tag, or SHA (default: master)
+#   EXAMPLES_REF   Branch, tag, or SHA (default: main)
 #   AA_WORK_DIR    Working directory (default: a fresh `mktemp -d` dir)
 
 set -euo pipefail
 
 REPO_URL="https://github.com/ai-agent-assembly/examples.git"
-REF="${EXAMPLES_REF:-master}"
+REF="${EXAMPLES_REF:-main}"
 if [[ -n "${AA_WORK_DIR:-}" ]]; then
   WORK_DIR="$AA_WORK_DIR"
   rm -rf "$WORK_DIR"
