@@ -36,27 +36,27 @@ on:
       agent_assembly_ref:
         description: "agent-assembly ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
         type: string
       python_sdk_ref:
         description: "python-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
         type: string
       node_sdk_ref:
         description: "node-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
         type: string
       go_sdk_ref:
         description: "go-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
         type: string
       examples_ref:
         description: "examples ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
         type: string
       release_version:
         description: "Version under test for the release profile, e.g. 0.0.1"

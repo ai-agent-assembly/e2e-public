@@ -48,23 +48,23 @@ on:
       agent_assembly_ref:
         description: "agent-assembly ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       python_sdk_ref:
         description: "python-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       node_sdk_ref:
         description: "node-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       go_sdk_ref:
         description: "go-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       examples_ref:
         description: "examples ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       release_version:
         description: "Version for the release profile, e.g. 0.0.1"
         required: false
@@ -90,11 +90,11 @@ jobs:
       # scheduled lane always runs the fast `smoke` profile at latest refs.
       profile: ${{ inputs.profile || 'smoke' }}
       area: ${{ inputs.area || 'all' }}
-      agent_assembly_ref: ${{ inputs.agent_assembly_ref || 'master' }}
-      python_sdk_ref: ${{ inputs.python_sdk_ref || 'master' }}
-      node_sdk_ref: ${{ inputs.node_sdk_ref || 'master' }}
-      go_sdk_ref: ${{ inputs.go_sdk_ref || 'master' }}
-      examples_ref: ${{ inputs.examples_ref || 'master' }}
+      agent_assembly_ref: ${{ inputs.agent_assembly_ref || 'main' }}
+      python_sdk_ref: ${{ inputs.python_sdk_ref || 'main' }}
+      node_sdk_ref: ${{ inputs.node_sdk_ref || 'main' }}
+      go_sdk_ref: ${{ inputs.go_sdk_ref || 'main' }}
+      examples_ref: ${{ inputs.examples_ref || 'main' }}
       release_version: ${{ inputs.release_version || '' }}
 
   # Scheduled strict cross-SDK parity lane (AAASM-4845). The smoke `verify` job
@@ -108,7 +108,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' }}
     uses: ./.github/workflows/verify-profiles.yml
     with:
-      # Every other input defaults to `master` / latest source refs in the
+      # Every other input defaults to `main` / latest source refs in the
       # reusable workflow, matching the scheduled smoke lane above.
       profile: full
       area: sdk
