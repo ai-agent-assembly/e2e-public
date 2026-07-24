@@ -27,23 +27,23 @@ on:
       agent_assembly_ref:
         description: "agent-assembly ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       python_sdk_ref:
         description: "python-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       node_sdk_ref:
         description: "node-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       go_sdk_ref:
         description: "go-sdk ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
       examples_ref:
         description: "examples ref (branch/tag/SHA)"
         required: false
-        default: "master"
+        default: "main"
 
 permissions: {}
 
@@ -109,11 +109,11 @@ jobs:
         env:
           AREA:           ${{ matrix.area }}
           MODE:           ${{ inputs.mode || 'latest' }}
-          AA_REF:         ${{ inputs.agent_assembly_ref || 'master' }}
-          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'master' }}
-          NODE_SDK_REF:   ${{ inputs.node_sdk_ref || 'master' }}
-          GO_SDK_REF:     ${{ inputs.go_sdk_ref || 'master' }}
-          EXAMPLES_REF:   ${{ inputs.examples_ref || 'master' }}
+          AA_REF:         ${{ inputs.agent_assembly_ref || 'main' }}
+          PYTHON_SDK_REF: ${{ inputs.python_sdk_ref || 'main' }}
+          NODE_SDK_REF:   ${{ inputs.node_sdk_ref || 'main' }}
+          GO_SDK_REF:     ${{ inputs.go_sdk_ref || 'main' }}
+          EXAMPLES_REF:   ${{ inputs.examples_ref || 'main' }}
         run: |
           uv run --locked --no-build --no-binary-package aasm-verify aasm-verify public \
             --mode             "$MODE" \

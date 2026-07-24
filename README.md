@@ -56,7 +56,7 @@ e2e-public/
 
 | Mode | Input | When to use |
 |---|---|---|
-| `latest` | Branch names (default: `master`) | PR/dev integration and scheduled health checks |
+| `latest` | Branch names (default: `main`) | PR/dev integration and scheduled health checks |
 | `tag` | Git tags (e.g. `v0.1.0`) | Release verification and regression reproduction |
 | `sha` | Exact commit SHAs | Incident / debug reproduction |
 | `release` | Registry version strings (e.g. `0.1.0`) | Verify what public users can install |

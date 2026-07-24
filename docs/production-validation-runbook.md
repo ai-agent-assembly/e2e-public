@@ -40,7 +40,7 @@ repo.
 
 > Rule of thumb: if proving the behavior requires **two or more public repos at
 > specific refs** (e.g. "does node-sdk `v0.1.0` work against agent-assembly
-> `master`?"), it belongs here. If it can be proven inside one repo's checkout,
+> `main`?"), it belongs here. If it can be proven inside one repo's checkout,
 > it belongs in that repo.
 
 ---
@@ -117,11 +117,11 @@ uv run aasm-verify public --mode latest --area conformance
 # Pin specific refs across repos (mirrors verify-public-manual.yml inputs)
 uv run aasm-verify public \
   --mode latest --area sdk \
-  --agent-assembly-ref master \
+  --agent-assembly-ref main \
   --python-sdk-ref v0.1.0 \
-  --node-sdk-ref   master \
-  --go-sdk-ref     master \
-  --examples-ref   master
+  --node-sdk-ref   main \
+  --go-sdk-ref     main \
+  --examples-ref   main
 
 # Plan only — print the resolved target matrix and exit (no clone/build)
 uv run aasm-verify public --mode latest --area all --dry-run
@@ -318,7 +318,7 @@ uv run aasm-verify report \
   --jira          /tmp/jira-report.md \
   --strict \
   --run-type      manual \
-  --tested-refs   "agent-assembly@master,python-sdk@v0.1.0" \
+  --tested-refs   "agent-assembly@main,python-sdk@v0.1.0" \
   --related-issue AAASM-XXXX \
   --run-url       "<github-actions-run-url>"
 ```

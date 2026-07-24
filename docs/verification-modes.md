@@ -7,7 +7,7 @@ states of the public stack. Choose the mode that matches what you are trying to 
 
 ### `latest` — base branch integration health
 
-Verifies the current state of all `master` branches across repos.
+Verifies the current state of all `main` branches across repos.
 
 **When to use:** PR integration checks, scheduled nightly/weekly health monitoring, detecting
 cross-repo drift before a release.

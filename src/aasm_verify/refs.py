@@ -22,11 +22,11 @@ class ResolvedRefs:
     """Per-repo ref strings resolved for a verification run."""
 
     mode: str
-    agent_assembly: str = "master"
-    python_sdk: str = "master"
-    node_sdk: str = "master"
-    go_sdk: str = "master"
-    examples: str = "master"
+    agent_assembly: str = "main"
+    python_sdk: str = "main"
+    node_sdk: str = "main"
+    go_sdk: str = "main"
+    examples: str = "main"
 
 
 def resolve_refs(
@@ -60,11 +60,11 @@ def resolve_refs(
         go_ref = v if v.startswith("v") else f"v{v}"
         return ResolvedRefs(
             mode=mode,
-            agent_assembly="master",
+            agent_assembly="main",
             python_sdk=v,
             node_sdk=v,
             go_sdk=go_ref,
-            examples="master",
+            examples="main",
         )
 
     # tag / sha: require at least one explicit ref
@@ -73,11 +73,11 @@ def resolve_refs(
     )
     return ResolvedRefs(
         mode=mode,
-        agent_assembly=agent_assembly_ref or "master",
-        python_sdk=python_sdk_ref or "master",
-        node_sdk=node_sdk_ref or "master",
-        go_sdk=go_sdk_ref or "master",
-        examples=examples_ref or "master",
+        agent_assembly=agent_assembly_ref or "main",
+        python_sdk=python_sdk_ref or "main",
+        node_sdk=node_sdk_ref or "main",
+        go_sdk=go_sdk_ref or "main",
+        examples=examples_ref or "main",
     )
 
 
@@ -89,17 +89,18 @@ def _reject_extra_refs_for_latest(
     examples_ref: str | None,
     version: str | None,
 ) -> None:
-    # In latest mode all repos track master. Tolerate refs explicitly set to "master"
-    # (CI passes them as defaults) and only reject a genuinely non-master ref or a version.
-    non_master_refs = [
+    # In latest mode all repos track their default branch (`main`). Tolerate refs
+    # explicitly set to "main" (CI passes them as defaults) and only reject a
+    # genuinely non-default per-repo ref or a version.
+    non_default_refs = [
         ref
         for ref in (agent_assembly_ref, python_sdk_ref, node_sdk_ref, go_sdk_ref, examples_ref)
-        if ref is not None and ref != "master"
+        if ref is not None and ref != "main"
     ]
-    if non_master_refs or version:
+    if non_default_refs or version:
         raise ValueError(
-            "Mode 'latest' uses master branches for all repos. "
-            "Do not pass non-master per-repo refs or --version in latest mode."
+            "Mode 'latest' uses the default branch (main) for all repos. "
+            "Do not pass non-default per-repo refs or --version in latest mode."
         )
 
 
