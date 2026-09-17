@@ -41,6 +41,14 @@ jobs:
             build-mode: none
           - language: javascript-typescript
             build-mode: none
+          # The repo's own GitHub Actions workflows are first-party code too —
+          # they hold the release/live-verification credentials and run on
+          # schedules, so a missing `permissions:` block or an injectable
+          # `${{ }}` expression is a real supply-chain finding here. The
+          # `actions` extractor declares `build_modes: [none]` (it parses the
+          # workflow YAML directly), so `none` is the only valid value.
+          - language: actions
+            build-mode: none
 
     steps:
       - name: Checkout
