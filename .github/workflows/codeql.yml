@@ -49,6 +49,16 @@ jobs:
           # workflow YAML directly), so `none` is the only valid value.
           - language: actions
             build-mode: none
+          # TEMPORARY PROBE (AAASM-6120) — remove before merge. Two legs, to
+          # settle with real CI evidence whether the Go omission below is still
+          # justified: `none` tests whether the Go extractor accepts a buildless
+          # extraction at all, `autobuild` re-tests the specific failure the
+          # comment above asserts. `fail-fast: false` keeps the other three
+          # languages reporting regardless of what these two do.
+          - language: go
+            build-mode: none
+          - language: go
+            build-mode: autobuild
 
     steps:
       - name: Checkout
