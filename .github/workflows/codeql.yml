@@ -33,14 +33,39 @@ jobs:
           # First-party code is Python (CLI + suites) plus one Node driver
           # (tests/live/drivers/enforce_allow.mjs). Both are interpreted, so
           # build-mode none lets CodeQL extract them without a build step.
-          # Go is intentionally omitted: the only module
-          # (tests/live/drivers/go) uses a replace() pointing at a sibling
-          # go-sdk checkout that does not exist in CI, so autobuild cannot
-          # resolve it. Tracked as a CodeQL follow-up.
           - language: python
             build-mode: none
           - language: javascript-typescript
             build-mode: none
+          # The repo's own GitHub Actions workflows are first-party code too —
+          # they hold the release/live-verification credentials and run on
+          # schedules, so a missing `permissions:` block or an injectable
+          # `${{ }}` expression is a real supply-chain finding here. The
+          # `actions` extractor declares `build_modes: [none]` (it parses the
+          # workflow YAML directly), so `none` is the only valid value.
+          - language: actions
+            build-mode: none
+          # The two Go driver modules (tests/live/drivers/go and
+          # .../go/framework) were previously omitted, on the grounds that their
+          # replace() directives point at a sibling go-sdk checkout absent in CI
+          # so autobuild "cannot resolve it". Re-tested on a real PR run
+          # 2026-09-17 (AAASM-6120): the premise is right but the conclusion was
+          # wrong. autobuild's `go get ./...` does fail on the missing
+          # replacement directory, yet the Go extractor then extracts both
+          # drivers anyway and the analysis completes — 34 Go rules ran.
+          #
+          # Note `none` is NOT an option here: the Go extractor declares
+          # `build_modes: [autobuild, manual]`, so `--build-mode=none` is a hard
+          # configuration error ("Go does not support the none build mode"),
+          # verified against CodeQL 2.25.2, 2.27.0 and main.
+          #
+          # Coverage caveat: because the SDK dependency stays unresolved, the
+          # go-sdk imports extract without type information, so cross-boundary
+          # dataflow into the SDK is not modelled. Intra-driver analysis is real;
+          # taint that leaves for the SDK is not tracked. That is strictly more
+          # coverage than skipping Go, not equivalent to a fully resolved build.
+          - language: go
+            build-mode: autobuild
 
     steps:
       - name: Checkout
