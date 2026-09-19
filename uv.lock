@@ -803,15 +803,15 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.14.1"
+version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz", hash = "sha256:8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e", size = 254831, upload-time = "2026-06-24T20:56:06.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/7b/90df4a0a816d98d6ea26f559d87836d494a2cf1fcf063be67df50a7bcc30/anyio-4.14.1-py3-none-any.whl", hash = "sha256:4e5533c5b8ff0a24f5d7a176cbe6877129cd183893f66b537f8f227d10527d72", size = 124875, upload-time = "2026-06-24T20:56:04.413Z" },
+    { url = "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl", hash = "sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494", size = 125813, upload-time = "2026-07-12T20:29:05.763Z" },
 ]
 
 [[package]]
@@ -1784,7 +1784,7 @@ wheels = [
 
 [[package]]
 name = "google-adk"
-version = "2.9.0"
+version = "2.9.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -1811,9 +1811,9 @@ dependencies = [
     { name = "watchdog" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5f/68/e706ce0fc5dce67e22cbea42834f17cdcd1f0d94a55c5bc569348b8e5909/google_adk-2.9.0.tar.gz", hash = "sha256:9c29c9345476a7130ae19e410e6a58abd6730fbd0902b6f3cbdfa771fb659f58", size = 4002016, upload-time = "2026-09-10T22:11:13.919Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/4a/2911fd225dfd5f648b7abc313c2622974f3f2bf598f747cc52559e928a5f/google_adk-2.9.1.tar.gz", hash = "sha256:f07b45d5f36bc3819abb4d3ce87708ab701e1841ca3e8d31c071d49f7b823f14", size = 4002038, upload-time = "2026-09-15T18:05:51.288Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/39/24cd361daa2deba1f5ed35e401eff3cdc72b0371efe55a1145df7315c4c2/google_adk-2.9.0-py3-none-any.whl", hash = "sha256:3b15b91fdaf8e7193006d0ee4e745f45b4f39c62bdc1a6a8e60a4a8b1972bd3b", size = 4630844, upload-time = "2026-09-10T22:11:11.443Z" },
+    { url = "https://files.pythonhosted.org/packages/04/9b/d8db966d643bb6ca4328f6a248f7ff9c343f459fd7caf9663e73a4834f20/google_adk-2.9.1-py3-none-any.whl", hash = "sha256:71e7044879be87df2a194653c5ee5e8e58f7605bfde49ed5912f43e950af21c6", size = 4630917, upload-time = "2026-09-15T18:05:48.539Z" },
 ]
 
 [[package]]
