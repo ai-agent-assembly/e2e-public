@@ -103,14 +103,14 @@ wheels = [
 
 [[package]]
 name = "agent-framework"
-version = "1.18.0"
+version = "1.19.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "agent-framework-core", extra = ["all"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/c2/c0a9958f41a1bb371a4aafa78f950a198e94ef114ebba9404705e3901e65/agent_framework-1.18.0.tar.gz", hash = "sha256:c5c89bc4150f3e0569477ccdcb53d788022d4ccd27c1ec2857f22ca7ae223eef", size = 9812, upload-time = "2026-09-10T09:29:11.604Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/d2/6644faac0cef559e9200751c891560165d70404309f7844776b415618f29/agent_framework-1.19.0.tar.gz", hash = "sha256:05b1598188b403e974cb5936de27aeb94ec7f401ec46681a3b2833a1faf8a0e6", size = 9866, upload-time = "2026-09-18T10:59:54.297Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/75/4540cb1c4d92ce7eec8a0761912884c9f98c5c8849b0b4e59f922476d003/agent_framework-1.18.0-py3-none-any.whl", hash = "sha256:ea26db98dea1fbc28998b8087e25dd46f54e73130c4a6286a408095afbaee878", size = 5741, upload-time = "2026-09-10T09:28:42.93Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/bb/9a634924a5dce6e390a837a3e0865e092f087817fc2945e7305a771b2e22/agent_framework-1.19.0-py3-none-any.whl", hash = "sha256:d46ce77b8d013ac93c49efb54760c8559cec207b3d372d0fba850452fb2bd5b0", size = 5740, upload-time = "2026-09-18T10:57:28.559Z" },
 ]
 
 [[package]]
@@ -267,18 +267,19 @@ wheels = [
 
 [[package]]
 name = "agent-framework-core"
-version = "1.18.0"
+version = "1.19.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msgspec" },
     { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/6e/e0d661f1770bf3a6d70248c5964e684d2bb648b253d53f3dca315f393535/agent_framework_core-1.18.0.tar.gz", hash = "sha256:ef84e1ec570036b81a93a9e924bc4281380f6240ab9bddb8a2db7669282032b0", size = 652594, upload-time = "2026-09-10T09:29:19.938Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/4a/7aa2feee4c17864e49d83b368b4740940e00551a035ba12d3bc2678d4c87/agent_framework_core-1.19.0.tar.gz", hash = "sha256:b483482551f56ff465d2633cadbe344791390f03c5f715ec0939e55b865bc86f", size = 703611, upload-time = "2026-09-18T11:00:03.137Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/a6/10b844bf70bd174d32635e84a5cffa2ada1df1555266e00fc5c3a402d744/agent_framework_core-1.18.0-py3-none-any.whl", hash = "sha256:75f2fac5eed229c62f0665630cf1478eb45204bde41200a4c94dab57d441cc84", size = 712930, upload-time = "2026-09-10T09:28:54.632Z" },
+    { url = "https://files.pythonhosted.org/packages/22/af/6ed9435277f39373eee1b88f1aff42ea7809d0b520f1932ff59dbf49fd5b/agent_framework_core-1.19.0-py3-none-any.whl", hash = "sha256:c887e6d5380b5ab21731b981f4c3e6b342f211bda20526ab82fa20c34a9bddbd", size = 764283, upload-time = "2026-09-18T10:57:40.824Z" },
 ]
 
 [package.optional-dependencies]
@@ -302,7 +303,7 @@ all = [
     { name = "agent-framework-foundry-local" },
     { name = "agent-framework-gemini" },
     { name = "agent-framework-github-copilot" },
-    { name = "agent-framework-hyperlight", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "agent-framework-hyperlight", marker = "(python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version < '3.15' and platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "agent-framework-mem0" },
     { name = "agent-framework-mistral" },
     { name = "agent-framework-monty" },
@@ -441,7 +442,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "agent-framework-core" },
     { name = "hyperlight-sandbox" },
-    { name = "hyperlight-sandbox-backend-wasm", marker = "python_full_version < '3.14'" },
+    { name = "hyperlight-sandbox-backend-wasm", marker = "python_full_version != '3.14.*'" },
     { name = "hyperlight-sandbox-python-guest" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/1d/06b3b6adf46315a074fa458af00aac5ab37540b313f091cfd52217ee1c5e/agent_framework_hyperlight-1.0.0b260709.tar.gz", hash = "sha256:04ded1f1ffe2ad4de3bfd5f648411db585baf9659d8c44501760c473bd68fad8", size = 22165, upload-time = "2026-07-10T03:42:32.531Z" }
