@@ -1,0 +1,120 @@
+name: Driver lockfile install check
+
+# AAASM-6234 — nothing in this repo installed the npm driver lockfiles.
+#
+# `tests/live/drivers/node-frameworks/*` carry committed `package-lock.json`
+# files, but the only workflows that ran on a change to them were "Verify
+# Release (Scheduled)" and "CodeQL", neither of which installs a lockfile. A
+# lock that could not be installed at all therefore reported green — which is
+# how Dependabot #321 landed a `zod3-frameworks` lock that `npm ci` rejects,
+# and how a moderate `ip-address` advisory sat in that same lock with no PR.
+#
+# Two things make this lane worth more than a single `npm ci`:
+#
+#   1. It runs on Node 22 *and* Node 24. The fixture tree declares a Node floor
+#      of 22.22.0 (posthog-node) / 22.13.0 (@mastra/core). Node 22 bundles
+#      npm 10.9.x, which installs optional peer dependencies and wants lock
+#      entries for them; npm 11.13+ does neither. #321's lock installs fine on
+#      Node 24 and fails on Node 22, so a Node-24-only lane would have
+#      reproduced the blind spot at a narrower width.
+#   2. It discovers the lockfiles rather than listing them, and fails when it
+#      finds none. A gate that iterates an empty set passes without testing
+#      anything.
+
+on:
+  pull_request:
+    paths:
+      - "tests/live/drivers/**/package.json"
+      - "tests/live/drivers/**/package-lock.json"
+      - ".github/workflows/driver-lock-install-check.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tests/live/drivers/**/package.json"
+      - "tests/live/drivers/**/package-lock.json"
+      - ".github/workflows/driver-lock-install-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Find the driver lockfiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      fixtures: ${{ steps.find.outputs.fixtures }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Enumerate every committed driver lockfile
+        id: find
+        run: |
+          set -euo pipefail
+          # Tracked files only: an untracked lock in a stale local tree is not
+          # something CI should be validating.
+          mapfile -t DIRS < <(
+            git ls-files 'tests/live/drivers/**/package-lock.json' \
+              | xargs -r -n1 dirname \
+              | sort -u
+          )
+          if [ "${#DIRS[@]}" -eq 0 ]; then
+            echo "::error::No package-lock.json found under tests/live/drivers/." \
+                 "Either the fixtures moved and this workflow's paths are stale," \
+                 "or they were deleted. Refusing to pass having installed nothing."
+            exit 1
+          fi
+          printf 'Found %d driver lockfile(s):\n' "${#DIRS[@]}"
+          printf '  %s\n' "${DIRS[@]}"
+          printf 'fixtures=%s\n' "$(printf '%s\n' "${DIRS[@]}" | jq -R . | jq -cs .)" \
+            >> "$GITHUB_OUTPUT"
+
+  npm-ci:
+    name: npm ci — ${{ matrix.fixture }} on Node ${{ matrix.node }}
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Node 22 is the fixtures' declared engine floor and the npm generation
+        # that wants optional-peer lock entries; Node 24 is what the driver
+        # suites actually run on. Both have to install.
+        node: ["22", "24"]
+        fixture: ${{ fromJSON(needs.discover.outputs.fixtures) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Report the toolchain under test
+        run: |
+          set -euo pipefail
+          echo "node $(node --version) / npm $(npm --version)"
+
+      # `npm ci`, never `npm install`: the point is that the committed lock is
+      # installable as committed. `npm install` would quietly relock and pass.
+      - name: Install from the committed lockfile
+        working-directory: ${{ matrix.fixture }}
+        run: npm ci
+
+      # npm ci does not rewrite the lock. If the tree is dirty afterwards,
+      # something in this lane relocked and the install proved nothing.
+      - name: Fail if the install mutated the lockfile
+        env:
+          FIXTURE: ${{ matrix.fixture }}
+        run: git diff --exit-code -- "$FIXTURE"
+
+      # Only meaningful after the install above succeeded — `npm audit` over an
+      # empty node_modules reports 0 vulnerabilities and means nothing. Set at
+      # moderate because the advisory this lane was written for (GHSA-rpw4-54j3-4h4q
+      # on ip-address) is moderate; a high-only gate would not have caught it.
+      - name: Audit the installed tree
+        working-directory: ${{ matrix.fixture }}
+        run: npm audit --audit-level=moderate
