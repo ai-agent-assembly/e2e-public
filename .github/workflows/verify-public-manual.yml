@@ -99,6 +99,18 @@ jobs:
         with:
           python-version: "3.14"
 
+      # AAASM-6245 — same reason as the scheduled lane: the sdk area needs a Go
+      # at or above go-sdk's declared floor, and this lane installed none. Kept
+      # in step here deliberately, since this is the lane an engineer reaches for
+      # to reproduce a scheduled failure.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: "stable"
+
+      - name: Report the Go toolchain under test
+        run: go version
+
       - name: Install uv
         run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 

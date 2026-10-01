@@ -38,6 +38,20 @@ jobs:
         with:
           python-version: "3.14"
 
+      # AAASM-6245 — the sdk area builds a Go consumer against the go-sdk
+      # checkout, whose go.mod declares `go 1.26.0`. Without this step the lane
+      # used whatever Go the runner image happened to ship (1.24.13), which is
+      # below that floor, and the three tests/public/test_go_sdk.py source tests
+      # failed on every scheduled run from 2026-08-01 onwards. `stable` is what
+      # the five sibling verify workflows already install.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: "stable"
+
+      - name: Report the Go toolchain under test
+        run: go version
+
       - name: Install uv
         run: pip install uv==0.11.31 --only-binary=':all:' --quiet
 
