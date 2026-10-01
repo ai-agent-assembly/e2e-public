@@ -12,6 +12,7 @@ pure-Go stub.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -107,6 +108,98 @@ def _module_path_of(sdk_path: str) -> str:
     raise ValueError(f"[{COMPONENT}] no module directive in {sdk_path}/go.mod")
 
 
+def _parse_go_version(text: str) -> tuple[int, int, int] | None:
+    """Parse a Go version out of *text* into a comparable 3-tuple.
+
+    Accepts both forms this module has to compare: a go.mod directive's ``1.26``
+    or ``1.26.0``, and a toolchain's ``go1.26.5``. Missing components are zero —
+    Go treats ``go1.26`` and ``go1.26.0`` as the same release, so padding keeps
+    tuple comparison from reading the shorter form as older. A pre-release
+    suffix (``go1.27rc1``) truncates to its numeric prefix, which is the right
+    reading here: an rc of the floor release satisfies the floor.
+    """
+    match = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", text)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return (int(major), int(minor), int(patch or 0))
+
+
+def _render_go_version(version: tuple[int, int, int]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _declared_go_floor(sdk_path: str) -> tuple[int, int, int] | None:
+    """Read the minimum Go version a local go-sdk checkout's go.mod declares.
+
+    Read from the checkout rather than hardcoded here: the floor is the SDK's to
+    raise, and a copy in this file would go stale the next time it moves. Only
+    the ``go`` directive counts — a dependency's ``toolchain`` line does not
+    constrain the consumer's toolchain, its ``go`` line does.
+    """
+    with open(os.path.join(sdk_path, "go.mod"), encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("go ") or stripped.startswith("go\t"):
+                return _parse_go_version(stripped[3:])
+    return None
+
+
+def _running_go_version() -> tuple[tuple[int, int, int] | None, str]:
+    """Return the installed toolchain's version plus the raw output it came from."""
+    result = subprocess.run(
+        ["go", "env", "GOVERSION"],
+        capture_output=True,
+        text=True,
+        env=_go_env(),
+    )
+    raw = (
+        f"exit {result.returncode}, stdout: {result.stdout.strip()!r}, "
+        f"stderr: {result.stderr.strip()!r}"
+    )
+    if result.returncode != 0:
+        return None, raw
+    return _parse_go_version(result.stdout), raw
+
+
+def _fail_if_go_below_sdk_floor(sdk_path: str) -> None:
+    """Fail naming the toolchain floor when the installed Go predates it.
+
+    AAASM-6245. ``skip_if_binary_missing("go")`` proves a ``go`` binary exists,
+    not that it is new enough. When a module in the graph declares a newer
+    language version than the running toolchain, Go rejects the graph before
+    compiling anything — so every assertion downstream reports the wrong cause,
+    most misleadingly ``test_go_sdk_cgo_abi_binding_is_wired``'s "the FFI shim
+    may be broken" for a build that never started.
+
+    This fails rather than skips, deliberately. A lane that cannot build the SDK
+    has not verified it, and turning the red green would hide a real gap in the
+    lane's provisioning; the only thing wrong with the old behaviour was that it
+    named the wrong defect.
+    """
+    floor = _declared_go_floor(sdk_path)
+    if floor is None:
+        return  # no `go` directive in the checkout — nothing to satisfy
+    running, raw = _running_go_version()
+    if running is None:
+        pytest.fail(
+            f"[{COMPONENT}/source] could not read the running Go version from "
+            f"`go env GOVERSION` ({raw}), so the checkout's declared floor of "
+            f"go {_render_go_version(floor)} cannot be verified."
+        )
+    if running < floor:
+        pytest.fail(
+            f"[{COMPONENT}/source] the go-sdk checkout at {sdk_path} declares "
+            f"`go {_render_go_version(floor)}` in its go.mod, but the toolchain on "
+            f"PATH is go{_render_go_version(running)}. Go rejects the whole module "
+            f"graph before compiling anything, so no assertion below this point "
+            f"says anything about the SDK, the cgo bridge or the FFI shim. This is "
+            f"a toolchain-provisioning gap in whatever runs the test — install a "
+            f"Go >= {_render_go_version(floor)} (in CI: an `actions/setup-go` step "
+            f"with `go-version: \"stable\"`, as the sibling verify workflows do)."
+        )
+
+
 def _go_env() -> dict[str, str]:
     """Return a go-friendly environment with module mode forced on.
 
@@ -166,6 +259,7 @@ def _consumer(acquisition: str, tmp: str) -> str:
                 "https://github.com/ai-agent-assembly/go-sdk alongside this repo "
                 "to run the source-path test"
             )
+        _fail_if_go_below_sdk_floor(sdk_path)
         module_path = _module_path_of(sdk_path)
         _write_source_consumer(tmp, sdk_path, module_path)
         return module_path
