@@ -20,6 +20,20 @@ name: Driver lockfile install check
 #   2. It discovers the lockfiles rather than listing them, and fails when it
 #      finds none. A gate that iterates an empty set passes without testing
 #      anything.
+#
+# AAASM-6244 — why there is a `schedule:` as well as `paths:`.
+#
+# The `npm audit` step below fails on a condition nobody commits: an advisory is
+# published against a lockfile that is not being edited. With only the path
+# triggers, no push to `main` matches, so the failure is invisible on `main` and
+# instead lands on whoever next touches *any* driver lockfile. That is exactly
+# how it played out: fast-uri GHSA-hrr3-gc8f-f4qj hit both fixtures, Dependabot
+# opened #326 for zod4 only, and #326's two zod4 lanes passed while the two
+# zod3 lanes it does not touch failed. The PR author had no part in the defect.
+#
+# The weekly run is the only trigger that can fire on "the world changed, the
+# repository did not". Keep both: `paths:` gives a contributor fast feedback on
+# a lock they just edited, `schedule:` catches the advisory that arrives later.
 
 on:
   pull_request:
@@ -34,6 +48,14 @@ on:
       - "tests/live/drivers/**/package.json"
       - "tests/live/drivers/**/package-lock.json"
       - ".github/workflows/driver-lock-install-check.yml"
+  # Mondays 04:17 UTC. Offset off the hour because scheduled runs queue behind
+  # every other repository asking for :00, and a gate nobody is waiting on can
+  # afford to ask for an unpopular minute.
+  schedule:
+    - cron: "17 4 * * 1"
+  # So the lane can be re-run against current advisory data without waiting a
+  # week, and without pushing an empty commit to match the paths filter.
+  workflow_dispatch:
 
 permissions:
   contents: read
