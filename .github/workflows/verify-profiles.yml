@@ -123,7 +123,7 @@ jobs:
 
       - name: Upload smoke reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: verify-smoke-reports
           path: /tmp/aasm-reports/
@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload full reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: verify-full-reports
           path: /tmp/aasm-reports/
@@ -405,7 +405,7 @@ jobs:
 
       - name: Upload live reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: verify-live-reports
           path: /tmp/aasm-reports/
@@ -500,7 +500,7 @@ jobs:
 
       - name: Upload release reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: verify-release-reports
           path: /tmp/aasm-reports/
@@ -571,7 +571,7 @@ jobs:
 
       - name: Upload dashboard reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: verify-dashboard-reports
           path: /tmp/aasm-reports/
