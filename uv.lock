@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -3018,9 +3018,10 @@ wheels = [
 
 [[package]]
 name = "mem0ai"
-version = "2.0.5"
+version = "2.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "httpx" },
     { name = "openai" },
     { name = "posthog" },
     { name = "protobuf" },
@@ -3029,9 +3030,9 @@ dependencies = [
     { name = "qdrant-client" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/5e/9ad014216cab07c5a89d3e4d7e98012a9424beb018ff0473a0fa3f68a7e7/mem0ai-2.0.5.tar.gz", hash = "sha256:ca179a62f945f1102e490ecf1e14fee72d625d0f109a78c7c5efcb03567cfcd0", size = 218989, upload-time = "2026-06-10T17:03:59.107Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/42/00de525fc6a4ec4a6bddb180356e7a1587179cfb12e37953075bc7751328/mem0ai-2.0.18.tar.gz", hash = "sha256:7dfd23b119448fe631f2a20c025eeaee2bb2fb28b155e18b791486d2aa01896f", size = 248611, upload-time = "2026-08-11T18:58:00.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/92/e1b927ac47ca662d5d6f4451ae938f90c225f5665abd19c8ef72d0bd8573/mem0ai-2.0.5-py3-none-any.whl", hash = "sha256:a8440b68b52b346206113a924de453caf13e58a228242c0381cf054801264db0", size = 308129, upload-time = "2026-06-10T17:03:57.327Z" },
+    { url = "https://files.pythonhosted.org/packages/09/eb/733a2c405f2890bbdbb32294f9fa9a4b248f0b7e91378821482caf02c5c4/mem0ai-2.0.18-py3-none-any.whl", hash = "sha256:2c20c78dec21c512e1daf6b7c2cacc306cb34eaab7dd24c2edc81b71386b0a10", size = 344386, upload-time = "2026-08-11T18:57:58.616Z" },
 ]
 
 [[package]]
@@ -4111,18 +4112,17 @@ wheels = [
 
 [[package]]
 name = "posthog"
-version = "5.4.0"
+version = "7.81.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
     { name = "distro" },
-    { name = "python-dateutil" },
     { name = "requests" },
-    { name = "six" },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/48/20/60ae67bb9d82f00427946218d49e2e7e80fb41c15dc5019482289ec9ce8d/posthog-5.4.0.tar.gz", hash = "sha256:701669261b8d07cdde0276e5bc096b87f9e200e3b9589c5ebff14df658c5893c", size = 88076, upload-time = "2025-06-20T23:19:23.485Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/f5/21477c4d7868129ce839a4a768a51225da9df3b54c4775d73d04d769c1d8/posthog-7.81.1.tar.gz", hash = "sha256:6d1d7846c4be791d8e91b474a6dd6b73ba994ef52f9ad86ad78e42d8d07ee085", size = 880022, upload-time = "2026-10-30T13:57:25.763Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/98/e480cab9a08d1c09b1c59a93dade92c1bb7544826684ff2acbfd10fcfbd4/posthog-5.4.0-py3-none-any.whl", hash = "sha256:284dfa302f64353484420b52d4ad81ff5c2c2d1d607c4e2db602ac72761831bd", size = 105364, upload-time = "2025-06-20T23:19:22.001Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/b0/2439291ea8d5a881d6effe893d3ef609c2207225af7075a5c87c803275fb/posthog-7.81.1-py3-none-any.whl", hash = "sha256:7ed2346e8c527b254b01b3fc89d3f4dae59c36962385ce71ffa7dd69a3d9d62d", size = 1020959, upload-time = "2026-10-30T13:57:23.377Z" },
 ]
 
 [[package]]
